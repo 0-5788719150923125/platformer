@@ -1,0 +1,24 @@
+[Unit]
+Description=Praxis AI Agents Framework
+After=docker.service
+Requires=docker.service
+
+[Service]
+Type=simple
+User=root
+Group=docker
+WorkingDirectory={{ praxis_install_dir }}
+# Set terminal dimensions for proper UI rendering
+Environment="COLUMNS=160"
+Environment="LINES=48"
+Environment="TERM=xterm-256color"
+# Tear down any previous compose containers (handles both bridge and host networking)
+ExecStartPre=-/bin/bash -c 'docker compose {{ compose_files }} down --remove-orphans --timeout 10 2>/dev/null; docker ps -q --filter "ancestor=praxis-agent" | xargs -r docker rm -f'
+ExecStart=/bin/bash {{ praxis_install_dir }}/launch {{ praxis_launch_args }}
+ExecStop=/bin/bash -c 'docker compose {{ compose_files }} down --remove-orphans --timeout 10 2>/dev/null; docker ps -q --filter "ancestor=praxis-agent" | xargs -r docker rm -f'
+TimeoutStopSec=30
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target

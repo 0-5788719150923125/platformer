@@ -1,0 +1,79 @@
+---
+schemaVersion: '2.2'
+description: 'IMS Universal Pre-Install Hook for Linux - Executes safety checks before installation'
+parameters:
+  ScriptBucket:
+    type: String
+    description: 'S3 bucket containing hook scripts'
+    default: '${default_bucket}'
+  ScriptPrefix:
+    type: String
+    description: 'S3 prefix for hook scripts'
+    default: 'hooks/linux/pre'
+mainSteps:
+  - action: 'aws:runShellScript'
+    name: 'ExecutePreInstallHooks'
+    inputs:
+      runCommand:
+        - |
+          #!/bin/bash
+          set -e
+
+          echo "=== IMS Universal Pre-Install Hook System ==="
+          echo "Starting pre-install safety checks..."
+          echo ""
+
+          HOOK_DIR="/tmp/org-hooks/pre"
+          mkdir -p "$HOOK_DIR"
+
+          # Download all pre-install scripts from S3
+          echo "Downloading hook scripts from s3://{{ScriptBucket}}/{{ScriptPrefix}}/"
+          aws s3 sync "s3://{{ScriptBucket}}/{{ScriptPrefix}}/" "$HOOK_DIR/" --quiet
+
+          if [ ! "$(ls -A $HOOK_DIR)" ]; then
+            echo "WARNING: No hook scripts found in S3 - continuing without hooks"
+            exit 0
+          fi
+
+          chmod +x "$HOOK_DIR"/*.sh
+
+          # Execute scripts in alphabetical order (numeric prefix controls order)
+          FAILED=0
+          WARNING=0
+          for script in $(ls "$HOOK_DIR"/*.sh 2>/dev/null | sort); do
+            echo ""
+            echo "--- Executing: $(basename $script) ---"
+
+            if bash "$script"; then
+              echo "--- $(basename $script): SUCCESS ---"
+            else
+              EXIT_CODE=$?
+              if [ $EXIT_CODE -eq 2 ]; then
+                echo "--- $(basename $script): WARNING (exit 2) - continuing ---"
+                WARNING=1
+              else
+                echo "--- $(basename $script): FAILED (exit $EXIT_CODE) ---"
+                FAILED=1
+                break
+              fi
+            fi
+          done
+
+          # Cleanup
+          rm -rf "/tmp/org-hooks"
+
+          if [ $FAILED -eq 1 ]; then
+            echo ""
+            echo "=== Pre-install safety checks FAILED - aborting ==="
+            exit 1
+          fi
+
+          if [ $WARNING -eq 1 ]; then
+            echo ""
+            echo "=== Pre-install safety checks completed with WARNINGS - continuing ==="
+          else
+            echo ""
+            echo "=== Pre-install safety checks completed successfully ==="
+          fi
+
+          exit 0

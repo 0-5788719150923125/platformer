@@ -1,0 +1,182 @@
+---
+# Ansible playbook to install minikube, kubectl, and Helm on Amazon Linux 2023
+# This playbook ensures a local Kubernetes cluster is running for development
+# Self-healing: runs every 30 minutes via Ansible controller to ensure minikube stays running
+
+- name: Install and configure minikube
+  hosts: linux
+  become: yes
+  vars:
+    minikube_version: "v1.33.1"
+    kubectl_version: "v1.30.0"
+    helm_version: "v3.14.0"
+    minikube_cpus: "4"
+    minikube_memory: "8192"
+    minikube_disk_size: "50g"
+
+  tasks:
+    # Docker installation (required for minikube driver)
+    - name: Install Docker package
+      ansible.builtin.dnf:
+        name: docker
+        state: present
+
+    - name: Enable and start Docker service
+      ansible.builtin.systemd:
+        name: docker
+        enabled: yes
+        state: started
+
+    - name: Add ec2-user to docker group
+      ansible.builtin.user:
+        name: ec2-user
+        groups: docker
+        append: yes
+
+    # Install conntrack (required by minikube)
+    - name: Install conntrack
+      ansible.builtin.dnf:
+        name: conntrack
+        state: present
+
+    # Install kubectl
+    - name: Check if kubectl is installed
+      ansible.builtin.stat:
+        path: /usr/local/bin/kubectl
+      register: kubectl_binary
+
+    - name: Download kubectl
+      ansible.builtin.get_url:
+        url: "https://dl.k8s.io/release/{{ kubectl_version }}/bin/linux/amd64/kubectl"
+        dest: /usr/local/bin/kubectl
+        mode: '0755'
+      when: not kubectl_binary.stat.exists
+
+    - name: Verify kubectl installation
+      ansible.builtin.command: kubectl version --client
+      register: kubectl_version_output
+      changed_when: false
+      failed_when: false
+
+    # Install Helm
+    - name: Check if Helm is installed
+      ansible.builtin.stat:
+        path: /usr/local/bin/helm
+      register: helm_binary
+
+    - name: Download Helm installer script
+      ansible.builtin.get_url:
+        url: https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3
+        dest: /tmp/get_helm.sh
+        mode: '0755'
+      when: not helm_binary.stat.exists
+
+    - name: Install Helm
+      ansible.builtin.shell: |
+        HELM_INSTALL_DIR=/usr/local/bin /tmp/get_helm.sh --version {{ helm_version }}
+      when: not helm_binary.stat.exists
+      register: helm_install
+      changed_when: "'is already' not in helm_install.stdout"
+
+    - name: Verify Helm installation
+      ansible.builtin.command: helm version
+      register: helm_version_output
+      changed_when: false
+      failed_when: false
+
+    # Install minikube
+    - name: Check if minikube is installed
+      ansible.builtin.stat:
+        path: /usr/local/bin/minikube
+      register: minikube_binary
+
+    - name: Download minikube
+      ansible.builtin.get_url:
+        url: "https://storage.googleapis.com/minikube/releases/{{ minikube_version }}/minikube-linux-amd64"
+        dest: /usr/local/bin/minikube
+        mode: '0755'
+      when: not minikube_binary.stat.exists
+
+    - name: Verify minikube installation
+      ansible.builtin.command: minikube version
+      register: minikube_version_output
+      changed_when: false
+      failed_when: false
+
+    # Configure and start minikube cluster (as ec2-user, not root)
+    - name: Check if minikube cluster is running
+      ansible.builtin.command: minikube status
+      register: minikube_status
+      become_user: ec2-user
+      become: yes
+      failed_when: false
+      changed_when: false
+
+    - name: Start minikube cluster
+      ansible.builtin.command: >
+        minikube start
+        --driver=docker
+        --cpus={{ minikube_cpus }}
+        --memory={{ minikube_memory }}
+        --disk-size={{ minikube_disk_size }}
+        --container-runtime=docker
+        --force
+      become_user: ec2-user
+      become: yes
+      when: "'Running' not in minikube_status.stdout"
+      register: minikube_start
+      changed_when: minikube_start.rc == 0
+
+    # Configure kubectl context for ec2-user
+    - name: Create .kube directory for ec2-user
+      ansible.builtin.file:
+        path: /home/ec2-user/.kube
+        state: directory
+        owner: ec2-user
+        group: ec2-user
+        mode: '0755'
+
+    - name: Set up kubectl config for ec2-user
+      ansible.builtin.command: minikube update-context
+      become_user: ec2-user
+      become: yes
+      changed_when: false
+
+    # Enable addons
+    - name: Enable minikube metrics-server addon
+      ansible.builtin.command: minikube addons enable metrics-server
+      become_user: ec2-user
+      become: yes
+      register: metrics_addon
+      changed_when: "'was successfully enabled' in metrics_addon.stdout"
+      failed_when: false
+
+    - name: Enable minikube ingress addon
+      ansible.builtin.command: minikube addons enable ingress
+      become_user: ec2-user
+      become: yes
+      register: ingress_addon
+      changed_when: "'was successfully enabled' in ingress_addon.stdout"
+      failed_when: false
+
+    # Verify cluster is ready
+    - name: Wait for cluster to be ready
+      ansible.builtin.command: kubectl get nodes
+      become_user: ec2-user
+      become: yes
+      register: kubectl_nodes
+      until: "'Ready' in kubectl_nodes.stdout"
+      retries: 12
+      delay: 5
+      changed_when: false
+
+    - name: Display cluster info
+      ansible.builtin.command: kubectl cluster-info
+      become_user: ec2-user
+      become: yes
+      register: cluster_info
+      changed_when: false
+
+    - name: Print cluster status
+      ansible.builtin.debug:
+        msg: "{{ cluster_info.stdout_lines }}"

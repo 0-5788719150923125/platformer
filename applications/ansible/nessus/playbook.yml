@@ -1,0 +1,265 @@
+---
+# Tenable Nessus Agent lifecycle management
+# Runs from Ansible controller via aws_ssm connection plugin
+# Installs using the Tenable cloud-based installer with a linking key
+# from Secrets Manager (replicated from infrastructure account by Terraform).
+#
+# Supports both Linux and Windows targets. Two plays are needed because:
+#   - Linux: SSM sessions run as ssm-user, so become: yes is required
+#   - Windows: SSM sessions run as SYSTEM, and become would fail (runas needs credentials)
+#
+# Lifecycle parameters passed via Ansible extra vars:
+#   STATE (default: present) - present|absent
+#   NESSUS_GROUPS (default: ONBOARD) - Tenable agent group assignment
+#   DEPLOYMENT_NAMESPACE - deployment namespace, injected automatically by the controller
+#   AWS_REGION - injected automatically by the controller
+
+# ==========================================================================
+# Linux Play
+# ==========================================================================
+- name: Manage Tenable Nessus Agent (Linux)
+  hosts: linux
+  become: yes
+
+  vars:
+    state: "{{ STATE | default('present', true) }}"
+    nessus_groups: "{{ NESSUS_GROUPS | default('ONBOARD', true) }}"
+    aws_region: "{{ AWS_REGION | default('us-east-2', true) }}"
+    deployment_namespace: "{{ DEPLOYMENT_NAMESPACE | default('platformer', true) }}"
+
+  tasks:
+    # ========== Skip if already installed and healthy ==========
+    - name: Check for existing Nessus Agent installation
+      stat:
+        path: /opt/nessus_agent/sbin/nessuscli
+      register: nessus_installed
+
+    - name: Check Nessus Agent link status
+      command: /opt/nessus_agent/sbin/nessuscli agent status
+      register: nessus_status
+      failed_when: false
+      changed_when: false
+      when: nessus_installed.stat.exists
+
+    - name: Skip if already linked and running
+      meta: end_host
+      when:
+        - state == "present"
+        - nessus_installed.stat.exists
+        - nessus_status.rc == 0
+        - "'Linked to' in nessus_status.stdout"
+
+    # ========== Retrieve linking key from Secrets Manager ==========
+    - name: Get Nessus linking key
+      command: >
+        aws secretsmanager get-secret-value
+        --region {{ aws_region }}
+        --secret-id platformer/{{ deployment_namespace }}/tenable/nessus_key
+        --query SecretString --output text
+      register: nessus_key
+
+    # ========== Link if already installed but not linked ==========
+    - name: Link existing Nessus Agent
+      command: >
+        /opt/nessus_agent/sbin/nessuscli agent link
+        --key={{ nessus_key.stdout }}
+        --cloud
+        --groups={{ nessus_groups }}
+        --name={{ ansible_hostname }}
+      when:
+        - state == "present"
+        - nessus_installed.stat.exists
+        - "'Linked to' not in (nessus_status.stdout | default(''))"
+
+    - name: Start nessusagent service after linking
+      systemd:
+        name: nessusagent
+        state: started
+        enabled: yes
+      when:
+        - state == "present"
+        - nessus_installed.stat.exists
+        - "'Linked to' not in (nessus_status.stdout | default(''))"
+
+    # ========== Fresh install via Tenable cloud installer ==========
+    - name: Download and run Tenable Nessus Agent installer
+      shell: |
+        curl -sL -H "X-Key:{{ nessus_key.stdout }}" \
+          "https://sensor.cloud.tenable.com/install/agent?name=$(hostname)&groups={{ nessus_groups }}" | bash
+      when:
+        - state == "present"
+        - not nessus_installed.stat.exists
+
+    # ========== Removal ==========
+    - name: Stop Nessus Agent service
+      systemd:
+        name: nessusagent
+        state: stopped
+      failed_when: false
+      when: state == "absent"
+
+    - name: Unlink Nessus Agent
+      command: /opt/nessus_agent/sbin/nessuscli agent unlink
+      failed_when: false
+      when:
+        - state == "absent"
+        - nessus_installed.stat.exists
+
+    - name: Remove Nessus Agent package
+      shell: |
+        if command -v yum &>/dev/null; then
+          yum remove -y NessusAgent
+        elif command -v apt-get &>/dev/null; then
+          apt-get purge -y nessusagent
+        fi
+      when: state == "absent"
+
+    # ========== Verify ==========
+    - name: Wait for Nessus Agent to start
+      pause:
+        seconds: 10
+      when: state == "present"
+
+    - name: Verify nessusagent service is active
+      command: systemctl is-active nessusagent
+      changed_when: false
+      when: state == "present"
+
+    - name: Verify Nessus Agent is linked
+      command: /opt/nessus_agent/sbin/nessuscli agent status
+      register: nessus_verify
+      failed_when: "'Linked to' not in nessus_verify.stdout"
+      changed_when: false
+      when: state == "present"
+
+    - name: Display result
+      debug:
+        msg: "Tenable Nessus Agent {{ state }} — {{ nessus_verify.stdout_lines[0] | default('removed') }}"
+
+# ==========================================================================
+# Windows Play
+# ==========================================================================
+- name: Manage Tenable Nessus Agent (Windows)
+  hosts: windows
+  gather_facts: no
+
+  vars:
+    state: "{{ STATE | default('present', true) }}"
+    nessus_groups: "{{ NESSUS_GROUPS | default('ONBOARD', true) }}"
+    aws_region: "{{ AWS_REGION | default('us-east-2', true) }}"
+    deployment_namespace: "{{ DEPLOYMENT_NAMESPACE | default('platformer', true) }}"
+    # The Tenable install script downloads an MSI, installs, and links — this
+    # can take several minutes. Override the default 60s SSM command timeout.
+    ansible_aws_ssm_timeout: 600
+
+  tasks:
+    # ========== Skip if already installed and healthy ==========
+    - name: Check for existing Nessus Agent installation and service
+      raw: |
+        $installed = Test-Path "C:\Program Files\Tenable\Nessus Agent\nessuscli.exe"
+        $running = $false
+        if ($installed) {
+          $svc = Get-Service -Name "Tenable Nessus Agent" -ErrorAction SilentlyContinue
+          if ($svc -and $svc.Status -eq "Running") { $running = $true }
+        }
+        Write-Output "installed=$installed running=$running"
+      register: nessus_check
+      changed_when: false
+
+    - name: Skip if already running
+      meta: end_host
+      when:
+        - state == "present"
+        - "'installed=True running=True' in nessus_check.stdout"
+
+    # ========== Ensure AWS.Tools.SecretsManager is available ==========
+    - name: Ensure AWS.Tools.SecretsManager module
+      raw: |
+        $ErrorActionPreference = "Stop"
+        [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+        try {
+          Import-Module AWS.Tools.SecretsManager -ErrorAction Stop
+          Write-Output "AWS.Tools.SecretsManager already available"
+        } catch {
+          Write-Output "Installing AWS.Tools.SecretsManager..."
+          Install-PackageProvider -Name NuGet -MinimumVersion 2.8.5.201 -Force -ErrorAction SilentlyContinue | Out-Null
+          Install-Module -Name AWS.Tools.Common -Force -Scope AllUsers -ErrorAction Stop
+          Install-Module -Name AWS.Tools.SecretsManager -Force -Scope AllUsers -ErrorAction Stop
+          Import-Module AWS.Tools.SecretsManager -ErrorAction Stop
+          Write-Output "AWS.Tools.SecretsManager installed successfully"
+        }
+
+    # ========== Link if already installed but not linked ==========
+    - name: Link existing Nessus Agent
+      raw: |
+        $ErrorActionPreference = "Stop"
+        Import-Module AWS.Tools.SecretsManager -ErrorAction Stop
+        $region = "{{ aws_region }}"
+        $ns = "{{ deployment_namespace }}"
+        $nessusKey = (Get-SECSecretValue -SecretId "platformer/$ns/tenable/nessus_key" -Region $region).SecretString
+        $nessuscli = "C:\Program Files\Tenable\Nessus Agent\nessuscli.exe"
+        & $nessuscli agent link --key=$nessusKey --cloud --groups="{{ nessus_groups }}" --name=$env:COMPUTERNAME
+        if ($LASTEXITCODE -and $LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+        Restart-Service -Name "Tenable Nessus Agent" -Force
+        Write-Output "Nessus Agent linked successfully"
+      when:
+        - state == "present"
+        - "'installed=True' in nessus_check.stdout"
+
+    # ========== Fresh install via SOP install script ==========
+    # The Tenable install script downloads an MSI, installs, and links the agent.
+    # This can take several minutes — async prevents SSM session timeout.
+    - name: Download and run Tenable Nessus Agent installer
+      raw: |
+        $ErrorActionPreference = "Stop"
+        Import-Module AWS.Tools.SecretsManager -ErrorAction Stop
+        $region = "{{ aws_region }}"
+        $ns = "{{ deployment_namespace }}"
+        $nessusKey = (Get-SECSecretValue -SecretId "platformer/$ns/tenable/nessus_key" -Region $region).SecretString
+        [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+        $scriptPath = "$env:TEMP\ms-install-script.ps1"
+        Invoke-WebRequest -Uri "https://sensor.cloud.tenable.com/install/agent/installer/ms-install-script.ps1" -OutFile $scriptPath
+        powershell.exe -ExecutionPolicy Bypass -File $scriptPath -key $nessusKey -type "agent" -name $env:COMPUTERNAME -groups "{{ nessus_groups }}"
+        if ($LASTEXITCODE -and $LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+        Remove-Item $scriptPath -Force -ErrorAction SilentlyContinue
+        Write-Output "Nessus Agent installed successfully"
+      when:
+        - state == "present"
+        - "'installed=False' in nessus_check.stdout"
+
+    # ========== Removal ==========
+    - name: Stop and remove Nessus Agent
+      raw: |
+        $ErrorActionPreference = "Stop"
+        $svc = Get-Service -Name "Tenable Nessus Agent" -ErrorAction SilentlyContinue
+        if ($svc) {
+          Stop-Service -Name "Tenable Nessus Agent" -Force -ErrorAction SilentlyContinue
+        }
+        $nessuscli = "C:\Program Files\Tenable\Nessus Agent\nessuscli.exe"
+        if (Test-Path $nessuscli) {
+          & $nessuscli agent unlink
+        }
+        $uninstall = Get-WmiObject -Class Win32_Product | Where-Object { $_.Name -like "*Nessus Agent*" }
+        if ($uninstall) {
+          $uninstall.Uninstall() | Out-Null
+          Write-Output "Nessus Agent uninstalled"
+        } else {
+          Write-Output "Nessus Agent not found in installed programs"
+        }
+      when: state == "absent"
+
+    # ========== Verify ==========
+    - name: Wait for Nessus Agent service to start
+      raw: Start-Sleep -Seconds 10
+      when: state == "present"
+
+    - name: Verify Nessus Agent service is running
+      raw: |
+        $svc = Get-Service -Name "Tenable Nessus Agent" -ErrorAction Stop
+        if ($svc.Status -ne "Running") { throw "Tenable Nessus Agent is not running: $($svc.Status)" }
+        Write-Output "Tenable Nessus Agent is running"
+      when: state == "present"
+
+    - name: Display result
+      debug:
+        msg: "Tenable Nessus Agent {{ state }}"

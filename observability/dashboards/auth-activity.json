@@ -1,0 +1,201 @@
+{
+  "annotations": {
+    "list": []
+  },
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 1,
+  "links": [],
+  "panels": [
+    {
+      "datasource": {
+        "type": "loki",
+        "uid": "loki"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "drawStyle": "bars",
+            "fillOpacity": 50,
+            "stacking": {
+              "mode": "normal"
+            }
+          },
+          "color": {
+            "mode": "palette-classic"
+          }
+        }
+      },
+      "gridPos": {
+        "h": 6,
+        "w": 24,
+        "x": 0,
+        "y": 0
+      },
+      "id": 1,
+      "targets": [
+        {
+          "datasource": {
+            "type": "loki",
+            "uid": "loki"
+          },
+          "expr": "sum by (hostname) (count_over_time({job=\"secure\", hostname=~\"$hostname\"} |~ \"sudo\" [$__interval]))",
+          "legendFormat": "sudo - {{hostname}}",
+          "refId": "A"
+        },
+        {
+          "datasource": {
+            "type": "loki",
+            "uid": "loki"
+          },
+          "expr": "sum by (hostname) (count_over_time({job=\"secure\", hostname=~\"$hostname\"} |~ \"Failed password\" [$__interval]))",
+          "legendFormat": "failed auth - {{hostname}}",
+          "refId": "B"
+        },
+        {
+          "datasource": {
+            "type": "loki",
+            "uid": "loki"
+          },
+          "expr": "sum by (hostname) (count_over_time({job=\"secure\", hostname=~\"$hostname\"} |~ \"sshd.*(Accepted|session)\" [$__interval]))",
+          "legendFormat": "ssh session - {{hostname}}",
+          "refId": "C"
+        }
+      ],
+      "title": "Auth Event Volume",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "loki",
+        "uid": "loki"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 24,
+        "x": 0,
+        "y": 6
+      },
+      "id": 2,
+      "options": {
+        "dedupStrategy": "none",
+        "enableLogDetails": true,
+        "prettifyLogMessage": false,
+        "showCommonLabels": false,
+        "showLabels": true,
+        "showTime": true,
+        "sortOrder": "Descending",
+        "wrapLogMessage": false
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "loki",
+            "uid": "loki"
+          },
+          "expr": "{job=\"secure\", hostname=~\"$hostname\"} |~ \"Failed password\"",
+          "refId": "A"
+        }
+      ],
+      "title": "Failed Authentication Attempts",
+      "type": "logs"
+    },
+    {
+      "datasource": {
+        "type": "loki",
+        "uid": "loki"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 24,
+        "x": 0,
+        "y": 14
+      },
+      "id": 3,
+      "options": {
+        "dedupStrategy": "none",
+        "enableLogDetails": true,
+        "prettifyLogMessage": false,
+        "showCommonLabels": false,
+        "showLabels": true,
+        "showTime": true,
+        "sortOrder": "Descending",
+        "wrapLogMessage": false
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "loki",
+            "uid": "loki"
+          },
+          "expr": "{job=\"secure\", hostname=~\"$hostname\"} |~ \"sudo\"",
+          "refId": "A"
+        }
+      ],
+      "title": "Sudo Activity",
+      "type": "logs"
+    },
+    {
+      "datasource": {
+        "type": "loki",
+        "uid": "loki"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 24,
+        "x": 0,
+        "y": 22
+      },
+      "id": 4,
+      "options": {
+        "dedupStrategy": "none",
+        "enableLogDetails": true,
+        "prettifyLogMessage": false,
+        "showCommonLabels": false,
+        "showLabels": true,
+        "showTime": true,
+        "sortOrder": "Descending",
+        "wrapLogMessage": false
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "loki",
+            "uid": "loki"
+          },
+          "expr": "{job=\"secure\", hostname=~\"$hostname\"} |~ \"sshd.*(Accepted|session)\"",
+          "refId": "A"
+        }
+      ],
+      "title": "SSH Sessions",
+      "type": "logs"
+    }
+  ],
+  "schemaVersion": 39,
+  "tags": ["observability", "security"],
+  "templating": {
+    "list": [
+      {
+        "current": {},
+        "datasource": {
+          "type": "loki",
+          "uid": "loki"
+        },
+        "definition": "label_values(hostname)",
+        "includeAll": true,
+        "multi": true,
+        "name": "hostname",
+        "query": "label_values(hostname)",
+        "refresh": 2,
+        "regex": "",
+        "type": "query"
+      }
+    ]
+  },
+  "time": {
+    "from": "now-6h",
+    "to": "now"
+  },
+  "title": "Auth Activity",
+  "uid": "obs-auth-activity"
+}

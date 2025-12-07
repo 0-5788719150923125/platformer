@@ -1,0 +1,48 @@
+{
+  "identifier": "my-artifacts-${namespace}",
+  "title": "${artifacts_page_title}",
+  "type": "blueprint-entities",
+  "icon": "Package",
+  "blueprint": "artifact-${namespace}",
+  "parent": "${parent_folder}",
+  "description": "Build artifacts produced by platformer modules - archives, Docker images, Helm charts, golden images, and git repositories. All artifacts across every workspace sharing this portal are shown here.",
+  "widgets": [
+    {
+      "id": "artifacts-catalog-table",
+      "type": "table-entities-explorer",
+      "blueprint": "artifact-${namespace}",
+      "displayMode": "widget",
+      "dataset": {
+        "combinator": "and",
+        "rules": [
+          {
+            "property": "namespace",
+            "operator": "=",
+            "value": "${namespace}"
+          }
+        ]
+      },
+      "blueprintConfig": {
+        "artifact-${namespace}": {
+          "sortSettings": {
+            "sortBy": [
+              { "property": "createdAt", "order": "desc" }
+            ]
+          },
+          "propertiesSettings": {
+            "order": [],
+            "shown": [
+              "$title",
+              "artifactType",
+              "workspace",
+              "source",
+              "version",
+              "createdAt",
+              "url"
+            ]
+          }
+        }
+      }
+    }
+  ]
+}

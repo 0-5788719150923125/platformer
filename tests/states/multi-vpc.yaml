@@ -1,0 +1,57 @@
+# Test: Multi-VPC tenant isolation with compute classes scoped to different VPCs
+matrix:
+  tenants:
+    bravo:
+      entitlements: [compute.*]
+
+services:
+  networks:
+    shared-services:
+      allocation_method: "deterministic"
+      az_count: 2
+      enable_nat_gateway: true
+      subnet_topology:
+        private:
+          cidr_newbits: 8
+          offset: 0
+          nat_gateway: true
+        public:
+          cidr_newbits: 10
+          offset: 100
+          internet_gateway: true
+          map_public_ip_on_launch: true
+
+    app-tier:
+      allocation_method: "explicit"
+      explicit_cidr: "10.100.0.0/16"
+      az_count: 2
+      enable_nat_gateway: true
+      subnet_topology:
+        private:
+          cidr_newbits: 8
+          offset: 0
+          nat_gateway: true
+        public:
+          cidr_newbits: 10
+          offset: 100
+          internet_gateway: true
+          map_public_ip_on_launch: true
+
+  compute:
+    monitoring:
+      type: ec2
+      network_name: shared-services
+      subnet_tier: private
+      ami_filter: "Rocky-9-EC2-Base-9.*x86_64"
+      ami_owner: "792107900819"
+      instance_type: "t3.small"
+      count: 1
+
+    web-server:
+      type: ec2
+      network_name: app-tier
+      subnet_tier: private
+      ami_filter: "Rocky-9-EC2-Base-9.*x86_64"
+      ami_owner: "792107900819"
+      instance_type: "t3.small"
+      count: 2

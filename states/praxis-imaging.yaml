@@ -1,0 +1,80 @@
+# Praxis Imaging - Golden AMI build proof-of-concept
+# Validates the Packer build pipeline with the smallest, fastest possible image.
+# No applications baked in - pure OS update + snapshot pass-through.
+# Deploy with: states = ["praxis-imaging"]
+
+matrix:
+  tenants:
+    test:
+      entitlements: [compute.imaging]
+
+services:
+  portal:
+    enabled: true
+
+  compute:
+    imaging:
+      type: ec2
+      build: true
+      count: 1
+
+      # Amazon Linux 2023 via SSM parameter - smallest base, fast updates
+      ami_ssm_parameter: "/aws/service/ami-amazon-linux-latest/al2023-ami-kernel-default-x86_64"
+
+      # Smallest viable build instance
+      instance_type: t3.small
+      volume_size: 8
+
+      subnet_tier: public
+      associate_public_ip: true
+
+      description: "Golden AMI build proof-of-concept - pass-through imaging test"
+
+      applications:
+        - type: ansible
+          playbook: crowdstrike
+          schedule: rate(30 minutes)
+          params:
+            STATE: "present"
+            FALCON_CLOUD: "us-2"
+            FALCON_TAGS: "platformer"
+
+  configuration-management:
+    patch_management:
+      baselines:
+        amazonlinux-imaging:
+          operating_system: "AMAZON_LINUX"
+          approved_patches_compliance_level: "HIGH"
+          approval_rules:
+            - approve_after_days: 0
+              compliance_level: "HIGH"
+              enable_non_security: false
+              patch_filter:
+                classification: ["Security", "Bugfix"]
+                severity: ["Critical", "Important"]
+          classes: ["imaging"]
+
+      maintenance_windows:
+        amazonlinux-imaging-hourly:
+          baseline: amazonlinux-imaging
+          schedule: "rate(1 hour)"
+          duration: 1
+          cutoff: 0
+          enabled: true
+
+  secrets:
+    crowdstrike/falcon_clientid:
+      source_secret_id: "crowdstrike/falcon_clientid"
+      source_provider: "infrastructure"
+      description: "CrowdStrike Falcon OAuth2 Client ID"
+      access: account
+    crowdstrike/falcon_clientsecret:
+      source_secret_id: "crowdstrike/falcon_clientsecret"
+      source_provider: "infrastructure"
+      description: "CrowdStrike Falcon OAuth2 Client Secret"
+      access: account
+    crowdstrike/falcon_cid:
+      source_secret_id: "crowdstrike/falcon_cid"
+      source_provider: "infrastructure"
+      description: "CrowdStrike Falcon Customer ID"
+      access: account

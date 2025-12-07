@@ -1,0 +1,195 @@
+---
+# Ansible playbook to install NVIDIA GPU drivers and Container Toolkit
+# For Amazon Linux 2023 on GPU instances (g4dn, p3, p4, etc.)
+# References:
+# - https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/public-nvidia-driver.html
+# - https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/latest/install-guide.html
+
+- name: Install NVIDIA GPU drivers and Container Toolkit
+  hosts: linux
+  become: yes
+  vars:
+    # CUDA Toolkit version for Amazon Linux 2023
+    cuda_version: "13.0.0"
+    cuda_driver_version: "580.65.06"
+    cuda_repo_url: "https://developer.download.nvidia.com/compute/cuda/{{ cuda_version }}/local_installers/cuda-repo-amzn2023-13-0-local-{{ cuda_version }}_{{ cuda_driver_version }}-1.x86_64.rpm"
+
+  tasks:
+    # ========================================
+    # Step 1: Install Prerequisites
+    # ========================================
+    - name: Install kernel development packages for current kernel version
+      ansible.builtin.dnf:
+        name:
+          - kernel-devel
+          - kernel-headers
+        state: present
+
+    # ========================================
+    # Step 2: Install NVIDIA Drivers via CUDA Toolkit
+    # ========================================
+    - name: Download CUDA repository RPM
+      ansible.builtin.get_url:
+        url: "{{ cuda_repo_url }}"
+        dest: "/tmp/cuda-repo.rpm"
+        mode: '0644'
+
+    - name: Install CUDA repository
+      ansible.builtin.dnf:
+        name: "/tmp/cuda-repo.rpm"
+        state: present
+        disable_gpg_check: yes
+
+    - name: Clean DNF cache
+      ansible.builtin.command:
+        cmd: dnf clean all
+      changed_when: false
+
+    - name: Install CUDA Toolkit
+      ansible.builtin.dnf:
+        name: cuda-toolkit
+        state: present
+
+    - name: Remove wireplumber to avoid conflict with NVIDIA driver
+      ansible.builtin.dnf:
+        name: wireplumber
+        state: absent
+      failed_when: false
+
+    - name: Install NVIDIA driver (open kernel module)
+      ansible.builtin.dnf:
+        name: "@nvidia-driver:open-dkms"
+        state: present
+        allowerasing: yes
+
+    - name: Install NVIDIA GPUDirect Storage
+      ansible.builtin.dnf:
+        name: nvidia-gds
+        state: present
+      failed_when: false  # Optional component
+
+    - name: Install NVIDIA Fabric Manager
+      ansible.builtin.dnf:
+        name: nvidia-fabric-manager
+        state: present
+      failed_when: false  # Optional component
+
+    - name: Enable NVIDIA Fabric Manager service
+      ansible.builtin.systemd:
+        name: nvidia-fabricmanager
+        enabled: yes
+      failed_when: false  # Only needed for multi-GPU systems
+
+    - name: Enable NVIDIA driver persistence service
+      ansible.builtin.systemd:
+        name: nvidia-persistenced
+        enabled: yes
+      failed_when: false
+
+    # ========================================
+    # Step 3: Reboot to load NVIDIA kernel modules (only if installed)
+    # ========================================
+    - name: Check if NVIDIA kernel modules are loaded
+      ansible.builtin.command:
+        cmd: lsmod | grep nvidia
+      register: nvidia_loaded
+      changed_when: false
+      failed_when: false
+
+    - name: Schedule reboot to load NVIDIA kernel modules
+      ansible.builtin.command:
+        cmd: shutdown -r +1 "Rebooting to load NVIDIA kernel modules"
+      when: nvidia_loaded.rc != 0
+      failed_when: false
+      register: reboot_scheduled
+
+    - name: Display reboot notice
+      ansible.builtin.debug:
+        msg: "System will reboot in 1 minute to load NVIDIA kernel modules. Playbook will continue after reboot on next run."
+      when: reboot_scheduled.changed
+
+    - name: End playbook for this host if reboot scheduled
+      ansible.builtin.meta: end_host
+      when: nvidia_loaded.rc != 0
+
+    # ========================================
+    # Step 4: Verify NVIDIA Driver
+    # ========================================
+    - name: Wait for nvidia-smi to be available
+      ansible.builtin.command:
+        cmd: nvidia-smi
+      register: nvidia_smi_result
+      until: nvidia_smi_result.rc == 0
+      retries: 10
+      delay: 5
+      changed_when: false
+      failed_when: false
+
+    - name: Display nvidia-smi output
+      ansible.builtin.debug:
+        msg: "{{ nvidia_smi_result.stdout_lines }}"
+      when: nvidia_smi_result.rc == 0
+
+    - name: Warn if nvidia-smi failed
+      ansible.builtin.debug:
+        msg: "Warning: nvidia-smi not available. GPU drivers may not be loaded correctly."
+      when: nvidia_smi_result.rc != 0
+
+    # ========================================
+    # Step 5: Install NVIDIA Container Toolkit
+    # ========================================
+    - name: Remove curl-minimal to avoid conflict with curl
+      ansible.builtin.dnf:
+        name: curl-minimal
+        state: absent
+      failed_when: false
+
+    - name: Install curl
+      ansible.builtin.dnf:
+        name: curl
+        state: present
+        allowerasing: yes
+
+    - name: Add NVIDIA Container Toolkit repository
+      ansible.builtin.shell:
+        cmd: curl -s -L https://nvidia.github.io/libnvidia-container/stable/rpm/nvidia-container-toolkit.repo | tee /etc/yum.repos.d/nvidia-container-toolkit.repo
+        creates: /etc/yum.repos.d/nvidia-container-toolkit.repo
+
+    - name: Install NVIDIA Container Toolkit
+      ansible.builtin.dnf:
+        name: nvidia-container-toolkit
+        state: present
+
+    # ========================================
+    # Step 6: Configure Docker for GPU Runtime
+    # ========================================
+    - name: Configure Docker runtime for NVIDIA
+      ansible.builtin.command:
+        cmd: nvidia-ctk runtime configure --runtime=docker
+      changed_when: true
+
+    - name: Restart Docker service
+      ansible.builtin.systemd:
+        name: docker
+        state: restarted
+      failed_when: false
+
+    # ========================================
+    # Step 7: Verify Docker GPU Runtime
+    # ========================================
+    - name: Test Docker GPU access
+      ansible.builtin.command:
+        cmd: docker run --rm --gpus all nvidia/cuda:12.0.0-base-ubuntu22.04 nvidia-smi
+      register: docker_gpu_test
+      changed_when: false
+      failed_when: false
+
+    - name: Display Docker GPU test result
+      ansible.builtin.debug:
+        msg: "{{ docker_gpu_test.stdout_lines }}"
+      when: docker_gpu_test.rc == 0
+
+    - name: Warn if Docker GPU test failed
+      ansible.builtin.debug:
+        msg: "Warning: Docker GPU test failed. Check Docker configuration."
+      when: docker_gpu_test.rc != 0

@@ -1,0 +1,23 @@
+# Integration test: applications with compute (dependency inversion)
+matrix:
+  tenants:
+    bravo:
+      entitlements: [compute.*]
+
+services:
+  compute:
+    database:
+      type: ec2
+      ami_filter: "al2023-ami-2023.*-x86_64"
+      ami_owner: "amazon"
+      instance_type: t3.small
+      volume_size: 30
+      count: 1
+      applications:
+        - script: install-postgresql.sh
+          type: ssm
+          params:
+            POSTGRES_VERSION: "15"
+
+  configuration-management:
+    enabled: true

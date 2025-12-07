@@ -1,0 +1,257 @@
+---
+# CrowdStrike Falcon sensor lifecycle management
+# Runs from Ansible controller via aws_ssm connection plugin
+# Installs using the official CrowdStrike installer scripts with OAuth2 credentials
+# from Secrets Manager (replicated from infrastructure account by Terraform).
+#
+# Supports both Linux and Windows targets. Two plays are needed because:
+#   - Linux: SSM sessions run as ssm-user, so become: yes is required
+#   - Windows: SSM sessions run as SYSTEM, and become would fail (runas needs credentials)
+#
+# Lifecycle parameters passed via Ansible extra vars:
+#   STATE (default: present) - present|absent
+#   FALCON_CLOUD (default: us-2) - CrowdStrike cloud region
+#   FALCON_TAGS (default: platformer) - Sensor grouping tags
+#   DEPLOYMENT_NAMESPACE - deployment namespace, injected automatically by the controller
+#   AWS_REGION - injected automatically by the controller
+
+# ==========================================================================
+# Linux Play
+# ==========================================================================
+- name: Manage CrowdStrike Falcon sensor (Linux)
+  hosts: linux
+  become: yes
+
+  vars:
+    state: "{{ STATE | default('present', true) }}"
+    falcon_cloud: "{{ FALCON_CLOUD | default('us-2', true) }}"
+    falcon_tags: "{{ FALCON_TAGS | default('platformer', true) }}"
+    aws_region: "{{ AWS_REGION | default('us-east-2', true) }}"
+    deployment_namespace: "{{ DEPLOYMENT_NAMESPACE | default('platformer', true) }}"
+
+  tasks:
+    # ========== Skip if already installed and healthy ==========
+    - name: Check for existing CrowdStrike installation
+      stat:
+        path: /opt/CrowdStrike/falconctl
+      register: cs_installed
+
+    - name: Check falcon-sensor service status
+      command: systemctl is-active falcon-sensor
+      register: cs_active
+      failed_when: false
+      changed_when: false
+      when: cs_installed.stat.exists
+
+    - name: Skip if already running
+      meta: end_host
+      when:
+        - state == "present"
+        - cs_installed.stat.exists
+        - cs_active.rc == 0
+
+    # ========== Retrieve credentials from Secrets Manager ==========
+    - name: Get CrowdStrike Client ID
+      command: >
+        aws secretsmanager get-secret-value
+        --region {{ aws_region }}
+        --secret-id platformer/{{ deployment_namespace }}/crowdstrike/falcon_clientid
+        --query SecretString --output text
+      register: cs_client_id
+      no_log: true
+
+    - name: Get CrowdStrike Client Secret
+      command: >
+        aws secretsmanager get-secret-value
+        --region {{ aws_region }}
+        --secret-id platformer/{{ deployment_namespace }}/crowdstrike/falcon_clientsecret
+        --query SecretString --output text
+      register: cs_client_secret
+      no_log: true
+
+    - name: Get CrowdStrike CID
+      command: >
+        aws secretsmanager get-secret-value
+        --region {{ aws_region }}
+        --secret-id platformer/{{ deployment_namespace }}/crowdstrike/falcon_cid
+        --query SecretString --output text
+      register: cs_cid
+      no_log: true
+
+    # ========== Install via official CrowdStrike script ==========
+    - name: Download and run CrowdStrike installer
+      shell: |
+        export FALCON_CLIENT_ID="{{ cs_client_id.stdout }}"
+        export FALCON_CLIENT_SECRET="{{ cs_client_secret.stdout }}"
+        export FALCON_CID="{{ cs_cid.stdout }}"
+        export FALCON_CLOUD="{{ falcon_cloud }}"
+        export FALCON_TAGS="{{ falcon_tags }}"
+        export FALCON_SENSOR_VERSION_DECREMENT="0"
+        export ALLOW_LEGACY_CURL=true
+        curl -sL https://raw.githubusercontent.com/CrowdStrike/falcon-scripts/main/bash/install/falcon-linux-install.sh | bash
+      no_log: true
+      when: state == "present"
+
+    # ========== Removal ==========
+    - name: Remove CrowdStrike Falcon sensor
+      shell: |
+        export FALCON_CLIENT_ID="{{ cs_client_id.stdout }}"
+        export FALCON_CLIENT_SECRET="{{ cs_client_secret.stdout }}"
+        export FALCON_CLOUD="{{ falcon_cloud }}"
+        export FALCON_UNINSTALL=true
+        curl -sL https://raw.githubusercontent.com/CrowdStrike/falcon-scripts/main/bash/install/falcon-linux-install.sh | bash
+      no_log: true
+      when: state == "absent"
+
+    # ========== Verify ==========
+    - name: Wait for falcon-sensor to start
+      pause:
+        seconds: 10
+      when: state == "present"
+
+    - name: Verify agent ID is assigned
+      command: /opt/CrowdStrike/falconctl -g --aid
+      register: cs_aid
+      failed_when: "'aid' not in cs_aid.stdout or 'aid=\"\"' in cs_aid.stdout"
+      changed_when: false
+      when: state == "present"
+
+    - name: Verify falcon-sensor is active
+      command: systemctl is-active falcon-sensor
+      changed_when: false
+      when: state == "present"
+
+    - name: Display result
+      debug:
+        msg: "CrowdStrike Falcon {{ state }} — {{ cs_aid.stdout | default('removed') }}"
+
+# ==========================================================================
+# Windows Play
+# ==========================================================================
+- name: Manage CrowdStrike Falcon sensor (Windows)
+  hosts: windows
+  gather_facts: no
+
+  vars:
+    state: "{{ STATE | default('present', true) }}"
+    falcon_cloud: "{{ FALCON_CLOUD | default('us-2', true) }}"
+    falcon_tags: "{{ FALCON_TAGS | default('platformer', true) }}"
+    aws_region: "{{ AWS_REGION | default('us-east-2', true) }}"
+    deployment_namespace: "{{ DEPLOYMENT_NAMESPACE | default('platformer', true) }}"
+
+  tasks:
+    # ========== Skip if already installed and healthy ==========
+    - name: Check for existing CrowdStrike installation and service
+      raw: |
+        $installed = Test-Path "C:\Program Files\CrowdStrike\CSFalconService.exe"
+        $running = $false
+        if ($installed) {
+          $svc = Get-Service -Name CSFalconService -ErrorAction SilentlyContinue
+          if ($svc -and $svc.Status -eq "Running") { $running = $true }
+        }
+        Write-Output "installed=$installed running=$running"
+      register: cs_check
+      changed_when: false
+
+    - name: Skip if already running
+      meta: end_host
+      when:
+        - state == "present"
+        - "'installed=True running=True' in cs_check.stdout"
+
+    # ========== Ensure AWS.Tools.SecretsManager is available ==========
+    - name: Ensure AWS.Tools.SecretsManager module
+      raw: |
+        $ErrorActionPreference = "Stop"
+        [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+        try {
+          Import-Module AWS.Tools.SecretsManager -ErrorAction Stop
+          Write-Output "AWS.Tools.SecretsManager already available"
+        } catch {
+          Write-Output "Installing AWS.Tools.SecretsManager..."
+          Install-PackageProvider -Name NuGet -MinimumVersion 2.8.5.201 -Force -ErrorAction SilentlyContinue | Out-Null
+          Install-Module -Name AWS.Tools.Common -Force -Scope AllUsers -ErrorAction Stop
+          Install-Module -Name AWS.Tools.SecretsManager -Force -Scope AllUsers -ErrorAction Stop
+          Import-Module AWS.Tools.SecretsManager -ErrorAction Stop
+          Write-Output "AWS.Tools.SecretsManager installed successfully"
+        }
+
+    # ========== Verify Secrets Manager access (visible for debugging) ==========
+    - name: Verify Secrets Manager access
+      raw: |
+        $ErrorActionPreference = "Stop"
+        Import-Module AWS.Tools.SecretsManager -ErrorAction Stop
+        $region = "{{ aws_region }}"
+        $ns = "{{ deployment_namespace }}"
+        $secrets = @(
+          "platformer/$ns/crowdstrike/falcon_clientid",
+          "platformer/$ns/crowdstrike/falcon_clientsecret",
+          "platformer/$ns/crowdstrike/falcon_cid"
+        )
+        foreach ($sid in $secrets) {
+          $val = (Get-SECSecretValue -SecretId $sid -Region $region).SecretString
+          if ([string]::IsNullOrEmpty($val)) { throw "Empty secret: $sid" }
+          Write-Output "OK: $sid (length=$($val.Length))"
+        }
+      changed_when: false
+
+    # ========== Install via official CrowdStrike PowerShell script ==========
+    - name: Retrieve credentials and install CrowdStrike
+      raw: |
+        $ErrorActionPreference = "Stop"
+        Import-Module AWS.Tools.SecretsManager -ErrorAction Stop
+        $region = "{{ aws_region }}"
+        $ns = "{{ deployment_namespace }}"
+        $clientId = (Get-SECSecretValue -SecretId "platformer/$ns/crowdstrike/falcon_clientid" -Region $region).SecretString
+        $clientSecret = (Get-SECSecretValue -SecretId "platformer/$ns/crowdstrike/falcon_clientsecret" -Region $region).SecretString
+        $cid = (Get-SECSecretValue -SecretId "platformer/$ns/crowdstrike/falcon_cid" -Region $region).SecretString
+        [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+        $installer = "$env:TEMP\falcon_windows_install.ps1"
+        (New-Object System.Net.WebClient).DownloadFile('https://raw.githubusercontent.com/CrowdStrike/falcon-scripts/main/powershell/install/falcon_windows_install.ps1', $installer)
+        # Run under Windows PowerShell 5.1 — the CrowdStrike script uses WebException.Response
+        # which doesn't exist in PowerShell 7's HttpRequestException
+        powershell.exe -ExecutionPolicy Bypass -File $installer -FalconClientId $clientId -FalconClientSecret $clientSecret -FalconCid $cid -FalconCloud "{{ falcon_cloud }}" -Tags "{{ falcon_tags }}"
+        if ($LASTEXITCODE -and $LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      no_log: true
+      when: state == "present"
+
+    # ========== Removal ==========
+    - name: Retrieve credentials and remove CrowdStrike
+      raw: |
+        $ErrorActionPreference = "Stop"
+        Import-Module AWS.Tools.SecretsManager -ErrorAction Stop
+        $region = "{{ aws_region }}"
+        $ns = "{{ deployment_namespace }}"
+        $clientId = (Get-SECSecretValue -SecretId "platformer/$ns/crowdstrike/falcon_clientid" -Region $region).SecretString
+        $clientSecret = (Get-SECSecretValue -SecretId "platformer/$ns/crowdstrike/falcon_clientsecret" -Region $region).SecretString
+        [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+        $uninstaller = "$env:TEMP\falcon_windows_uninstall.ps1"
+        (New-Object System.Net.WebClient).DownloadFile('https://raw.githubusercontent.com/CrowdStrike/falcon-scripts/main/powershell/install/falcon_windows_uninstall.ps1', $uninstaller)
+        powershell.exe -ExecutionPolicy Bypass -File $uninstaller -FalconClientId $clientId -FalconClientSecret $clientSecret -FalconCloud "{{ falcon_cloud }}" -RemoveHost
+        if ($LASTEXITCODE -and $LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      no_log: true
+      when: state == "absent"
+
+    # ========== Verify ==========
+    - name: Wait for CSFalconService to start
+      raw: Start-Sleep -Seconds 10
+      when: state == "present"
+
+    - name: Verify CSFalconService is running
+      raw: |
+        $svc = Get-Service -Name CSFalconService -ErrorAction Stop
+        if ($svc.Status -ne "Running") { throw "CSFalconService is not running: $($svc.Status)" }
+        Write-Output "CSFalconService is running"
+      when: state == "present"
+
+    - name: Get agent ID
+      raw: >
+        (Get-ItemProperty "HKLM:\SYSTEM\CurrentControlSet\Services\CSAgent\Sim" -Name AG -ErrorAction Stop).AG
+      register: cs_aid
+      failed_when: false
+      changed_when: false
+      when: state == "present"
+
+    - name: Display result
+      debug:
+        msg: "CrowdStrike Falcon {{ state }} — {{ cs_aid.stdout | default('removed') | trim }}"

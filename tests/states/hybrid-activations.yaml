@@ -1,0 +1,7 @@
+# Test: SSM hybrid activations for non-AWS machines
+services:
+  configuration-management:
+    hybrid_activations:
+      developer-workstations:
+        description: "Developer laptop containers"
+        registration_limit: 5

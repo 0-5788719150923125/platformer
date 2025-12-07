@@ -1,0 +1,297 @@
+---
+# Ansible playbook to deploy Archshare via Helm charts from ECR
+# Runs from Ansible controller via aws_ssm connection plugin
+# Reads configuration from SSM parameters (tenant-specific RDS/cache endpoints)
+# Self-healing: runs every 30 minutes to ensure application is deployed
+
+- name: Deploy Archshare via Helm
+  hosts: linux
+  become: yes
+  vars:
+    # Variables passed via AWS-ApplyAnsiblePlaybooks ExtraVariables parameter
+    # These are Ansible variables (passed as -e KEY=value), not environment variables
+    tenant: "{{ TENANT | default('') }}"
+    ecr_registry: "{{ ECR_REGISTRY | default('') }}"
+    plt_namespace: "{{ NAMESPACE | default('') }}"
+    aws_region: "{{ AWS_REGION | default('') }}"
+
+  tasks:
+    # Pre-flight checks: Ensure minikube is ready before proceeding
+    - name: Check if minikube is installed
+      ansible.builtin.stat:
+        path: /usr/local/bin/minikube
+      register: minikube_binary
+      failed_when: not minikube_binary.stat.exists
+
+    - name: Check if minikube cluster is running
+      ansible.builtin.command: minikube status
+      become_user: ec2-user
+      become: yes
+      register: minikube_status_check
+      failed_when: false
+      changed_when: false
+
+    - name: Verify minikube is running
+      ansible.builtin.fail:
+        msg: "Minikube cluster is not running yet. Will retry on next SSM association run."
+      when: "'Running' not in minikube_status_check.stdout"
+
+    - name: Verify kubectl can connect to cluster
+      ansible.builtin.command: kubectl cluster-info
+      become_user: ec2-user
+      become: yes
+      register: kubectl_check
+      failed_when: kubectl_check.rc != 0
+      changed_when: false
+
+    # Fetch infrastructure endpoints from SSM
+    - name: Get RDS services endpoint from SSM
+      ansible.builtin.command:
+        cmd: "aws ssm get-parameter --name /{{ plt_namespace }}/archshare/{{ tenant }}/rds/services/endpoint --query Parameter.Value --output text --region {{ aws_region }}"
+      register: rds_services_endpoint_raw
+      changed_when: false
+
+    - name: Get RDS services password from SSM
+      ansible.builtin.command:
+        cmd: "aws ssm get-parameter --name /{{ plt_namespace }}/archshare/{{ tenant }}/rds/services/password --with-decryption --query Parameter.Value --output text --region {{ aws_region }}"
+      register: rds_services_password_raw
+      changed_when: false
+      no_log: true
+
+    - name: Get RDS storage endpoint from SSM
+      ansible.builtin.command:
+        cmd: "aws ssm get-parameter --name /{{ plt_namespace }}/archshare/{{ tenant }}/rds/storage/endpoint --query Parameter.Value --output text --region {{ aws_region }}"
+      register: rds_storage_endpoint_raw
+      changed_when: false
+
+    - name: Get RDS storage password from SSM
+      ansible.builtin.command:
+        cmd: "aws ssm get-parameter --name /{{ plt_namespace }}/archshare/{{ tenant }}/rds/storage/password --with-decryption --query Parameter.Value --output text --region {{ aws_region }}"
+      register: rds_storage_password_raw
+      changed_when: false
+      no_log: true
+
+    - name: Get Redis services endpoint from SSM
+      ansible.builtin.command:
+        cmd: "aws ssm get-parameter --name /{{ plt_namespace }}/archshare/{{ tenant }}/cache/redis-services/endpoint --query Parameter.Value --output text --region {{ aws_region }}"
+      register: redis_services_raw
+      changed_when: false
+
+    - name: Get Redis storage endpoint from SSM
+      ansible.builtin.command:
+        cmd: "aws ssm get-parameter --name /{{ plt_namespace }}/archshare/{{ tenant }}/cache/redis-storage/endpoint --query Parameter.Value --output text --region {{ aws_region }}"
+      register: redis_storage_raw
+      changed_when: false
+
+    - name: Get Memcached endpoint from SSM
+      ansible.builtin.command:
+        cmd: "aws ssm get-parameter --name /{{ plt_namespace }}/archshare/{{ tenant }}/cache/memcached/endpoint --query Parameter.Value --output text --region {{ aws_region }}"
+      register: memcached_raw
+      changed_when: false
+
+    - name: Get S3 bucket from SSM
+      ansible.builtin.command:
+        cmd: "aws ssm get-parameter --name /{{ plt_namespace }}/archshare/{{ tenant }}/s3/bucket --query Parameter.Value --output text --region {{ aws_region }}"
+      register: s3_bucket_raw
+      changed_when: false
+
+    # Set up Kubernetes namespace
+    - name: Create namespace for tenant
+      ansible.builtin.shell:
+        cmd: "kubectl create namespace {{ tenant }} --dry-run=client -o yaml | kubectl apply -f -"
+      become_user: ec2-user
+      become: yes
+      changed_when: false
+
+    # Log in to ECR
+    - name: Get ECR login password
+      ansible.builtin.command:
+        cmd: "aws ecr get-login-password --region {{ aws_region }}"
+      register: ecr_password
+      changed_when: false
+      no_log: true
+
+    - name: Log in to ECR for Helm
+      ansible.builtin.shell:
+        cmd: "echo {{ ecr_password.stdout }} | helm registry login {{ ecr_registry }} --username AWS --password-stdin"
+      become_user: ec2-user
+      become: yes
+      no_log: true
+      changed_when: false
+
+    - name: Create ECR docker-registry secret for image pulls
+      ansible.builtin.shell:
+        cmd: >
+          kubectl create secret docker-registry ecr-credentials
+          --docker-server={{ ecr_registry }}
+          --docker-username=AWS
+          --docker-password={{ ecr_password.stdout }}
+          --namespace={{ tenant }}
+          --dry-run=client -o yaml | kubectl apply -f -
+      become_user: ec2-user
+      become: yes
+      no_log: true
+      changed_when: false
+
+    # Create services secret (required by services Helm chart)
+    - name: Create services-secret with database and cache endpoints
+      ansible.builtin.shell:
+        cmd: >
+          kubectl create secret generic services-secret
+          --from-literal=PGBOUNCER_CONFIG='[{"name":"primary","host":"{{ rds_services_endpoint_raw.stdout }}","port":5432,"pgbouncerHost":"127.0.0.1","pgbouncerPort":6543,"user":"postgres","password":"{{ rds_services_password_raw.stdout }}","master":"true"}]'
+          --from-literal=REDIS_SERVER={{ redis_services_raw.stdout }}
+          --from-literal=REDIS_PASSWORD=""
+          --from-literal=MEMCACHED_SERVERS={{ memcached_raw.stdout }}
+          --namespace={{ tenant }}
+          --dry-run=client -o yaml | kubectl apply -f -
+      become_user: ec2-user
+      become: yes
+      no_log: true
+      changed_when: false
+
+    # Deploy services (API) from OCI Helm chart
+    - name: Deploy services Helm chart
+      ansible.builtin.command:
+        cmd: >
+          helm upgrade --install services
+          oci://{{ ecr_registry }}/services
+          --version 2.1.2
+          --namespace {{ tenant }}
+          --set servicesSecretName=services-secret
+          --set imagePullSecrets[0].name=ecr-credentials
+          --wait
+          --timeout 5m
+      become_user: ec2-user
+      become: yes
+      register: services_deploy
+      changed_when: "'has been upgraded' in services_deploy.stdout or 'has been installed' in services_deploy.stdout"
+      no_log: true
+
+    # Create storage secret (required by storage Helm chart)
+    - name: Create storage-secrets with database, cache, and S3 configuration
+      ansible.builtin.shell:
+        cmd: >
+          kubectl create secret generic storage-secrets
+          --from-literal=JOBRUNR_POSTGRES_HOST={{ rds_storage_endpoint_raw.stdout }}
+          --from-literal=JOBRUNR_POSTGRES_PORT=5432
+          --from-literal=JOBRUNR_POSTGRES_DB=archshare
+          --from-literal=JOBRUNR_POSTGRES_USER=postgres
+          --from-literal=JOBRUNR_POSTGRES_PW={{ rds_storage_password_raw.stdout }}
+          --from-literal=STUDY_DATABASE_JDBC="jdbc:postgresql://{{ rds_storage_endpoint_raw.stdout }}:5432/archshare"
+          --from-literal=S3_REGION={{ aws_region }}
+          --from-literal=S3_BUCKET={{ s3_bucket_raw.stdout }}
+          --namespace={{ tenant }}
+          --dry-run=client -o yaml | kubectl apply -f -
+      become_user: ec2-user
+      become: yes
+      no_log: true
+      changed_when: false
+
+    # Deploy storage from OCI Helm chart
+    - name: Deploy storage Helm chart
+      ansible.builtin.command:
+        cmd: >
+          helm upgrade --install storage
+          oci://{{ ecr_registry }}/storage
+          --version 3.15.0
+          --namespace {{ tenant }}
+          --set secretName=storage-secrets
+          --set imagePullSecrets[0].name=ecr-credentials
+          --wait
+          --timeout 5m
+      become_user: ec2-user
+      become: yes
+      register: storage_deploy
+      changed_when: "'has been upgraded' in storage_deploy.stdout or 'has been installed' in storage_deploy.stdout"
+      no_log: true
+
+    # Deploy transcoding from OCI Helm chart
+    - name: Deploy transcoding Helm chart
+      ansible.builtin.command:
+        cmd: >
+          helm upgrade --install transcoding
+          oci://{{ ecr_registry }}/transcoding
+          --version 2.0.6
+          --namespace {{ tenant }}
+          --set redis.host={{ redis_services_raw.stdout }}
+          --set imagePullSecrets[0].name=ecr-credentials
+          --wait
+          --timeout 5m
+      become_user: ec2-user
+      become: yes
+      register: transcoding_deploy
+      changed_when: "'has been upgraded' in transcoding_deploy.stdout or 'has been installed' in transcoding_deploy.stdout"
+
+    # Deploy watchdog from OCI Helm chart
+    - name: Deploy watchdog Helm chart
+      ansible.builtin.command:
+        cmd: >
+          helm upgrade --install watchdog
+          oci://{{ ecr_registry }}/watchdogservices
+          --version 1.5.2
+          --namespace {{ tenant }}
+          --set imagePullSecrets[0].name=ecr-credentials
+          --wait
+          --timeout 5m
+      become_user: ec2-user
+      become: yes
+      register: watchdog_deploy
+      changed_when: "'has been upgraded' in watchdog_deploy.stdout or 'has been installed' in watchdog_deploy.stdout"
+
+    # Copy nginx config to target for Helm --set-file (aws_ssm transfers from controller)
+    - name: Create staging directory for Helm files
+      ansible.builtin.file:
+        path: /tmp/archshare-helm
+        state: directory
+        mode: '0755'
+
+    - name: Copy nginx.conf to target for Helm --set-file
+      ansible.builtin.copy:
+        src: files/nginx.conf
+        dest: /tmp/archshare-helm/nginx.conf
+        mode: '0644'
+
+    # Deploy frontend from OCI Helm chart (deployed last so services upstream exists)
+    - name: Deploy frontend Helm chart
+      ansible.builtin.shell:
+        cmd: >
+          helm upgrade --install frontend
+          oci://{{ ecr_registry }}/frontend
+          --version 1.5.2
+          --namespace {{ tenant }}
+          --set tenant={{ tenant }}
+          --set imagePullSecrets[0].name=ecr-credentials
+          --set service.type=NodePort
+          --set service.nodePort=30080
+          --set-file nginxConfig=/tmp/archshare-helm/nginx.conf
+          --wait
+          --timeout 5m
+      become_user: ec2-user
+      become: yes
+      register: frontend_deploy
+      changed_when: "'has been upgraded' in frontend_deploy.stdout or 'has been installed' in frontend_deploy.stdout"
+
+    # Verify deployment
+    - name: Get deployment status
+      ansible.builtin.command:
+        cmd: "kubectl get pods -n {{ tenant }}"
+      become_user: ec2-user
+      become: yes
+      register: pod_status
+      changed_when: false
+
+    - name: Display pod status
+      ansible.builtin.debug:
+        msg: "{{ pod_status.stdout_lines }}"
+
+    - name: List Helm releases
+      ansible.builtin.command:
+        cmd: "helm list -n {{ tenant }}"
+      become_user: ec2-user
+      become: yes
+      register: helm_releases
+      changed_when: false
+
+    - name: Display Helm releases
+      ansible.builtin.debug:
+        msg: "{{ helm_releases.stdout_lines }}"

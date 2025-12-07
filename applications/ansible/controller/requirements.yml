@@ -1,0 +1,5 @@
+collections:
+  - name: amazon.aws
+    version: ">=8.0.0"
+  - name: ansible.windows
+    version: ">=2.5.0"

@@ -1,0 +1,205 @@
+{
+  "annotations": {
+    "list": []
+  },
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 1,
+  "links": [],
+  "panels": [
+    {
+      "datasource": {
+        "type": "loki",
+        "uid": "loki"
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 24,
+        "x": 0,
+        "y": 0
+      },
+      "id": 1,
+      "options": {
+        "dedupStrategy": "none",
+        "enableLogDetails": true,
+        "prettifyLogMessage": false,
+        "showCommonLabels": false,
+        "showLabels": true,
+        "showTime": true,
+        "sortOrder": "Descending",
+        "wrapLogMessage": false
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "loki",
+            "uid": "loki"
+          },
+          "editorMode": "builder",
+          "expr": "count_over_time({hostname=~\"$hostname\", job=~\"$job\"} |= \"$search\" [$__interval])",
+          "legendFormat": "EC2: {{hostname}}/{{job}}",
+          "queryType": "range",
+          "refId": "A"
+        },
+        {
+          "datasource": {
+            "type": "loki",
+            "uid": "loki"
+          },
+          "editorMode": "builder",
+          "expr": "count_over_time({cluster=~\"$cluster\", namespace=~\"$namespace\", pod=~\"$pod\"} |= \"$search\" [$__interval])",
+          "legendFormat": "K8s: {{cluster}}/{{namespace}}/{{pod}}",
+          "queryType": "range",
+          "refId": "B"
+        }
+      ],
+      "title": "Log Volume",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "loki",
+        "uid": "loki"
+      },
+      "gridPos": {
+        "h": 20,
+        "w": 24,
+        "x": 0,
+        "y": 4
+      },
+      "id": 2,
+      "options": {
+        "dedupStrategy": "none",
+        "enableLogDetails": true,
+        "prettifyLogMessage": false,
+        "showCommonLabels": false,
+        "showLabels": true,
+        "showTime": true,
+        "sortOrder": "Descending",
+        "wrapLogMessage": false
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "loki",
+            "uid": "loki"
+          },
+          "editorMode": "builder",
+          "expr": "{hostname=~\"$hostname\", job=~\"$job\"} |= \"$search\"",
+          "queryType": "range",
+          "refId": "A"
+        },
+        {
+          "datasource": {
+            "type": "loki",
+            "uid": "loki"
+          },
+          "editorMode": "builder",
+          "expr": "{cluster=~\"$cluster\", namespace=~\"$namespace\", pod=~\"$pod\"} |= \"$search\"",
+          "queryType": "range",
+          "refId": "B"
+        }
+      ],
+      "title": "Log Lines",
+      "type": "logs"
+    }
+  ],
+  "schemaVersion": 39,
+  "tags": ["observability", "logs"],
+  "templating": {
+    "list": [
+      {
+        "current": {},
+        "datasource": {
+          "type": "loki",
+          "uid": "loki"
+        },
+        "definition": "label_values(hostname)",
+        "includeAll": true,
+        "multi": true,
+        "name": "hostname",
+        "query": "label_values(hostname)",
+        "refresh": 2,
+        "regex": "",
+        "type": "query"
+      },
+      {
+        "current": {},
+        "datasource": {
+          "type": "loki",
+          "uid": "loki"
+        },
+        "definition": "label_values(job)",
+        "includeAll": true,
+        "multi": true,
+        "name": "job",
+        "query": "label_values(job)",
+        "refresh": 2,
+        "regex": "",
+        "type": "query"
+      },
+      {
+        "current": {},
+        "datasource": {
+          "type": "loki",
+          "uid": "loki"
+        },
+        "definition": "label_values(cluster)",
+        "includeAll": true,
+        "multi": true,
+        "name": "cluster",
+        "query": "label_values(cluster)",
+        "refresh": 2,
+        "regex": "",
+        "type": "query"
+      },
+      {
+        "current": {},
+        "datasource": {
+          "type": "loki",
+          "uid": "loki"
+        },
+        "definition": "label_values({cluster=~\"$cluster\"}, namespace)",
+        "includeAll": true,
+        "multi": true,
+        "name": "namespace",
+        "query": "label_values({cluster=~\"$cluster\"}, namespace)",
+        "refresh": 2,
+        "regex": "",
+        "type": "query"
+      },
+      {
+        "current": {},
+        "datasource": {
+          "type": "loki",
+          "uid": "loki"
+        },
+        "definition": "label_values({cluster=~\"$cluster\", namespace=~\"$namespace\"}, pod)",
+        "includeAll": true,
+        "multi": true,
+        "name": "pod",
+        "query": "label_values({cluster=~\"$cluster\", namespace=~\"$namespace\"}, pod)",
+        "refresh": 2,
+        "regex": "",
+        "type": "query"
+      },
+      {
+        "current": {
+          "selected": false,
+          "text": "",
+          "value": ""
+        },
+        "name": "search",
+        "options": [],
+        "query": "",
+        "type": "textbox"
+      }
+    ]
+  },
+  "time": {
+    "from": "now-1h",
+    "to": "now"
+  },
+  "title": "Log Explorer",
+  "uid": "obs-log-explorer"
+}

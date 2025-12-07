@@ -1,0 +1,18 @@
+# Test: Windows instances with multiple tenants
+matrix:
+  tenants:
+    alpha:
+      entitlements: [compute.*]
+    november:
+      entitlements: [compute.*]
+    medvet:
+      entitlements: [compute.*]
+
+services:
+  compute:
+    windows-server:
+      type: ec2
+      ami_filter: "Windows_Server-2022-English-Full-Base-*"
+      ami_owner: "801119661308"
+      instance_type: "t3.large"
+      count: 1

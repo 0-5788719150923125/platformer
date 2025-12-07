@@ -1,0 +1,155 @@
+# Tenant Registry
+# Central source of truth for all valid tenant codes
+# Populated from environment/prod/org-private-cloud-dr-prod/aws-s3
+
+# Schema:
+#   tenant_code:
+#     active: bool  # Is tenant currently active?
+
+tenants:
+  alpha:
+    active: true
+  bravo:
+    active: true
+  charlie:
+    active: true
+  delta:
+    active: true
+  echo:
+    active: true
+  foxtrot:
+    active: true
+  golf:
+    active: true
+  hotel:
+    active: true
+  india:
+    active: true
+  juliet:
+    active: true
+  kilo:
+    active: true
+  lima:
+    active: true
+  mike:
+    active: true
+  november:
+    active: true
+  oscar:
+    active: true
+  papa:
+    active: true
+  quebec:
+    active: true
+  romeo:
+    active: true
+  sierra:
+    active: true
+  tango:
+    active: true
+  uniform:
+    active: true
+  victor:
+    active: true
+  whiskey:
+    active: true
+  xray:
+    active: true
+  yankee:
+    active: true
+  zulu:
+    active: true
+  apex:
+    active: true
+  beacon:
+    active: true
+  cipher:
+    active: true
+  drift:
+    active: true
+  ember:
+    active: true
+  flint:
+    active: true
+  grove:
+    active: true
+  haven:
+    active: true
+  iris:
+    active: true
+  jade:
+    active: true
+  keen:
+    active: true
+  lark:
+    active: true
+  mesa:
+    active: true
+  north:
+    active: true
+  opal:
+    active: true
+  pine:
+    active: true
+  quartz:
+    active: true
+  ridge:
+    active: true
+  slate:
+    active: true
+  terra:
+    active: true
+  vale:
+    active: true
+  wren:
+    active: true
+  zenith:
+    active: true
+  coral:
+    active: true
+  dusk:
+    active: true
+  fern:
+    active: true
+  gale:
+    active: true
+  haze:
+    active: true
+  presales:
+    active: true
+  training:
+    active: true
+  shared:
+    active: true
+  test:
+    active: true
+  alder:
+    active: true
+  birch:
+    active: true
+  cedar:
+    active: true
+  elm:
+    active: true
+  fig:
+    active: true
+  ivy:
+    active: true
+  linden:
+    active: true
+  maple:
+    active: true
+  oak:
+    active: true
+  spruce:
+    active: true
+  teak:
+    active: true
+  willow:
+    active: true
+  aspen:
+    active: true
+  holly:
+    active: true
+  laurel:
+    active: true

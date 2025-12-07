@@ -1,0 +1,25 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "ReadMaestroSSMParameters",
+      "Effect": "Allow",
+      "Action": [
+        "ssm:GetParameter"
+      ],
+      "Resource": [
+        "arn:aws:ssm:*:*:parameter/*/archpacs/*/ssh-pubkey",
+        "arn:aws:ssm:*:*:parameter/*/archpacs/*/ssh-privkey",
+        "arn:aws:ssm:*:*:parameter/*/archpacs/*/maestro-deploy-password"
+      ]
+    },
+    {
+      "Sid": "DiscoverFleetInstances",
+      "Effect": "Allow",
+      "Action": [
+        "ec2:DescribeInstances"
+      ],
+      "Resource": "*"
+    }
+  ]
+}

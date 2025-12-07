@@ -1,0 +1,8 @@
+# Packer
+.packer/
+packer_cache/
+crash.log
+*.log
+
+# Packer plugin binaries
+packer-plugin-*

@@ -1,0 +1,49 @@
+# Multi-Account Deployment Targeting (Salt-inspired)
+# Drives GitHub Actions matrix generation (CI/CD only)
+# States are reusable config fragments in states/ directory
+#
+# Pattern Syntax (case-insensitive):
+#   - Simple: '*' (all), 'prefix-*', '*-suffix', '*keyword*', 'exact-name'
+#   - OR:     '*uat* or org-staging-*' (matches either pattern)
+#   - AND:    '*dev* and *platform*' (matches both patterns)
+#   - Mixed:  '*dev* or (*uat* and *staging*)' (evaluated left-to-right)
+#
+# Precedence: base ('*') → patterns (top-to-bottom) → specific names
+
+targets:
+  'example-account-1':
+    - regions-east
+    - ssm-collection
+    - general-patch-management
+
+  'example-account-2':
+    - regions-east
+    - configuration-management-monthly
+
+  'example-account-uat':
+    - regions-east
+    - patch-management-rocky9-dynamic
+    - ssm-collection
+
+  'example-account-qa':
+    - regions-east
+    - ssm-collection
+
+  # The name of this account flips randomly in Port; thus we check both versions
+  'example-account-prod or example-account-prod-wildcard':
+    - regions-legacy-prod
+    - ssm-collection
+    - patch-management-legacy-prod
+
+  # '*-platform-dev':
+  #   - regions-most
+  #   - configuration-management
+  #   # - compute-windows-test
+
+  # '*dev*':
+  #   - regions-east
+  #   - configuration-management-hourly
+
+  # '*uat* or *staging*':
+  #   - regions-east
+  #   - configuration-management-monthly

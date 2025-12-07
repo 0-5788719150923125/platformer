@@ -1,0 +1,2 @@
+# Build artifacts - Packer templates, manifests, Ansible venv, and other temporary build files
+output/

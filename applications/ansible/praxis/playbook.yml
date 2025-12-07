@@ -1,0 +1,315 @@
+---
+# Ansible playbook to install and configure Praxis AI Agents Framework
+# Praxis: PyTorch-based AI agents ecosystem with GPU acceleration
+# Repository: https://github.com/0-5788719150923125/praxis
+# Self-healing: runs every 30 minutes via SSM to ensure Praxis stays running
+
+# Note: Using AWS Deep Learning AMI which includes Python, Docker, and NVIDIA drivers pre-installed
+# We only need to install git and configure Praxis
+
+# Step 1: Install Claude Code CLI (includes Python dependencies)
+- import_playbook: ../claude-code/playbook.yml
+
+# Step 2: Install and configure Praxis
+- name: Install and configure Praxis
+  hosts: linux
+  become: yes
+  vars:
+    # SSM passes parameters as Ansible extra vars (-e), not shell environment variables
+    # Use Ansible variable syntax with defaults, not lookup('env', ...)
+    praxis_repo_url_raw: "{{ PRAXIS_REPO_URL | default('github.com/0-5788719150923125/praxis', true) }}"
+    # Add https:// protocol if not present (SSM strips colons from params)
+    praxis_repo_url: "{{ praxis_repo_url_raw if praxis_repo_url_raw.startswith('http') else 'https://' + praxis_repo_url_raw }}"
+    praxis_branch: "{{ PRAXIS_BRANCH | default('main', true) }}"
+    praxis_install_dir: "{{ PRAXIS_INSTALL_DIR | default('/opt/praxis', true) }}"
+    praxis_launch_args: "{{ PRAXIS_LAUNCH_ARGS | default('compose --alpha --port 8080', true) }}"
+    praxis_port: "{{ PRAXIS_PORT | default('8080', true) }}"
+    aws_region: "{{ AWS_REGION | default('us-east-2', true) }}"
+    deployment_namespace: "{{ DEPLOYMENT_NAMESPACE | default('platformer', true) }}"
+
+  tasks:
+    - name: Detect system architecture
+      ansible.builtin.set_fact:
+        is_arm64: "{{ ansible_architecture in ['aarch64', 'arm64'] }}"
+
+    - name: Set Docker Compose file flags for ARM64
+      ansible.builtin.set_fact:
+        compose_files: "-f {{ praxis_install_dir }}/compose.yml -f {{ praxis_install_dir }}/compose.ARM.yml"
+      when: is_arm64 | bool
+
+    - name: Set Docker Compose file flags for x86_64
+      ansible.builtin.set_fact:
+        compose_files: "-f {{ praxis_install_dir }}/compose.yml"
+      when: not (is_arm64 | bool)
+
+    - name: Use HTTPS hostname when ALB is configured
+      ansible.builtin.set_fact:
+        praxis_launch_args_with_hostname: "{{ praxis_launch_args }} --host-name https://{{ HTTPS_HOSTNAME }}"
+        effective_hostname: "{{ HTTPS_HOSTNAME }}"
+      when: HTTPS_HOSTNAME is defined and HTTPS_HOSTNAME | length > 0
+
+    - name: Get IMDSv2 token (fallback when no HTTPS hostname)
+      ansible.builtin.uri:
+        url: http://169.254.169.254/latest/api/token
+        method: PUT
+        headers:
+          X-aws-ec2-metadata-token-ttl-seconds: "21600"
+        return_content: yes
+      register: imds_token
+      when: HTTPS_HOSTNAME is not defined or HTTPS_HOSTNAME | length == 0
+      failed_when: false
+
+    - name: Get instance public hostname from EC2 metadata
+      ansible.builtin.uri:
+        url: http://169.254.169.254/latest/meta-data/public-hostname
+        headers:
+          X-aws-ec2-metadata-token: "{{ imds_token.content }}"
+        return_content: yes
+      register: instance_hostname
+      when:
+        - imds_token is not skipped
+        - imds_token.status == 200
+      failed_when: false
+
+    - name: Set praxis launch args with EC2 hostname
+      ansible.builtin.set_fact:
+        praxis_launch_args_with_hostname: "{{ praxis_launch_args }} --host-name {{ instance_hostname.content }}"
+        effective_hostname: "{{ instance_hostname.content }}"
+      when:
+        - praxis_launch_args_with_hostname is not defined
+        - instance_hostname is not skipped
+        - instance_hostname.status == 200
+
+    - name: Use default launch args if no hostname available
+      ansible.builtin.set_fact:
+        praxis_launch_args_with_hostname: "{{ praxis_launch_args }}"
+        effective_hostname: "localhost"
+      when: praxis_launch_args_with_hostname is not defined
+
+    - name: Set praxis remote base URL for cluster peer git remotes
+      # Stored as a per-host set_fact so hostvars[item]['praxis_remote_base'] is
+      # accessible when other hosts build their git remote URLs.
+      # HTTPS_HOSTNAME is an SSM extra var (play-level), not in hostvars[item],
+      # so we resolve protocol/port here while it is in scope.
+      ansible.builtin.set_fact:
+        praxis_remote_base: "{{ 'https://' + effective_hostname if (HTTPS_HOSTNAME is defined and HTTPS_HOSTNAME | length > 0) else 'http://' + effective_hostname + ':' + (praxis_port | string) }}"
+
+    - name: Map compute cluster facts to distributed training variables
+      ansible.builtin.set_fact:
+        NODE_RANK: "{{ CLUSTER_NODE_INDEX }}"
+        NUM_NODES: "{{ CLUSTER_SIZE }}"
+        MASTER_ADDR: "{{ CLUSTER_MASTER_IP }}"
+        MASTER_PORT: "{{ CLUSTER_PORT }}"
+      when: CLUSTER_NODE_INDEX is defined
+
+    - name: Append distributed training args for multi-node runs
+      ansible.builtin.set_fact:
+        praxis_launch_args_with_hostname: >-
+          {{ praxis_launch_args_with_hostname }}
+          --num-nodes {{ NUM_NODES | default('1', true) }}
+          --node-rank {{ NODE_RANK | default('0', true) }}
+          --master-addr {{ MASTER_ADDR | default('localhost', true) }}
+          --master-port {{ MASTER_PORT | default('29500', true) }}
+      when: (NUM_NODES | default('1', true) | int) > 1
+
+    - name: Install git
+      ansible.builtin.apt:
+        name: git
+        state: present
+        update_cache: yes
+
+    - name: Configure git safe.directory for Praxis install directory
+      ansible.builtin.command:
+        cmd: "git config --system --add safe.directory {{ praxis_install_dir }}"
+      failed_when: false
+      changed_when: false
+
+    - name: Clone Praxis repository
+      ansible.builtin.git:
+        repo: "{{ praxis_repo_url }}"
+        dest: "{{ praxis_install_dir }}"
+        version: "{{ praxis_branch }}"
+        update: yes
+        # force: yes is required - without it, git refuses to pull when compose files
+        # have local modifications (our port/network patches). force resets the working
+        # tree before pulling so upstream changes always land cleanly.
+        force: yes
+      register: praxis_clone
+
+    - name: Remove stale cluster peer git remotes
+      ansible.builtin.command:
+        cmd: "git remote remove {{ DEPLOYMENT_NAMESPACE | default('cluster', true) }}-{{ idx + 1 }}"
+        chdir: "{{ praxis_install_dir }}"
+      loop: "{{ groups['linux'] }}"
+      loop_control:
+        index_var: idx
+      when:
+        - (groups['linux'] | length) > 1
+        - item != inventory_hostname
+      failed_when: false
+      changed_when: false
+
+    - name: Add cluster peer git remotes for distributed code sync
+      ansible.builtin.command:
+        cmd: "git remote add {{ DEPLOYMENT_NAMESPACE | default('cluster', true) }}-{{ idx + 1 }} {{ hostvars[item]['praxis_remote_base'] }}/praxis"
+        chdir: "{{ praxis_install_dir }}"
+      loop: "{{ groups['linux'] }}"
+      loop_control:
+        index_var: idx
+      when:
+        - (groups['linux'] | length) > 1
+        - hostvars[item]['effective_hostname'] is defined
+        - item != inventory_hostname
+      failed_when: false
+
+    - name: Update compose.yml API port mapping to use configured port
+      ansible.builtin.replace:
+        path: "{{ praxis_install_dir }}/compose.yml"
+        regexp: '"2100:2100"'
+        replace: '"{{ praxis_port }}:{{ praxis_port }}"'
+      register: compose_api_port
+
+    - name: Update compose.yml cluster port mapping to use configured port
+      ansible.builtin.replace:
+        path: "{{ praxis_install_dir }}/compose.yml"
+        regexp: '"29500:29500"'
+        replace: '"{{ CLUSTER_PORT | default("29500", true) }}:{{ CLUSTER_PORT | default("29500", true) }}"'
+      when: CLUSTER_PORT is defined
+      register: compose_cluster_port
+
+    - name: Switch compose.yml to host networking for multi-node NCCL
+      ansible.builtin.lineinfile:
+        path: "{{ praxis_install_dir }}/compose.yml"
+        insertafter: "runtime: nvidia"
+        line: "    network_mode: host"
+      when:
+        - (NUM_NODES | default('1', true) | int) > 1
+        - not (is_arm64 | bool)
+      register: compose_network_mode
+
+    - name: Switch compose.ARM.yml to host networking for multi-node DDP
+      ansible.builtin.lineinfile:
+        path: "{{ praxis_install_dir }}/compose.ARM.yml"
+        insertafter: "runtime: runc"
+        line: "    network_mode: host"
+      when:
+        - (NUM_NODES | default('1', true) | int) > 1
+        - is_arm64 | bool
+      register: compose_arm_network_mode
+
+    - name: Tell git to ignore local modifications to compose files
+      # Prevents git pull from seeing our port/network edits as conflicts.
+      # Must run after the compose modifications so the patched content is
+      # what git sees as "clean" on subsequent pulls.
+      ansible.builtin.command:
+        cmd: "git update-index --assume-unchanged {{ item }}"
+        chdir: "{{ praxis_install_dir }}"
+      loop:
+        - compose.yml
+        - compose.ARM.yml
+      changed_when: false
+      failed_when: false
+
+    - name: Copy custom experiment configurations
+      ansible.builtin.copy:
+        src: experiments/
+        dest: "{{ praxis_install_dir }}/experiments/"
+        mode: '0644'
+      register: experiments_copy
+
+    - name: Download platformer training data archive from S3
+      ansible.builtin.shell:
+        cmd: "aws s3 cp s3://{{ ANSIBLE_PLAYBOOKS_BUCKET }}/ansible-uploads/praxis/praxis-upload-0.tar.gz /tmp/platformer-upload.tar.gz"
+      args:
+        creates: /tmp/platformer-upload.tar.gz
+
+    - name: Extract platformer training data
+      ansible.builtin.unarchive:
+        src: /tmp/platformer-upload.tar.gz
+        dest: /opt/
+        remote_src: yes
+        creates: /opt/platformer
+
+    - name: Set ownership to ubuntu user
+      ansible.builtin.file:
+        path: "{{ praxis_install_dir }}"
+        owner: ubuntu
+        group: ubuntu
+        recurse: yes
+
+    - name: Get HuggingFace token from Secrets Manager
+      ansible.builtin.command: >
+        aws secretsmanager get-secret-value
+        --region {{ aws_region }}
+        --secret-id platformer/{{ deployment_namespace }}/huggingface/hf_token
+        --query SecretString --output text
+      register: hf_token_result
+      no_log: true
+      failed_when: false
+      changed_when: false
+
+    - name: Write .env file for Docker Compose
+      ansible.builtin.copy:
+        content: "HF_TOKEN={{ hf_token_result.stdout }}\n"
+        dest: "{{ praxis_install_dir }}/.env"
+        mode: '0600'
+      when: hf_token_result.stdout | default('') | length > 0
+      no_log: true
+      register: env_file
+
+    - name: Create systemd service for Praxis
+      ansible.builtin.template:
+        src: praxis.service.j2
+        dest: /etc/systemd/system/praxis.service
+        mode: '0644'
+      vars:
+        praxis_launch_args: "{{ praxis_launch_args_with_hostname }}"
+      register: praxis_service
+
+    - name: Reload systemd daemon
+      ansible.builtin.systemd:
+        daemon_reload: yes
+      when: praxis_service.changed
+
+    - name: Enable and start Praxis service
+      ansible.builtin.systemd:
+        name: praxis
+        enabled: yes
+        state: started
+
+    - name: Restart Praxis service if repo or configuration changed
+      ansible.builtin.systemd:
+        name: praxis
+        state: restarted
+      when: >
+        praxis_service.changed or
+        (praxis_clone.before != praxis_clone.after) or
+        experiments_copy.changed or
+        (env_file is defined and env_file.changed)
+      # praxis_clone.changed is NOT used here - force: yes resets the working tree on
+      # every pull (to undo our compose patches), so .changed is always true. Compare
+      # the before/after commit hashes instead to detect actual upstream changes.
+      # compose_api_port / compose_network_mode / compose_cluster_port are also excluded
+      # for the same reason - they are always re-applied after the forced reset.
+      failed_when: false
+
+    - name: Wait for Praxis API to be ready
+      ansible.builtin.uri:
+        url: "http://localhost:{{ praxis_port }}/api/ping"
+        method: GET
+        status_code: [200]
+      register: result
+      until: result.status == 200
+      retries: 180
+      delay: 5
+      failed_when: false
+
+    - name: Display Praxis status
+      ansible.builtin.debug:
+        msg: "Praxis is running at http://localhost:{{ praxis_port }}"
+      when: result.status | default(0) == 200
+
+    - name: Display warning if Praxis not ready
+      ansible.builtin.debug:
+        msg: "Warning: Praxis API not responding after 15 minutes. Check logs with: journalctl -u praxis -f"
+      when: result.status | default(0) != 200

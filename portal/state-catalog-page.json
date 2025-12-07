@@ -1,0 +1,32 @@
+{
+  "identifier": "my-states-${namespace}",
+  "title": "${states_page_title}",
+  "type": "blueprint-entities",
+  "icon": "Code",
+  "blueprint": "stateFragment-${namespace}",
+  "parent": "${parent_folder}",
+  "description": "States are YAML configuration files that define services, compute resources, networking, and other infrastructure components. Each fragment can be independently loaded and composed with others to build complete deployments. The fragments shown here are actively used in your current deployment.",
+  "widgets": [
+    {
+      "id": "state-fragments-table",
+      "type": "table-entities-explorer",
+      "blueprint": "stateFragment-${namespace}",
+      "displayMode": "widget",
+      "dataset": {
+        "combinator": "and",
+        "rules": [
+          {
+            "property": "namespace",
+            "operator": "=",
+            "value": "${namespace}"
+          },
+          {
+            "property": "enabled",
+            "operator": "=",
+            "value": "true"
+          }
+        ]
+      }
+    }
+  ]
+}

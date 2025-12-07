@@ -1,0 +1,19 @@
+repos:
+- id: github.com/acme-org/infra-terraform
+  delete_source_branch_on_merge: true
+  workflow: default
+  allowed_overrides: [workflow]
+  allow_custom_workflows: true
+  custom_policy_check: false
+  allowed_workflows: 
+    - default
+  apply_requirements: [ approved, mergeable ]  
+  pre_workflow_hooks:
+    - run: rm -rf .terraform .terraform.lock.hcl
+    - run: |
+        if ! /atlantis-data/scripts/generate-projects.sh; then
+          exit 1
+        fi
+  post_workflow_hooks:
+    - run: /atlantis-data/scripts/notify-teams.sh
+      command: apply

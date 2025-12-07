@@ -1,0 +1,206 @@
+---
+# Ansible playbook to install Claude Code CLI with AWS Bedrock integration
+# Repository: https://code.claude.com/docs/en/quickstart
+# Authentication: AWS Bedrock (no Claude API key required)
+# Usage: Users SSH into instance and run `claude` command interactively
+
+# Step 1: Ensure Python and pip are installed
+- import_playbook: ../python/playbook.yml
+
+# Step 2: Install Claude Code CLI
+- name: Install Claude Code CLI
+  hosts: linux
+  vars:
+    # SSM passes parameters as Ansible extra vars (-e), not shell environment variables
+    aws_region: "{{ AWS_REGION | default('us-east-1', true) }}"
+    claude_code_model: "{{ CLAUDE_CODE_MODEL | default('', true) }}"
+    claude_code_small_model: "{{ CLAUDE_CODE_SMALL_MODEL | default('', true) }}"
+    claude_code_user: "{{ CLAUDE_CODE_USER | default('ssm-user', true) }}"
+
+  tasks:
+    # ========================================
+    # Step 1: Install Claude Code Binary
+    # ========================================
+    # Install to /usr/local/bin so all users (including ssm-user) can access it
+    - name: Check if Claude Code is already installed globally
+      ansible.builtin.stat:
+        path: /usr/local/bin/claude
+      register: claude_binary
+      become: yes
+
+    - name: Download Claude Code install script
+      ansible.builtin.get_url:
+        url: "https://claude.ai/install.sh"
+        dest: "/tmp/claude-install.sh"
+        mode: '0755'
+      become: yes
+      when: not claude_binary.stat.exists
+
+    - name: Install Claude Code as root to system location
+      ansible.builtin.shell:
+        cmd: bash /tmp/claude-install.sh
+      become: yes
+      environment:
+        SHELL: /bin/bash
+      when: not claude_binary.stat.exists
+      register: claude_install_result
+
+    - name: Find installed Claude Code version
+      ansible.builtin.find:
+        paths: /root/.local/share/claude/versions
+        file_type: file
+      register: claude_versions
+      become: yes
+      when: not claude_binary.stat.exists
+
+    - name: Copy claude binary to /usr/local/bin for global access
+      ansible.builtin.copy:
+        src: "{{ claude_versions.files[0].path }}"
+        dest: /usr/local/bin/claude
+        mode: '0755'
+        owner: root
+        group: root
+        remote_src: yes
+      become: yes
+      when: not claude_binary.stat.exists and claude_versions.files | length > 0
+
+    - name: Clean up install script
+      ansible.builtin.file:
+        path: "/tmp/claude-install.sh"
+        state: absent
+      become: yes
+
+    # ========================================
+    # Step 2: Configure Bedrock Environment
+    # ========================================
+    - name: Create profile.d script for Bedrock environment variables
+      ansible.builtin.copy:
+        dest: /etc/profile.d/claude-bedrock.sh
+        mode: '0644'
+        content: |
+          # Claude Code with AWS Bedrock configuration
+          export CLAUDE_CODE_USE_BEDROCK=1
+          export AWS_REGION={{ aws_region }}
+          {% if claude_code_model != '' %}
+          export ANTHROPIC_MODEL={{ claude_code_model }}
+          {% endif %}
+          {% if claude_code_small_model != '' %}
+          export ANTHROPIC_SMALL_FAST_MODEL={{ claude_code_small_model }}
+          {% endif %}
+      become: yes
+
+    # ========================================
+    # Step 3: Configure Claude Code Settings
+    # ========================================
+    # Ensure ssm-user exists (created by SSM on first connect, but we need it now)
+    - name: Check if user exists
+      ansible.builtin.command:
+        cmd: "id {{ claude_code_user }}"
+      register: user_check
+      changed_when: false
+      failed_when: false
+      become: yes
+
+    - name: Create ssm-user if it doesn't exist
+      ansible.builtin.user:
+        name: "{{ claude_code_user }}"
+        comment: "SSM Session Manager user"
+        home: "/home/{{ claude_code_user }}"
+        shell: /bin/bash
+        create_home: yes
+      become: yes
+      when: user_check.rc != 0
+
+    - name: Configure passwordless sudo for SSM user
+      ansible.builtin.copy:
+        dest: "/etc/sudoers.d/{{ claude_code_user }}"
+        mode: '0440'
+        validate: 'visudo -cf %s'
+        content: |
+          # Allow SSM Session Manager user to run sudo without password
+          # Required for interactive SSM sessions on Ubuntu-based AMIs
+          {{ claude_code_user }} ALL=(ALL) NOPASSWD:ALL
+      become: yes
+
+    - name: Add SSM user to docker group for container access
+      ansible.builtin.user:
+        name: "{{ claude_code_user }}"
+        groups: docker
+        append: yes
+      become: yes
+      failed_when: false
+
+    - name: Pre-create .claude.json file for ssm-user (avoids permission errors)
+      ansible.builtin.copy:
+        dest: "/home/{{ claude_code_user }}/.claude.json"
+        owner: "{{ claude_code_user }}"
+        group: "{{ claude_code_user }}"
+        mode: '0644'
+        content: "{}\n"
+        force: no
+      become: yes
+
+    - name: Create .claude directory for user
+      ansible.builtin.file:
+        path: "/home/{{ claude_code_user }}/.claude"
+        state: directory
+        owner: "{{ claude_code_user }}"
+        group: "{{ claude_code_user }}"
+        mode: '0755'
+      become: yes
+
+    - name: Create Claude Code settings file with Bedrock configuration
+      ansible.builtin.copy:
+        dest: "/home/{{ claude_code_user }}/.claude/settings.json"
+        owner: "{{ claude_code_user }}"
+        group: "{{ claude_code_user }}"
+        mode: '0644'
+        content: |
+          {
+            "env": {
+              "CLAUDE_CODE_USE_BEDROCK": "1",
+              "AWS_REGION": "{{ aws_region }}"
+            },
+            "alwaysThinkingEnabled": true
+          }
+      become: yes
+
+
+    # ========================================
+    # Step 4: Verify Installation
+    # ========================================
+    - name: Verify Claude Code installation
+      ansible.builtin.command:
+        cmd: /usr/local/bin/claude --version
+      register: claude_version
+      changed_when: false
+      failed_when: false
+      become: yes
+
+    - name: Display Claude Code version
+      ansible.builtin.debug:
+        msg: "Claude Code installed: {{ claude_version.stdout }}"
+      when: claude_version.rc == 0
+
+    - name: Warn if Claude Code verification failed
+      ansible.builtin.debug:
+        msg: "Warning: Claude Code verification failed. Check logs."
+      when: claude_version.rc != 0
+
+    - name: Display usage instructions
+      ansible.builtin.debug:
+        msg: |
+          Claude Code installation complete!
+
+          Usage:
+          1. SSH into this instance: aws ssm start-session --target <instance-id>
+          2. Source environment: source /etc/profile.d/claude-bedrock.sh
+          3. Run Claude Code: claude
+
+          Configuration:
+          - Bedrock enabled: CLAUDE_CODE_USE_BEDROCK=1
+          - Region: {{ aws_region }}
+          - Settings: /home/{{ claude_code_user }}/.claude/settings.json
+          - Binary location: /usr/local/bin/claude (global install)
+
+          Note: Works in any shell (sh, bash, etc). Just source the profile.d script first.

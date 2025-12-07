@@ -1,0 +1,8 @@
+# Docker Compose for isolated testing in generic containers
+services:
+  agent:
+    image: ubuntu:24.04
+    privileged: true
+    working_dir: /
+    volumes:
+      - ./scripts:/scripts:ro

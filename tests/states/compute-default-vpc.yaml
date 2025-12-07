@@ -1,0 +1,14 @@
+# Integration test: compute with default VPC fallback
+matrix:
+  tenants:
+    bravo:
+      entitlements: [compute.*]
+
+services:
+  compute:
+    rocky-linux:
+      type: ec2
+      ami_filter: "Rocky-9-EC2-Base-9.*x86_64"
+      ami_owner: "792107900819"
+      instance_type: "t3.micro"
+      count: 1

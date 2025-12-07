@@ -1,0 +1,126 @@
+---
+# Ansible playbook to install and configure Grafana Alloy log collection agent
+# Ships logs from configured paths to Loki via the LGTM observability stack
+# Self-healing: runs every 30 minutes via Ansible controller
+#
+# LOKI_ENDPOINT is injected by Terraform from the Terraform-managed NLB DNS name
+# (no runtime discovery needed — the NLB is in Terraform state)
+
+- name: Install and configure Grafana Alloy
+  hosts: linux
+  become: yes
+  vars:
+    loki_endpoint: "{{ LOKI_ENDPOINT }}"
+    log_paths: "{{ LOG_PATHS | default('/var/log/messages,/var/log/secure') }}"
+    aws_region: "{{ AWS_REGION | default('us-east-2') }}"
+
+  tasks:
+    # ── Validate Loki endpoint ─────────────────────────────────────────────
+    - name: Validate Loki endpoint is provided
+      ansible.builtin.fail:
+        msg: "LOKI_ENDPOINT must be provided (got: {{ loki_endpoint }})"
+      when: loki_endpoint == "" or loki_endpoint is not defined
+
+    # ── Install Grafana Alloy ───────────────────────────────────────────────
+    - name: Import Grafana GPG key
+      ansible.builtin.rpm_key:
+        key: https://rpm.grafana.com/gpg.key
+        state: present
+      when: ansible_os_family == "RedHat"
+
+    - name: Add Grafana RPM repository
+      ansible.builtin.yum_repository:
+        name: grafana
+        description: Grafana OSS Repository
+        baseurl: https://rpm.grafana.com
+        gpgcheck: yes
+        gpgkey: https://rpm.grafana.com/gpg.key
+        enabled: yes
+      when: ansible_os_family == "RedHat"
+
+    - name: Install Alloy package (RedHat)
+      ansible.builtin.dnf:
+        name: alloy
+        state: present
+      when: ansible_os_family == "RedHat"
+
+    - name: Add Grafana APT key (Debian)
+      ansible.builtin.apt_key:
+        url: https://apt.grafana.com/gpg.key
+        state: present
+      when: ansible_os_family == "Debian"
+
+    - name: Add Grafana APT repository (Debian)
+      ansible.builtin.apt_repository:
+        repo: "deb https://apt.grafana.com stable main"
+        state: present
+      when: ansible_os_family == "Debian"
+
+    - name: Install Alloy package (Debian)
+      ansible.builtin.apt:
+        name: alloy
+        state: present
+        update_cache: yes
+      when: ansible_os_family == "Debian"
+
+    # ── Grant log file access ─────────────────────────────────────────────────
+    # Alloy runs as the 'alloy' user but /var/log/messages and /var/log/secure
+    # are root-only on Rocky/RHEL. Add alloy to the 'adm' group for log access.
+    - name: Add alloy user to adm group for log file access
+      ansible.builtin.user:
+        name: alloy
+        groups: adm
+        append: yes
+      notify: Restart Alloy
+
+    - name: Install ACL package (RedHat)
+      ansible.builtin.dnf:
+        name: acl
+        state: present
+      when: ansible_os_family == "RedHat"
+
+    - name: Install ACL package (Debian)
+      ansible.builtin.apt:
+        name: acl
+        state: present
+      when: ansible_os_family == "Debian"
+
+    - name: Check which configured log paths exist
+      ansible.builtin.stat:
+        path: "{{ item }}"
+      loop: "{{ log_paths.split(',') | map('trim') | list }}"
+      register: log_path_stats
+
+    - name: Set ACLs on existing log paths for adm group
+      ansible.builtin.acl:
+        path: "{{ item.stat.path }}"
+        entity: adm
+        etype: group
+        permissions: r
+        state: present
+      loop: "{{ log_path_stats.results }}"
+      loop_control:
+        label: "{{ item.item }}"
+      when: item.stat.exists
+
+    # ── Configure and start ─────────────────────────────────────────────────
+    - name: Template Alloy configuration
+      ansible.builtin.template:
+        src: templates/config.alloy.j2
+        dest: /etc/alloy/config.alloy
+        owner: root
+        group: root
+        mode: '0644'
+      notify: Restart Alloy
+
+    - name: Enable and start Alloy service
+      ansible.builtin.systemd:
+        name: alloy
+        enabled: yes
+        state: started
+
+  handlers:
+    - name: Restart Alloy
+      ansible.builtin.systemd:
+        name: alloy
+        state: restarted

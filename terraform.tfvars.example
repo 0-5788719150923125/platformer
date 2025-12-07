@@ -1,0 +1,26 @@
+# Example Terraform variables configuration
+# Copy this file to terraform.tfvars and customize for your deployment
+#
+# Workspace overrides: Create terraform.tfvars.{workspace} to override per environment.
+# See workspaces/README.md for details.
+
+# AWS Configuration
+aws_profile = "org-platform-dev"
+aws_region  = "us-east-2"
+owner       = "Platform"
+
+# ================================
+# Service Configuration via States
+# ================================
+# Load YAML state fragments (same ones used by CI) to configure services.
+# This is the recommended approach for consistency with CI/CD.
+#
+# State fragments are stored in states/ directory and define service configurations.
+# See states/README.md for available state fragments and their configurations.
+
+# Recommended: Load state fragments
+states = ["configuration-management-hourly"]
+
+# Alternative Examples:
+# states = ["configuration-management-monthly", "compute-windows-test"]  # Load multiple states
+# states = []  # No states (deploy with defaults)

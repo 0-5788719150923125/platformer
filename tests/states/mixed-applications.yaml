@@ -1,0 +1,32 @@
+# Test: Mixed application deployment types (user-data + SSM + ansible)
+matrix:
+  tenants:
+    bravo:
+      entitlements: [compute.*]
+
+services:
+  compute:
+    redis-mixed:
+      type: ec2
+      ami_filter: "Rocky-9-EC2-Base-9.*x86_64"
+      ami_owner: "792107900819"
+      instance_type: t3.small
+      volume_size: 30
+      count: 1
+      applications:
+        - script: install-ssm-agent.sh
+          type: user-data
+          params: {}
+        - script: install-aws-cli.sh
+          type: user-data
+          params: {}
+        - script: install-redis.sh
+          type: ssm
+          params: {}
+        - script: install-postgresql.sh
+          type: ssm
+          params:
+            POSTGRES_VERSION: "15"
+
+  configuration-management:
+    enabled: true

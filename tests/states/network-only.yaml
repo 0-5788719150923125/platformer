@@ -1,0 +1,22 @@
+# Integration test: network-only deployment (no compute)
+services:
+  networks:
+    shared:
+      base_cidr: "10.0.0.0/8"
+      allocation_method: "deterministic"
+      az_count: 3
+      enable_nat_gateway: true
+      subnet_topology:
+        private:
+          cidr_newbits: 8
+          offset: 0
+          nat_gateway: true
+        public:
+          cidr_newbits: 10
+          offset: 100
+          internet_gateway: true
+          map_public_ip_on_launch: true
+        intra:
+          cidr_newbits: 4
+          offset: 8
+          isolated: true

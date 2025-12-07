@@ -1,0 +1,45 @@
+{
+  "identifier": "run_command",
+  "title": "Run Command",
+  "icon": "Terminal",
+  "description": "Execute a shell command on an EC2 instance via AWS SSM",
+  "trigger": {
+    "type": "self-service",
+    "operation": "DAY-2",
+    "userInputs": {
+      "properties": {
+        "command": {
+          "type": "string",
+          "title": "Command",
+          "description": "Shell command to execute on the instance",
+          "default": "echo 'hello world'"
+        }
+      },
+      "required": []
+    },
+    "blueprintIdentifier": "computeInstance"
+  },
+  "invocationMethod": {
+    "type": "WEBHOOK",
+    "agent": true,
+    "url": "http://action-handler:8080/webhook",
+    "method": "POST",
+    "synchronized": false,
+    "body": {
+      "action": "{{ .action.identifier }}",
+      "resourceType": "run",
+      "context": {
+        "entity": "{{ .entity.identifier }}",
+        "blueprint": "{{ .action.blueprint }}",
+        "runId": "{{ .run.id }}"
+      },
+      "payload": {
+        "entity": "{{ .entity }}",
+        "properties": {
+          "command": "{{ .inputs.command }}"
+        }
+      }
+    }
+  },
+  "requiredApproval": false
+}

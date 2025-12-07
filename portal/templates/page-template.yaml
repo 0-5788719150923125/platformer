@@ -1,0 +1,298 @@
+identifier: ${namespace}
+title: "${page_title}"
+icon: Server
+type: dashboard
+parent: ${parent_folder}
+widgets:
+  - id: dashboardWidget
+    type: dashboard-widget
+    layout:
+      - height: 600
+        columns:
+          - id: documentation-table
+            size: 6
+          - id: readme-widget
+            size: 6
+      - height: 400
+        columns:
+          - id: git-commits-table
+            size: 4
+          - id: tenant-entitlements-table
+%{ if has_service_urls ~}
+            size: 3
+          - id: service-urls-table
+            size: 5
+%{ else ~}
+            size: 8
+%{ endif ~}
+      - height: 500
+        columns:
+          - id: event-bus-table
+%{ if has_artifacts ~}
+            size: 8
+          - id: artifacts-table
+            size: 4
+%{ else ~}
+            size: 12
+%{ endif ~}
+      - height: 600
+        columns:
+          - id: instance-table
+%{ if has_patch_management ~}
+            size: 9
+          - id: patch-readiness-pie
+            size: 3
+%{ else ~}
+            size: 12
+%{ endif ~}
+%{ if has_storage ~}
+      - height: 800
+        columns:
+          - id: storage-table
+            size: 12
+%{ endif ~}
+    widgets:
+      - id: instance-table
+        type: table-entities-explorer
+        title: Compute
+        icon: Server
+        description: EC2, EKS, and ECS resources deployed in this namespace
+        blueprint: computeInstance-${namespace}
+        displayMode: widget
+        dataset:
+          combinator: and
+          rules:
+            - property: namespace
+              operator: "="
+              value: "${namespace}"
+        blueprintConfig:
+          computeInstance-${namespace}:
+            propertiesSettings:
+              order: []
+              shown:
+                - $title
+                - class
+                - type
+                - region
+                - workspace
+                - awsProfile
+                - status
+                - $updatedAt
+                - sessionManagerUrl
+      - id: documentation-table
+        type: table-entities-explorer
+        title: Documentation
+        icon: Book
+        description: Browse design documents, module READMEs, and technical specifications
+        blueprint: documentation-${namespace}
+        displayMode: widget
+        dataset:
+          combinator: and
+          rules:
+            - property: namespace
+              operator: "="
+              value: "${namespace}"
+        blueprintConfig:
+          documentation-${namespace}:
+            sortSettings:
+              sortBy:
+                - property: category
+                  order: asc
+                - property: $title
+                  order: asc
+            propertiesSettings:
+              order: []
+              shown:
+                - $title
+                - category
+                - summary
+                - $updatedAt
+      - id: readme-widget
+        type: markdown
+        title: About
+        icon: Book
+        description: Framework overview and repository information
+        markdown: |
+          ${readme_content}
+      - id: git-commits-table
+        type: table-entities-explorer
+        title: Recent Commits
+        icon: Git
+        description: Recent git commits for the platformer repository
+        blueprint: gitCommit-${namespace}
+        displayMode: widget
+        dataset:
+          combinator: and
+          rules:
+            - property: namespace
+              operator: "="
+              value: "${namespace}"
+        blueprintConfig:
+          gitCommit-${namespace}:
+            sortSettings:
+              sortBy:
+                - property: absoluteTimestamp
+                  order: desc
+            propertiesSettings:
+              order: []
+              shown:
+                - $title
+                - title
+                - author
+                - absoluteTimestamp
+                - commitUrl
+      - id: event-bus-table
+        type: table-entities-explorer
+        title: Event Bus
+        icon: Webhook
+        description: Lifecycle events from infrastructure components
+        blueprint: eventBus-${namespace}
+        displayMode: widget
+        dataset:
+          combinator: and
+          rules: []
+        blueprintConfig:
+          eventBus-${namespace}:
+            sortSettings:
+              sortBy:
+                - property: timestamp
+                  order: desc
+            propertiesSettings:
+              order: []
+              shown:
+                - eventType
+                - status
+                - message
+                - resourceName
+                - workspace
+                - timestamp
+                - duration
+                - awsUrl
+%{ if has_artifacts ~}
+      - id: artifacts-table
+        type: table-entities-explorer
+        title: Artifacts
+        icon: Package
+        description: Build artifacts produced by platformer modules
+        blueprint: artifact-${namespace}
+        displayMode: widget
+        dataset:
+          combinator: and
+          rules:
+            - property: namespace
+              operator: "="
+              value: "${namespace}"
+        blueprintConfig:
+          artifact-${namespace}:
+            sortSettings:
+              sortBy:
+                - property: createdAt
+                  order: desc
+            propertiesSettings:
+              order: []
+              shown:
+                - $title
+                - artifactType
+                - workspace
+                - createdAt
+                - url
+%{ endif ~}
+      - id: tenant-entitlements-table
+        type: table-entities-explorer
+        title: Tenant Entitlements
+        icon: Users
+        description: Tenants and their service entitlements
+        blueprint: tenantEntitlement-${namespace}
+        displayMode: widget
+        dataset:
+          combinator: and
+          rules:
+            - property: namespace
+              operator: "="
+              value: "${namespace}"
+        blueprintConfig:
+          tenantEntitlement-${namespace}:
+            sortSettings:
+              sortBy:
+                - property: $title
+                  order: asc
+            propertiesSettings:
+              order: []
+              shown:
+                - $title
+                - entitlements
+%{ if has_service_urls ~}
+      - id: service-urls-table
+        type: table-entities-explorer
+        title: Service URLs
+        icon: Link
+        description: Service access URLs by tenant
+        blueprint: serviceUrl-${namespace}
+        displayMode: widget
+        dataset:
+          combinator: and
+          rules:
+            - property: namespace
+              operator: "="
+              value: "${namespace}"
+        blueprintConfig:
+          serviceUrl-${namespace}:
+            sortSettings:
+              sortBy:
+                - property: urlLabel
+                  order: asc
+            propertiesSettings:
+              shown:
+                - urlLabel
+                - workspace
+                - tenantList
+                - url
+%{ endif ~}
+%{ if has_storage ~}
+      - id: storage-table
+        type: table-entities-explorer
+        title: Storage
+        icon: Database
+        description: S3 buckets, RDS clusters, ElastiCache clusters, and CodeCommit repositories
+        blueprint: storage-${namespace}
+        displayMode: widget
+        dataset:
+          combinator: and
+          rules:
+            - property: namespace
+              operator: "="
+              value: "${namespace}"
+        blueprintConfig:
+          storage-${namespace}:
+            sortSettings:
+              sortBy:
+                - property: storageType
+                  order: asc
+            propertiesSettings:
+              order: []
+              shown:
+                - $title
+                - storageType
+                - engine
+                - workspace
+                - description
+                - url
+%{ endif ~}
+%{ if has_patch_management ~}
+      - id: patch-readiness-pie
+        type: entities-pie-chart
+        title: Patch Management Readiness
+        icon: PieChart
+        description: Distribution of EC2 instances by patch management readiness level
+        blueprint: computeInstance-${namespace}
+        property: "property#patchReadinessLevel"
+        dataset:
+          combinator: and
+          rules:
+            - property: namespace
+              operator: "="
+              value: "${namespace}"
+            - property: type
+              operator: "="
+              value: "ec2"
+%{ endif ~}

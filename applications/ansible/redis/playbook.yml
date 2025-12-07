@@ -1,0 +1,125 @@
+---
+# Redis lifecycle management playbook
+# Runs from Ansible controller via aws_ssm connection plugin
+# Executed every 30 minutes for self-healing configuration management
+#
+# Lifecycle parameters passed via Ansible extra vars:
+#   STATE (default: present) - present|absent|latest
+#   REDIS_VERSION (optional) - specific version to install (e.g., "7.0.0")
+#   REDIS_BIND_ADDRESS (default: 127.0.0.1)
+#   REDIS_PORT (default: 6379)
+#   REDIS_MAXMEMORY (default: 256mb)
+#   SERVICE_STATE (default: started) - started|stopped|restarted
+
+- name: Manage Redis lifecycle
+  hosts: linux
+  become: yes
+
+  vars:
+    # Variables passed via AWS-ApplyAnsiblePlaybooks ExtraVariables parameter
+    # These are Ansible variables (passed as -e KEY=value), not environment variables
+
+    # Lifecycle control
+    state: "{{ STATE | default('present', true) }}"
+    redis_version: "{{ REDIS_VERSION | default('', true) }}"
+    service_state: "{{ SERVICE_STATE | default('started', true) }}"
+
+    # Configuration parameters
+    redis_bind_address: "{{ REDIS_BIND_ADDRESS | default('127.0.0.1', true) }}"
+    redis_port: "{{ REDIS_PORT | default('6379', true) }}"
+    redis_maxmemory: "{{ REDIS_MAXMEMORY | default('256mb', true) }}"
+
+  tasks:
+    # ========== Installation/Removal Block ==========
+    - name: Install EPEL repository
+      dnf:
+        name: epel-release
+        state: present
+      when: state in ['present', 'latest']
+
+    - name: Manage Redis package
+      dnf:
+        name: "redis{% if redis_version != '' %}-{{ redis_version }}{% endif %}"
+        state: "{{ state }}"
+      when: state in ['present', 'absent', 'latest']
+
+    # ========== Configuration Block (only if present) ==========
+    - name: Configure Redis bind address
+      lineinfile:
+        path: /etc/redis/redis.conf
+        regexp: '^bind '
+        line: "bind {{ redis_bind_address }}"
+        backup: yes
+      notify: Restart Redis
+      when: state in ['present', 'latest']
+
+    - name: Configure Redis port
+      lineinfile:
+        path: /etc/redis/redis.conf
+        regexp: '^port '
+        line: "port {{ redis_port }}"
+        backup: yes
+      notify: Restart Redis
+      when: state in ['present', 'latest']
+
+    - name: Configure Redis maxmemory
+      lineinfile:
+        path: /etc/redis/redis.conf
+        regexp: '^maxmemory '
+        line: "maxmemory {{ redis_maxmemory }}"
+        backup: yes
+      notify: Restart Redis
+      when: state in ['present', 'latest']
+
+    # ========== Service Management Block ==========
+    - name: Enable Redis service
+      systemd:
+        name: redis
+        enabled: yes
+      when: state in ['present', 'latest']
+
+    - name: Manage Redis service state
+      systemd:
+        name: redis
+        state: "{{ service_state }}"
+      when: state in ['present', 'latest']
+
+    - name: Disable and stop Redis service
+      systemd:
+        name: redis
+        enabled: no
+        state: stopped
+      when: state == 'absent'
+      failed_when: false
+
+    # ========== Verification Block (only if present and started) ==========
+    - name: Wait for Redis to be ready
+      wait_for:
+        port: "{{ redis_port }}"
+        host: "{{ redis_bind_address }}"
+        timeout: 30
+      when:
+        - state in ['present', 'latest']
+        - service_state in ['started', 'restarted']
+
+    - name: Verify Redis is responding
+      command: "redis-cli -h {{ redis_bind_address }} -p {{ redis_port }} ping"
+      register: redis_ping
+      failed_when: redis_ping.stdout != "PONG"
+      changed_when: false
+      when:
+        - state in ['present', 'latest']
+        - service_state in ['started', 'restarted']
+
+    - name: Display Redis status
+      debug:
+        msg: "Redis {{ state }} - running on {{ redis_bind_address }}:{{ redis_port }} with maxmemory {{ redis_maxmemory }}"
+      when:
+        - state in ['present', 'latest']
+        - service_state in ['started', 'restarted']
+
+  handlers:
+    - name: Restart Redis
+      systemd:
+        name: redis
+        state: restarted

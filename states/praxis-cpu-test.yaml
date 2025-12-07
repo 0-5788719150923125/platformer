@@ -1,0 +1,75 @@
+# Praxis AI Agents Framework - CPU Test Environment
+# CPU-only distributed training cluster with t4g.xlarge instances
+# Repository: https://github.com/0-5788719150923125/praxis
+# Deploy with: states = ["praxis-cpu-test"]
+
+matrix:
+  tenants:
+    test:
+      entitlements: [compute.*]
+
+services:
+  portal:
+    enabled: true
+
+  domains:
+    zone: dev-platform.example.com
+
+  secrets:
+    huggingface/hf_token:
+      source_secret_id: "huggingface"
+      source_provider: "self"
+      json_key: "HF_TOKEN"
+      description: "HuggingFace API token for authenticated model downloads"
+      access: account
+
+  compute:
+    praxis-cpu-test:
+      type: ec2
+      count: 4            # 4-node cluster: 1 master (rank 0) + 7 workers (rank 1-7)
+      mode: 1-master      # per-instance application requests with NODE_RANK/MASTER_ADDR injected
+      build: false        # build one golden AMI, launch all 8 nodes from it
+
+      # CPU Instance Configuration
+      # t4g.xlarge: ARM64 Graviton2, 2 vCPU, 8GB RAM, CPU-only
+      # Deep Learning AMI comes with NVIDIA drivers (unused on CPU), Docker, Python pre-installed
+      instance_type: t4g.large
+
+      # AWS Deep Learning AMI (Ubuntu 24.04) ARM64 - Docker, PyTorch 2.9 pre-installed
+      ami_filter: "Deep Learning ARM64 AMI OSS Nvidia Driver GPU PyTorch 2.9 (Ubuntu 24.04)*"
+      ami_owner: "amazon"
+
+      # Storage: 100GB root for OS + PyTorch venv + Docker images + model weights
+      volume_size: 100
+      volume_type: gp3
+
+      # Network: Public subnet with public IP (for HTTP access on port 8080)
+      subnet_tier: public
+      associate_public_ip: true
+
+      # Security: HTTPS via ALB on port 8080 from anywhere (Zscaler WebSocket-friendly)
+      # Port 29500 (DDP rendezvous) is opened intra-cluster via cluster_port below
+      ingress:
+        - port: 8080
+          cidrs: ["0.0.0.0/0"]
+          protocol: https
+
+      # DDP rendezvous port: opens a self-referencing SG rule so nodes can reach each other
+      cluster_port: 29500
+
+      description: "Praxis AI agents framework - 8-node distributed CPU training cluster"
+
+      # Application Installation
+      # In 1-master mode, this playbook is expanded to 8 per-instance entries.
+      # Each receives NODE_RANK (0-7), NUM_NODES (8), MASTER_ADDR (node-0 private IP),
+      # and MASTER_PORT (29500) automatically. The playbook appends these to PRAXIS_LAUNCH_ARGS.
+      applications:
+        - type: ansible
+          playbook: praxis
+          params:
+            # Praxis configuration
+            PRAXIS_REPO_URL: "github.com/0-5788719150923125/praxis"
+            PRAXIS_BRANCH: "main"
+            PRAXIS_INSTALL_DIR: "/opt/praxis"
+            PRAXIS_PORT: "8080"
+            PRAXIS_LAUNCH_ARGS: "compose --beta-cpu --headless --no-dashboard --no-checkpoints --port 8080 --reset"

@@ -1,0 +1,17 @@
+version: 0.2
+phases:
+  install:
+    commands:
+      - pip install ansible boto3 botocore pyyaml
+      - ansible-galaxy collection install amazon.aws
+      - curl -sL "https://s3.amazonaws.com/session-manager-downloads/plugin/latest/ubuntu_64bit/session-manager-plugin.deb" -o /tmp/ssm.deb && dpkg -i /tmp/ssm.deb
+  build:
+    commands:
+      - aws s3 cp "s3://${MANIFEST_BUCKET}/ansible-controller/manifest.json" manifest.json
+      - aws s3 sync "s3://${MANIFEST_BUCKET}/ansible-playbooks/" ansible-playbooks/
+      - aws s3 cp "s3://${MANIFEST_BUCKET}/ansible-controller/" controller/ --recursive --exclude "buildspec.yml" --exclude "manifest.json"
+      - >
+        ANSIBLE_CONFIG=controller/ansible.cfg
+        python3 controller/orchestrator.py
+        --manifest manifest.json
+        --playbooks-dir ansible-playbooks

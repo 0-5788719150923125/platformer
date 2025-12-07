@@ -1,0 +1,7 @@
+# Files to upload to S3 for the Maestro bootstrap playbook
+# The Maestro RPM is downloaded from Artifactory at plan time and pushed to S3,
+# because EC2 instances may not have outbound internet access to rnd-artifacts.
+uploads:
+  - type: url
+    url: "https://artifacts.vendor.example.com/artifactory/vendor-products/vendor-maestro-automation/prod/common/noarch/vendor-maestro-automation-1.0.2-P1.noarch.rpm"
+    filename: "vendor-maestro-automation-1.0.2-P1.noarch.rpm"

@@ -1,0 +1,22 @@
+# Test: EKS cluster deployment via unified compute interface
+matrix:
+  tenants:
+    bravo:
+      entitlements: [compute.*]
+
+services:
+  compute:
+    eks-test:
+      type: eks
+      version: "1.34"
+      support_type: "STANDARD"
+      endpoint_private_access: true
+      endpoint_public_access: true
+      node_groups:
+        general:
+          instance_types: ["t3.small"]
+          min_size: 1
+          max_size: 2
+          desired_size: 1
+          labels:
+            environment: "test"

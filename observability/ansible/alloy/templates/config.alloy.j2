@@ -1,0 +1,29 @@
+// Grafana Alloy configuration - managed by Ansible
+// Ships local log files to Loki
+
+local.file_match "log_files" {
+  path_targets = [
+{% for path in log_paths.split(',') %}
+    { "__path__" = "{{ path.strip() }}", "job" = "{{ path.strip() | basename }}" },
+{% endfor %}
+  ]
+  sync_period = "10s"
+}
+
+loki.source.file "local_logs" {
+  targets    = local.file_match.log_files.targets
+  forward_to = [loki.write.default.receiver]
+
+  tail_from_end = true
+}
+
+loki.write "default" {
+  endpoint {
+    url = "{{ loki_endpoint }}"
+  }
+
+  external_labels = {
+    "hostname" = env("HOSTNAME"),
+    "instance_id" = sys.env("HOSTNAME"),
+  }
+}

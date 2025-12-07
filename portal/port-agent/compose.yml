@@ -1,0 +1,52 @@
+services:
+  # Port execution agent - receives action invocations from Port
+  port-agent:
+    image: ghcr.io/port-labs/port-agent:latest
+    container_name: platformer-port-agent-${NAMESPACE:-default}
+    env_file:
+      - .env
+    environment:
+      # Use POLLING streamer (no Kafka setup required)
+      STREAMER_NAME: "POLLING"
+      # Port API base URL (US region)
+      PORT_API_BASE_URL: "https://api.us.getport.io"
+    restart: always
+    networks:
+      - port-network
+
+  # Action handler - receives webhooks from agent and executes commands
+  action-handler:
+    build: ./action-handler
+    container_name: platformer-action-handler-${NAMESPACE:-default}
+    env_file:
+      - .env
+    environment:
+      # Port API base URL (US region)
+      PORT_BASE_URL: "https://api.us.getport.io"
+      # AWS credentials
+      AWS_PROFILE: "${AWS_PROFILE}"
+      AWS_REGION: "${AWS_REGION:-us-east-2}"
+      # Namespace for filtering entities
+      NAMESPACE: "${NAMESPACE}"
+      # Terraform workspace and state root (for state_taint handler)
+      TERRAFORM_WORKSPACE: "${TERRAFORM_WORKSPACE:-default}"
+      TERRAFORM_STATE_ROOT: "/app/tfstate"
+    volumes:
+      # Mount AWS credentials for SSO
+      - ~/.aws:/root/.aws:ro
+      # Mount kubeconfig for EKS/kubectl access
+      - ~/.kube:/root/.kube:ro
+      # Mount command registry for dynamic action dispatch (per-workspace files merged at load)
+      - ./commands.d:/app/commands.d:ro
+      # Mount Terraform state root for state_taint handler (read-write)
+      # Includes terraform.tfstate and terraform.tfstate.d/*/terraform.tfstate
+      - ../../:/app/tfstate
+    ports:
+      - "8080:8080"
+    restart: always
+    networks:
+      - port-network
+
+networks:
+  port-network:
+    driver: bridge
