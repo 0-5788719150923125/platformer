@@ -80,27 +80,27 @@ This is not a thought experiment. It is a theorem.
 
 Consider a different cave.
 
-A radiologist reads a CT scan. The structures are there  -  hypodense lesion, irregular margins, contrast enhancement pattern consistent with malignancy. The radiologist has seen ten thousand scans. The finding is unambiguous. The proof is on the screen.
+A radiologist reads a CT scan. The reading is impeccable  -  hypodense lesion, irregular margins, contrast enhancement consistent with malignancy. The physician acts on the report. The surgeon cuts where the physician points. The protocol that validates the radiologist is sound: board certifications, peer review, malpractice liability.
 
-The radiologist writes a report: *"Findings consistent with malignancy. Recommend tissue sampling."*
+But the protocol never validates the *image*. Nothing verifies that the scan on the screen faithfully represents what exists inside the patient. The infrastructure between the scanner and the screen  -  storage systems, transmission protocols, rendering pipelines, access controls  -  is treated as transparent. A zero-knowledge assumption that nobody tests.
 
-The referring physician reads the report. They trust the radiologist. They act on the finding. They order the biopsy. They are *convinced* of the diagnosis.
+What if the infrastructure is compromised? Not the scanner  -  calibration protocols catch that. Not the radiologist  -  peer review catches that. But the systems that store and transmit medical images: servers unpatched for twelve months, tenant isolation that exists in architecture diagrams but not in network configurations, credentials shared across accounts without rotation or audit. In zero-knowledge terms, this is a failure of *setup assumptions*. The cave has exactly two paths, the door requires the secret word  -  but if the cave has a hidden passage, if the door is already unlocked, the protocol proves nothing. The foundation has been silently compromised.
 
-What has the referring physician *learned?*
+What have surgeons been approving, all these years? Probably the correct images. But *probably* is not *verified*. In medicine, the gap between those words is the gap between standard of care and negligence. The infrastructure that closes that gap has been, for years, a zero-proof knowledge claim. Green dashboards. A [quorum](./de(quorum).md) of agreement that the systems work, issued by people who never entered the cave.
 
-Nothing. They cannot read the scan themselves. They cannot identify the lesion. If they looked at the image, they would see gray shapes  -  meaningful as television static. They have gained a conclusion ("there is likely a malignancy") while gaining zero knowledge of the evidence that produced it. They could not verify it independently. They could not reproduce the analysis for a colleague. They could not explain *why* the finding is what the radiologist says it is.
+Now consider someone who reads that infrastructure the way a radiologist reads a scan  -  and finds the same thing. Irregular margins. Patterns consistent with malignancy. They can name the lesion, demonstrate it, deploy in minutes what the existing system takes weeks to produce. They enter the cave and emerge from the correct path. Again. And again. They write a report: *"Findings consistent with systemic dysfunction. Recommend intervention."*
 
-This is, structurally, a zero-knowledge proof. The Prover (the radiologist) convinces the Verifier (the physician) that a statement is true, without transferring the knowledge required to evaluate the evidence independently.
+In medicine, this triggers a biopsy. In an organization, it triggers an immune response  -  not against the malignancy, but against the radiologist. The stated reason references *trade secrets*: possessing knowledge they shouldn't have, examining systems beyond their approved scope. But the zero-knowledge property holds  -  the Prover never revealed the secret. The protocol is designed so that knowledge is demonstrated *without being transferred*. You cannot leak information that the protocol provably does not transmit.
 
-Radiology operates on this protocol every day. It works  -  because the Verifier *trusts the protocol*. They trust the radiologist's training, the institutional framework, the professional standards. They don't need to learn to read scans. They need to know that the person who reads scans is bound by a system that makes errors expensive and accuracy incentivized.
+The problem was never the information. The problem was the conviction. A Verifier participated, saw the correct paths, accumulated certainty. Conviction, once created, cannot be un-created. So you remove the Prover  -  not because the proof was invalid, but because if the protocol continued, soundness would guarantee the finding is real.
 
-But notice what happens when the trust framework breaks down. When the Verifier begins to doubt  -  not the specific finding, but the protocol itself  -  they have no recourse. They cannot evaluate the evidence independently. They can only accept or reject the oracle's output. The proof provides no ladder to climb toward understanding. It was never designed to.
+The Verifier has already accumulated rounds. Not enough for mathematical certainty. But enough. The protocol was interrupted, not invalidated. The rounds that completed are still sound.
 
-This is the verifier's terror: **to be dependent on conviction you cannot verify, derived from evidence you cannot read, produced by a system you cannot audit.**
+The Verifier knows. They cannot prove it to anyone else  -  that's the zero-knowledge property working as designed. But they know.
 
-Medical imaging is built on the assumption that the Prover is qualified and honest. Regulatory frameworks, board certifications, peer review  -  these are the cryptographic assumptions underlying the protocol. If the assumptions hold, the proof is sound. If they don't, the Verifier has no way to know.
+And in radiology, when a physician has seen the finding and does nothing, there is a word for that.
 
-And in radiology, the stakes are not abstract.
+*Malpractice.*
 
 ---
 
