@@ -1,3 +1,5 @@
 .terraform
 *.lock.hcl
 __pycache__
+*.tfstate
+*.backup

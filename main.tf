@@ -1,17 +1,21 @@
-# Current region and account data sources
-data "aws_region" "current" {}
+# Current region and account data sources (only when AWS is configured)
+data "aws_region" "current" {
+  count = local.aws_configured ? 1 : 0
+}
 
-# Derive account ID from authenticated session (works with any auth method)
-data "aws_caller_identity" "current" {}
+data "aws_caller_identity" "current" {
+  count = local.aws_configured ? 1 : 0
+}
 
 locals {
-  # Convenience aliases for commonly used values (thin wrappers, no complex logic)
-  aws_account_id = data.aws_caller_identity.current.account_id
+  # Convenience aliases — fall back to variable values when AWS is not configured
+  aws_account_id = local.aws_configured ? data.aws_caller_identity.current[0].account_id : "not-configured"
+  aws_region     = local.aws_configured ? data.aws_region.current[0].id : module.workspaces.aws_region
 
   # Module enable flags from resolver module
   # Resolver analyzes service configs and determines which modules to enable
-  # Storage is always enabled - archivist is always-on and always provisions a bucket
-  storage_enabled                  = true
+  # Storage requires AWS - disabled when aws_profile is null
+  storage_enabled                  = local.aws_configured
   compute_enabled                  = module.resolver.compute
   configuration_management_enabled = module.resolver.configuration_management
   applications_enabled             = module.resolver.applications
@@ -168,7 +172,7 @@ module "access" {
 
   namespace      = module.namespace.id
   aws_account_id = local.aws_account_id
-  aws_region     = data.aws_region.current.id
+  aws_region     = local.aws_region
 
   # IAM access requests (dependency inversion - access creates IAM resources)
   # Conditions must be config-derived (not length(module.X)) to avoid module-closure cycles
@@ -205,15 +209,15 @@ module "archivist" {
 
   bucket_name = "archivist-${module.namespace.id}"
   repo_name   = "archivist-${module.namespace.id}"
-  aws_profile = module.workspaces.aws_profile
-  aws_region  = data.aws_region.current.id
+  aws_profile = module.workspaces.aws_profile != null ? module.workspaces.aws_profile : ""
+  aws_region  = local.aws_region
   states      = module.workspaces.states
 
   # Access report upload - archivist coordinates the upload once both the
   # report file (access module) and its bucket (storage module) are ready.
   report_path        = module.access.report_path
   report_ready       = module.access.report_ready
-  report_bucket_name = module.storage[0].bucket_names["access-report"]
+  report_bucket_name = local.storage_enabled ? module.storage[0].bucket_names["access-report"] : ""
 }
 
 # Workspaces Module - Workspace-specific variable resolution
@@ -299,7 +303,7 @@ module "domains" {
 # Supports multiple named networks for VPC isolation
 # If no networks defined, auto-create a "default" network using AWS default VPC
 module "networks" {
-  for_each = lookup(module.config.service_configs, "networks", { default = { allocation_method = "default" } })
+  for_each = local.aws_configured ? lookup(module.config.service_configs, "networks", { default = { allocation_method = "default" } }) : {}
   source   = "./networking"
 
   # Core variables
@@ -321,7 +325,7 @@ module "storage" {
   namespace      = module.namespace.id
   aws_account_id = local.aws_account_id
   aws_profile    = module.workspaces.aws_profile
-  aws_region     = data.aws_region.current.id
+  aws_region     = local.aws_region
 
   # Collect bucket request definitions from all modules (dependency inversion pattern)
   # Modules define bucket requirements; storage module creates aws_s3_bucket resources
@@ -474,7 +478,7 @@ module "observability" {
   # Core variables
   namespace      = module.namespace.id
   aws_account_id = local.aws_account_id
-  aws_region     = data.aws_region.current.id
+  aws_region     = local.aws_region
 
   # Service-specific configuration
   config = module.config.service_configs["observability"]
@@ -526,7 +530,7 @@ module "configuration_management" {
   namespace      = module.namespace.id
   aws_account_id = local.aws_account_id
   aws_profile    = module.workspaces.aws_profile
-  aws_region     = data.aws_region.current.id
+  aws_region     = local.aws_region
 
   # Service-specific configuration (defaults handled by module)
   # May be auto-enabled by standalone applications without explicit configuration-management key
@@ -733,7 +737,7 @@ module "archorchestrator" {
   # Core variables
   namespace      = module.namespace.id
   aws_account_id = local.aws_account_id
-  aws_region     = data.aws_region.current.id
+  aws_region     = local.aws_region
   aws_profile    = module.workspaces.aws_profile
 
   # Service-specific configuration

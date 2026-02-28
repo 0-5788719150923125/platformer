@@ -22,7 +22,7 @@ locals {
 
   # Parse aws_profile: extract value from pattern `aws_profile = "value"`
   aws_profile_raw      = try(regex("aws_profile\\s*=\\s*\"([^\"]+)\"", local.workspace_file_content)[0], null)
-  resolved_aws_profile = coalesce(local.aws_profile_raw, var.default_aws_profile)
+  resolved_aws_profile = local.aws_profile_raw != null ? local.aws_profile_raw : var.default_aws_profile
 
   # Parse aws_region: extract value from pattern `aws_region = "value"`
   aws_region_raw      = try(regex("aws_region\\s*=\\s*\"([^\"]+)\"", local.workspace_file_content)[0], null)

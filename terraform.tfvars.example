@@ -4,10 +4,16 @@
 # Workspace overrides: Create terraform.tfvars.{workspace} to override per environment.
 # See workspaces/README.md for details.
 
-# AWS Configuration
+# AWS Configuration (omit aws_profile for local dev without AWS credentials)
 aws_profile = "org-platform-dev"
 aws_region  = "us-east-2"
 owner       = "Platform"
+
+# Cross-account providers (optional - omit for local dev without cross-account access)
+# cross_account_providers = {
+#   prod           = { profile = "example-platform-prod" }
+#   infrastructure = { profile = "example-infrastructure-prod" }
+# }
 
 # ================================
 # Service Configuration via States

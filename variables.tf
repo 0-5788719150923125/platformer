@@ -1,11 +1,11 @@
 # Core Infrastructure Variables
 variable "aws_profile" {
-  description = "AWS profile name for authentication (e.g., 'example-platform-dev', 'example-account-prod')"
+  description = "AWS profile name for authentication. Set to null to disable AWS (for local dev without credentials)."
   type        = string
-  default     = "example-platform-dev"
+  default     = null
 
   validation {
-    condition     = can(regex("^[a-zA-Z0-9_-]+$", var.aws_profile))
+    condition     = var.aws_profile == null || can(regex("^[a-zA-Z0-9_-]+$", var.aws_profile))
     error_message = "AWS profile name must contain only letters, numbers, hyphens, and underscores (no spaces)"
   }
 }
@@ -18,6 +18,20 @@ variable "aws_region" {
   validation {
     condition     = can(regex("^[a-z]{2,3}-[a-z]+-[0-9]+$", var.aws_region))
     error_message = "AWS region must be a valid region format (e.g., 'us-east-1', 'eu-west-2', 'ap-southeast-1')"
+  }
+}
+
+variable "cross_account_providers" {
+  description = "Cross-account AWS provider configurations. Keys: 'prod', 'infrastructure'."
+  type = map(object({
+    profile = string
+    region  = optional(string, "us-east-2")
+  }))
+  default = {}
+
+  validation {
+    condition     = alltrue([for k, _ in var.cross_account_providers : contains(["prod", "infrastructure"], k)])
+    error_message = "Keys must be 'prod' and/or 'infrastructure'."
   }
 }
 

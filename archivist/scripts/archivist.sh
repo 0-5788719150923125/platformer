@@ -9,14 +9,14 @@
 #   4. Rewrite local module sources to pinned git refs (github.com)
 #   5. Repack, update symlink, write manifest
 #
-# Output: platformer/archivist/build/platformer-<date>-<sha>.tar.gz
+# Output: archivist/build/platformer-<date>-<sha>.tar.gz
 #
-# Usage: bash platformer/archivist/scripts/archivist.sh
+# Usage: bash archivist/scripts/archivist.sh
 # Or invoked automatically by the archivist Terraform module.
 set -euo pipefail
 
 SCRIPT_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
-MODULE_DIR=$(cd "$SCRIPT_DIR/.." && pwd)   # platformer/archivist/
+MODULE_DIR=$(cd "$SCRIPT_DIR/.." && pwd)   # archivist/
 REPO_ROOT=$(git rev-parse --show-toplevel)
 SCRUB_SED="$MODULE_DIR/scrub.sed"
 OUTPUT_DIR="$MODULE_DIR/build"
@@ -24,7 +24,7 @@ OUTPUT_DIR="$MODULE_DIR/build"
 # Public repo URL for rewritten module sources.
 # Sub-path format: git::<url>//<subdir>?ref=<sha>
 # Terraform resolves the ref against the remote, so SHA must be reachable.
-GITHUB_BASE="git::https://github.com/acme-sandbox/platformer//platformer"
+GITHUB_BASE="git::https://github.com/acme-sandbox/platformer"
 
 GIT_SHA=$(git rev-parse --short HEAD)
 GIT_SHA_FULL=$(git rev-parse HEAD)
@@ -47,14 +47,14 @@ trap 'rm -rf "$TMP_DIR"' EXIT
 
 # Step 1: git archive - respects .gitignore and .gitattributes export-ignore rules
 # scrub.sed is export-ignored so it is not included in the archive
-git -C "$REPO_ROOT" archive --format=tar HEAD platformer/ | tar -xf - -C "$TMP_DIR"
+git -C "$REPO_ROOT" archive --format=tar HEAD | tar -xf - -C "$TMP_DIR"
 
 # Step 2: Filter states/ to only resolved state fragments
 # ARCHIVIST_STATES is a comma-separated list set by Terraform (e.g., "praxis-cpu-test,praxis-imaging").
 # Any states/*.yaml not in the list is removed from the archive.
-if [ -n "${ARCHIVIST_STATES:-}" ] && [ -d "$TMP_DIR/platformer/states" ]; then
+if [ -n "${ARCHIVIST_STATES:-}" ] && [ -d "$TMP_DIR/states" ]; then
   IFS=',' read -ra KEEP_STATES <<< "$ARCHIVIST_STATES"
-  for state_file in "$TMP_DIR"/platformer/states/*.yaml; do
+  for state_file in "$TMP_DIR"/states/*.yaml; do
     [ -f "$state_file" ] || continue
     state_name=$(basename "$state_file" .yaml)
     keep=false
@@ -88,9 +88,9 @@ done
 #   source = "../module"  (sub-module files - e.g. portal, compute -> preflight)
 find "$TMP_DIR" -name "*.tf" | while IFS= read -r file; do
   # Root-level: ./module -> git ref
-  sed -i "s|source = \"\./\([^\"]*\)\"|source = \"${GITHUB_BASE}/\1?ref=${GIT_SHA_FULL}\"|g" "$file"
+  sed -i "s|source = \"\./\([^\"]*\)\"|source = \"${GITHUB_BASE}//\1?ref=${GIT_SHA_FULL}\"|g" "$file"
   # Sub-module: ../module -> git ref
-  sed -i "s|source = \"\.\./\([^\"]*\)\"|source = \"${GITHUB_BASE}/\1?ref=${GIT_SHA_FULL}\"|g" "$file"
+  sed -i "s|source = \"\.\./\([^\"]*\)\"|source = \"${GITHUB_BASE}//\1?ref=${GIT_SHA_FULL}\"|g" "$file"
 done
 
 # Step 5: Repack
@@ -109,7 +109,7 @@ Date:          $DATE
 Files:         $FILE_COUNT
 Scrub rules:   $SCRUB_RULES
 Module source: ${GITHUB_BASE}?ref=${GIT_SHA_FULL}
-Built by:      platformer/archivist/scripts/archivist.sh
+Built by:      archivist/scripts/archivist.sh
 EOF
 
 echo "archivist: complete -> $ARCHIVE_PATH"

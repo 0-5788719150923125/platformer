@@ -1,6 +1,7 @@
 variable "default_aws_profile" {
-  description = "Default AWS profile from base terraform.tfvars (used when workspace file doesn't exist or doesn't override)"
+  description = "Default AWS profile from base terraform.tfvars (null = AWS not configured)"
   type        = string
+  default     = null
 }
 
 variable "default_aws_region" {

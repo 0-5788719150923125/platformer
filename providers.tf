@@ -35,47 +35,57 @@ terraform {
 
 provider "deepmerge" {}
 
+locals {
+  aws_configured = module.workspaces.aws_profile != null
+}
+
 provider "aws" {
   region  = module.workspaces.aws_region
   profile = module.workspaces.aws_profile
 
+  skip_credentials_validation = !local.aws_configured
+  skip_requesting_account_id  = !local.aws_configured
+
   default_tags {
-    tags = {
+    tags = local.aws_configured ? {
       ManagedBy = "Terraform"
       Project   = "Platformer"
       Owner     = module.workspaces.owner
-    }
+    } : {}
   }
 }
 
-# Secondary provider for accessing production account secrets
-# Uses example-platform-prod profile for cross-account resource access
 provider "aws" {
   alias   = "prod"
-  region  = "us-east-2"
-  profile = "example-platform-prod"
+  profile = try(var.cross_account_providers["prod"].profile, null)
+  region  = try(var.cross_account_providers["prod"].region, "us-east-2")
+  skip_credentials_validation = !contains(keys(var.cross_account_providers), "prod")
+  skip_requesting_account_id  = !contains(keys(var.cross_account_providers), "prod")
 }
 
-# Infrastructure account provider for cross-account secret replication
-# CrowdStrike credentials and other shared secrets live in example-infrastructure-prod
 provider "aws" {
   alias   = "infrastructure"
-  region  = "us-east-2"
-  profile = "example-infrastructure-prod"
+  profile = try(var.cross_account_providers["infrastructure"].profile, null)
+  region  = try(var.cross_account_providers["infrastructure"].region, "us-east-2")
+  skip_credentials_validation = !contains(keys(var.cross_account_providers), "infrastructure")
+  skip_requesting_account_id  = !contains(keys(var.cross_account_providers), "infrastructure")
+}
+
+locals {
+  prod_provider_configured = contains(keys(var.cross_account_providers), "prod")
 }
 
 # Port.io provider for portal module
 # Credentials retrieved from AWS Secrets Manager (only in example-platform-dev account)
 # Provider is always configured (Terraform requires this), but only used when portal_enabled=true
 
-# Check prod account ID to gate Port credential fetch
-# Uses aws.prod since Port credentials live in example-platform-prod
 data "aws_caller_identity" "port_check" {
+  count    = local.prod_provider_configured ? 1 : 0
   provider = aws.prod
 }
 
 data "aws_secretsmanager_secret_version" "port_credentials" {
-  count     = data.aws_caller_identity.port_check.account_id == "111111111111" ? 1 : 0
+  count     = local.prod_provider_configured && try(data.aws_caller_identity.port_check[0].account_id, "") == "111111111111" ? 1 : 0
   secret_id = "arn:aws:secretsmanager:us-east-2:111111111111:secret:port/prod/credentials-SzPvSL"
   provider  = aws.prod
 }

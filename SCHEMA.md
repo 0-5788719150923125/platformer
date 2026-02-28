@@ -1238,12 +1238,13 @@ This module supports the following arguments:
 
 | Variable | Type | Required | Description | Ref |
 |----------|------|----------|-------------|-----|
-| `aws_profile` | `string` | No | AWS profile name for authentication (e.g., 'example-platform-dev', 'example-account-prod') | [./variables.tf:2](./variables.tf#L2) |
+| `aws_profile` | `string` | No | AWS profile name for authentication. Set to null to disable AWS (for local dev without credentials). | [./variables.tf:2](./variables.tf#L2) |
 | `aws_region` | `string` | No | AWS region where resources will be created | [./variables.tf:13](./variables.tf#L13) |
-| `owner` | `string` | No | Team or individual responsible for this infrastructure | [./variables.tf:24](./variables.tf#L24) |
-| `states` | `list` | No |  | [./variables.tf:31](./variables.tf#L31) |
-| `workspace_overrides` | `bool` | No | Whether to enable workspace-specific tfvars file overrides. Set to false in tests to ensure test variables are used directly. | [./variables.tf:56](./variables.tf#L56) |
-| `aws_sso_start_url` | `string` | No | AWS SSO start URL for console link wrapping (e.g., https://d-xxxxxxxxxx.awsapps.com/start) | [./variables.tf:62](./variables.tf#L62) |
+| `cross_account_providers` | `map(object)` | No | Cross-account AWS provider configurations. Keys: 'prod', 'infrastructure'. | [./variables.tf:24](./variables.tf#L24) |
+| `owner` | `string` | No | Team or individual responsible for this infrastructure | [./variables.tf:38](./variables.tf#L38) |
+| `states` | `list` | No |  | [./variables.tf:45](./variables.tf#L45) |
+| `workspace_overrides` | `bool` | No | Whether to enable workspace-specific tfvars file overrides. Set to false in tests to ensure test variables are used directly. | [./variables.tf:70](./variables.tf#L70) |
+| `aws_sso_start_url` | `string` | No | AWS SSO start URL for console link wrapping (e.g., https://d-xxxxxxxxxx.awsapps.com/start) | [./variables.tf:76](./variables.tf#L76) |
 
 ### Attributes
 
@@ -1395,11 +1396,11 @@ This module supports the following arguments:
 
 | Variable | Type | Required | Description | Ref |
 |----------|------|----------|-------------|-----|
-| `default_aws_profile` | `string` | **Yes** | Default AWS profile from base terraform.tfvars (used when workspace file doesn't exist or doesn't override) | [./workspaces/variables.tf:1](./workspaces/variables.tf#L1) |
-| `default_aws_region` | `string` | **Yes** | Default AWS region from base terraform.tfvars (used when workspace file doesn't exist or doesn't override) | [./workspaces/variables.tf:6](./workspaces/variables.tf#L6) |
-| `default_states` | `list` | **Yes** | Default state fragments list from base terraform.tfvars (used when workspace file doesn't exist or doesn't override) | [./workspaces/variables.tf:11](./workspaces/variables.tf#L11) |
-| `default_owner` | `string` | **Yes** | Default owner from base terraform.tfvars (used when workspace file doesn't exist or doesn't override) | [./workspaces/variables.tf:16](./workspaces/variables.tf#L16) |
-| `enabled` | `bool` | No | Whether to resolve workspace-specific overrides from tfvars files. When false, always returns defaults (useful for tests). | [./workspaces/variables.tf:21](./workspaces/variables.tf#L21) |
+| `default_aws_profile` | `string` | No | Default AWS profile from base terraform.tfvars (null = AWS not configured) | [./workspaces/variables.tf:1](./workspaces/variables.tf#L1) |
+| `default_aws_region` | `string` | **Yes** | Default AWS region from base terraform.tfvars (used when workspace file doesn't exist or doesn't override) | [./workspaces/variables.tf:7](./workspaces/variables.tf#L7) |
+| `default_states` | `list` | **Yes** | Default state fragments list from base terraform.tfvars (used when workspace file doesn't exist or doesn't override) | [./workspaces/variables.tf:12](./workspaces/variables.tf#L12) |
+| `default_owner` | `string` | **Yes** | Default owner from base terraform.tfvars (used when workspace file doesn't exist or doesn't override) | [./workspaces/variables.tf:17](./workspaces/variables.tf#L17) |
+| `enabled` | `bool` | No | Whether to resolve workspace-specific overrides from tfvars files. When false, always returns defaults (useful for tests). | [./workspaces/variables.tf:22](./workspaces/variables.tf#L22) |
 
 ### Attributes
 
