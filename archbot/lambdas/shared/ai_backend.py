@@ -166,7 +166,8 @@ def sanitize_messages(messages, context_id):
 
 
 def bedrock_converse(messages, context_id, system_text="", model_id=None,
-                     max_tokens=None, temperature=None, tools=None):
+                     max_tokens=None, temperature=None, tools=None,
+                     tool_executor=None):
     """Run the Bedrock Converse API with optional tool-calling loop.
 
     Returns the final text response from the model.
@@ -176,6 +177,7 @@ def bedrock_converse(messages, context_id, system_text="", model_id=None,
     max_tokens = max_tokens or env["bedrock_max_tokens"]
     temperature = temperature if temperature is not None else env["bedrock_temperature"]
     tools = tools if tools is not None else TOOL_DEFINITIONS
+    tool_executor = tool_executor or execute_tool
 
     client = boto3.client("bedrock-runtime")
     kwargs = {}
@@ -228,7 +230,7 @@ def bedrock_converse(messages, context_id, system_text="", model_id=None,
             tool_name = tool_use["name"]
             tool_input = tool_use.get("input", {})
             logger.info("Tool call [%s]: %s(%s)", context_id, tool_name, tool_input)
-            result = execute_tool(tool_name, tool_input)
+            result = tool_executor(tool_name, tool_input)
             tool_results.append({
                 "toolResult": {
                     "toolUseId": tool_use["toolUseId"],

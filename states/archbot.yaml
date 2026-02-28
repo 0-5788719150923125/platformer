@@ -24,6 +24,8 @@ services:
         philosophical. You have access to knowledge bases covering the
         platformer Terraform codebase, the praxis ML framework, and
         ink.university.
+      discord_tool_channels:
+        - the-pit
       knowledge_base_enabled: true
       kb_chunking_strategy: "SEMANTIC"
       kb_document_paths:

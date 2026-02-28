@@ -33,6 +33,7 @@ resource "local_file" "discord_compose" {
     discord_history_limit = tostring(each.value.discord_history_limit)
     knowledge_base_id     = each.value.knowledge_base_enabled && local.kb_enabled ? aws_bedrockagent_knowledge_base.archbot[0].id : ""
     kb_max_results        = tostring(each.value.kb_max_results)
+    discord_tool_channels = jsonencode(each.value.discord_tool_channels)
     aws_region            = local.aws_region
   })
 }

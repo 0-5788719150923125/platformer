@@ -26,6 +26,7 @@ async def _noop_context():
 from ai_backend import (
     bedrock_converse,
     compose_system_prompt,
+    execute_tool,
     load_env,
     load_system_prompt,
     retrieve_kb_context,
@@ -45,6 +46,63 @@ DISCORD_TOKEN = os.environ["DISCORD_TOKEN"]
 BOT_NAME = os.environ.get("BOT_NAME", "archbot")
 DISCORD_NICKNAME = os.environ.get("DISCORD_NICKNAME", "")
 DISCORD_HISTORY_LIMIT = int(os.environ.get("DISCORD_HISTORY_LIMIT", "20"))
+DISCORD_TOOL_CHANNELS = json.loads(os.environ.get("DISCORD_TOOL_CHANNELS", "[]"))
+
+# ── Cross-channel messaging tool ─────────────────────────────────────────────
+
+SEND_CHANNEL_MESSAGE_TOOL = {
+    "toolSpec": {
+        "name": "send_channel_message",
+        "description": (
+            "Send a message to another Discord channel. Use this to post questions, "
+            "updates, or information in a different channel from the one you're "
+            "currently responding in. Only whitelisted channels are available."
+        ),
+        "inputSchema": {
+            "json": {
+                "type": "object",
+                "properties": {
+                    "channel_name": {
+                        "type": "string",
+                        "description": "Name of the target Discord channel.",
+                    },
+                    "message": {
+                        "type": "string",
+                        "description": "The message text to send.",
+                    },
+                },
+                "required": ["channel_name", "message"],
+            }
+        },
+    }
+}
+
+
+def _make_tool_executor(client, loop, allowed_channels):
+    """Return a tool executor that handles send_channel_message and delegates the rest."""
+
+    def executor(tool_name, tool_input):
+        if tool_name != "send_channel_message":
+            return execute_tool(tool_name, tool_input)
+
+        channel_name = tool_input.get("channel_name", "")
+        message = tool_input.get("message", "")
+
+        if channel_name not in allowed_channels:
+            return {"error": f"Channel '{channel_name}' is not in the allowed list. Allowed: {allowed_channels}"}
+
+        channel = discord.utils.get(client.get_all_channels(), name=channel_name)
+        if channel is None:
+            return {"error": f"Channel '{channel_name}' not found on this server."}
+
+        try:
+            future = asyncio.run_coroutine_threadsafe(channel.send(message), loop)
+            future.result(timeout=10)
+            return {"success": True, "channel": channel_name}
+        except Exception as exc:
+            return {"error": f"Failed to send message to '{channel_name}': {exc}"}
+
+    return executor
 
 
 # ── Discord Bot ──────────────────────────────────────────────────────────────
@@ -192,12 +250,21 @@ class ArchbotDiscord:
 
         context_id = f"discord-{message.channel.id}-{message.id}"
 
+        # Build tool list — include cross-channel messaging when channels are configured
+        tools = []
+        tool_executor = None
+        if DISCORD_TOOL_CHANNELS:
+            tools.append(SEND_CHANNEL_MESSAGE_TOOL)
+            loop = asyncio.get_event_loop()
+            tool_executor = _make_tool_executor(self.client, loop, DISCORD_TOOL_CHANNELS)
+
         # Run Bedrock call in thread pool to avoid blocking the event loop
         loop = asyncio.get_event_loop()
         response = await loop.run_in_executor(
             None,
             lambda: bedrock_converse(
-                messages, context_id, system_text=system_text, tools=[]
+                messages, context_id, system_text=system_text,
+                tools=tools, tool_executor=tool_executor,
             ),
         )
         return response

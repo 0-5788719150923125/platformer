@@ -30,6 +30,7 @@ variable "config" {
     # Discord-specific (when target = "discord")
     discord_nickname      = optional(string)
     discord_history_limit = optional(number, 20)
+    discord_tool_channels = optional(list(string), [])
 
     # Knowledge Base (RAG) configuration
     knowledge_base_enabled     = optional(bool, false)
