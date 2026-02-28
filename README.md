@@ -24,7 +24,11 @@ Account and region-level orchestration with modular services, controlled via sta
 platformer/
 ├── access/                     # Service module
 ├── applications/               # Service module
+├── archbot/                    # Service module
 ├── archivist/                  # Service module
+├── archorchestrator/           # Service module
+├── archpacs/                   # Service module
+├── archshare/                  # Service module
 ├── auto-docs/                  # Service module
 ├── build/                      # Service module
 ├── clairevoyance/              # Service module
@@ -33,13 +37,8 @@ platformer/
 ├── configuration-management/   # Service module
 ├── domains/                    # Service module
 ├── hashing/                    # Service module
-├── archbot/                    # Service module
-├── archorchestrator/           # Service module
-├── archpacs/                   # Service module
-├── archshare/                  # Service module
 ├── learn/                      # Documentation
 ├── legacy/                     # Service module
-├── near/                       # Documentation
 ├── networking/                 # Service module
 ├── next/                       # Documentation
 ├── observability/              # Service module
@@ -73,7 +72,11 @@ The following tools must be available in `PATH` for full functionality:
 
 - **access**: Centralized access control reporting using dependency inversion. Modules declare the IAM roles, security groups, and resource policies they provision, and the audit module aggregates them into a single JSON report rendered in AWS-native format. ([docs](./access/README.md))
 - **applications**: Data transformation layer for application deployment. Enriches application requests with file paths and routes them to appropriate deployment modules. ([docs](./applications/README.md))
+- **archbot**: Event-driven AI assistant for Atlassian tickets. Ingests webhook events via API Gateway, rebuilds full ticket context from the REST API, delegates to a configurable AI backend (Bedrock, Devin, or test), and posts responses as comments. ([docs](./archbot/README.md))
 - **archivist**: Produces a scrubbed, versioned tarball of the `platformer/` codebase on every `terraform apply`. The archive is safe to distribute - sensitive strings (AWS account IDs, internal domain names, S3 bucket names, and account-specific targets) are replaced with generic placeholders before packaging. ([docs](./archivist/README.md))
+- **archorchestrator**: Domain orchestration module for ArchOrchestrator (IO Cloud / SaaSApp) deployments on AWS ECS Fargate. ([docs](./archorchestrator/README.md))
+- **archpacs**: (WIP) Domain orchestration for ArchPACS medical imaging PACS deployments using dependency inversion pattern. ([docs](./archpacs/README.md))
+- **archshare**: Domain orchestration module for Archshare medical imaging platform. ([docs](./archshare/README.md))
 - **auto-docs**: Automatic documentation generator for Platformer modules - parses `variables.tf` files and generates `SCHEMA.md` with YAML examples. ([docs](./auto-docs/README.md))
 - **build**: Golden AMI builds for EC2 classes using Packer with SSM communicator. Extracted from compute to sit earlier in the dependency graph, enabling direct S3 access during builds. ([docs](./build/README.md))
 - **clairevoyance**: Medical AI inference platform on AWS SageMaker. ([docs](./clairevoyance/README.md))
@@ -82,10 +85,6 @@ The following tools must be available in `PATH` for full functionality:
 - **configuration-management**: Automated configuration management for EC2 instances using AWS Systems Manager. ([docs](./configuration-management/README.md))
 - **domains**: Route53 zone lookup and ACM wildcard certificate provisioning with DNS validation. ([docs](./domains/README.md))
 - **hashing**: Deterministic namespace generation for parallel deployments. ([docs](./hashing/README.md))
-- **archbot**: Event-driven AI assistant for Atlassian tickets. Ingests webhook events via API Gateway, rebuilds full ticket context from the REST API, delegates to a configurable AI backend (Bedrock, Devin, or test), and posts responses as comments. ([docs](./archbot/README.md))
-- **archorchestrator**: Domain orchestration module for ArchOrchestrator (IO Cloud / SaaSApp) deployments on AWS ECS Fargate. ([docs](./archorchestrator/README.md))
-- **archpacs**: (WIP) Domain orchestration for ArchPACS medical imaging PACS deployments using dependency inversion pattern. ([docs](./archpacs/README.md))
-- **archshare**: Domain orchestration module for Archshare medical imaging platform. ([docs](./archshare/README.md))
 - **legacy**: Disposable EC2 instance with Atlantis pre-built via Packer. ([docs](./legacy/README.md))
 - **networking**: VPC and subnet management with deterministic CIDR allocation. ([docs](./networking/README.md))
 - **observability**: LGTM stack (Loki, Grafana, Tempo, Mimir) for centralized logging and observability. ([docs](./observability/README.md))

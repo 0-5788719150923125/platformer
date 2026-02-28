@@ -8,7 +8,11 @@ This document shows the YAML structure for state fragments in `states/` director
 
 - [access](#module-access)
 - [applications](#module-applications)
+- [archbot](#module-archbot)
 - [archivist](#module-archivist)
+- [archorchestrator](#module-archorchestrator)
+- [archpacs](#module-archpacs)
+- [archshare](#module-archshare)
 - [build](#module-build)
 - [clairevoyance](#module-clairevoyance)
 - [compute](#module-compute)
@@ -16,10 +20,6 @@ This document shows the YAML structure for state fragments in `states/` director
 - [configuration-management](#module-configuration-management)
 - [domains](#module-domains)
 - [hashing](#module-hashing)
-- [archbot](#module-archbot)
-- [archorchestrator](#module-archorchestrator)
-- [archpacs](#module-archpacs)
-- [archshare](#module-archshare)
 - [legacy](#module-legacy)
 - [networking](#module-networking)
 - [observability](#module-observability)
@@ -117,6 +117,79 @@ This module exports the following attributes:
 |--------|-------------|-----|
 | `requests` | All enriched application requests - consumer modules filter by type field | [./applications/outputs.tf:3](./applications/outputs.tf#L3) |
 
+## Module: archbot
+
+Path: [`./archbot`](./archbot)
+
+Event-driven AI assistant for Atlassian tickets. Ingests webhook events via API Gateway, rebuilds full ticket context from the REST API, delegates to a configurable AI backend (Bedrock, Devin, or test), and posts responses as comments.
+
+### State Fragment Structure
+
+```yaml
+services:
+  archbot:
+    atlassian_base_url: string
+    atlassian_email: string
+    project_keys: []  # list(string)
+    ai_backend: string  # default: test
+    debug: bool  # default: false
+    system_prompt: string
+    response_rate: number  # default: 0
+    bedrock_model_id: string  # default: us.anthropic.claude-haiku-4-5-20251001-v1:0
+    bedrock_max_tokens: number  # default: 512
+    bedrock_temperature: number  # default: 0
+    queue_visibility_timeout: number  # default: 300
+    lambda_timeout: number  # default: 300
+    lambda_memory: number  # default: 512
+    devin_poll_interval: number  # default: 15
+    devin_max_wait: number  # default: 720
+    knowledge_base_enabled: bool  # default: false
+    embedding_model_id: string  # default: amazon.titan-embed-text-v2:0
+    kb_max_results: number  # default: 5
+    kb_chunking_strategy: string  # default: SEMANTIC
+    kb_document_paths: []  # list(string)
+    kb_supported_extensions: []  # list(string)
+    kb_remap_to_txt_extensions: []  # list(string)
+    deny_list: []  # list(string)
+```
+
+### Arguments
+
+This module supports the following arguments:
+
+| Variable | Type | Required | Description | Ref |
+|----------|------|----------|-------------|-----|
+| `namespace` | `string` | **Yes** | Unique deployment identifier for resource naming and tagging | [./archbot/variables.tf:1](./archbot/variables.tf#L1) |
+| `config` | `object` | No | archbot service configuration from state fragment | [./archbot/variables.tf:6](./archbot/variables.tf#L6) |
+| `atlassian_secret_arn` | `string` | **Yes** | ARN of the replicated Atlassian PAT in Secrets Manager (from secrets module) | [./archbot/variables.tf:50](./archbot/variables.tf#L50) |
+| `devin_secret_arn` | `string` | **Yes** | ARN of the replicated Devin API key in Secrets Manager (from secrets module) | [./archbot/variables.tf:55](./archbot/variables.tf#L55) |
+| `aws_profile` | `string` | No | AWS CLI profile name for provisioner scripts (KB index creation, ingestion jobs) | [./archbot/variables.tf:60](./archbot/variables.tf#L60) |
+| `kb_documents_bucket_trigger` | `string` | No | Replacement sentinel from storage module - changes when the KB documents bucket is recreated | [./archbot/variables.tf:66](./archbot/variables.tf#L66) |
+| `kb_documents_bucket_name` | `string` | No | KB documents S3 bucket name from storage module (dependency inversion) | [./archbot/variables.tf:72](./archbot/variables.tf#L72) |
+| `kb_documents_bucket_arn` | `string` | No | KB documents S3 bucket ARN from storage module (dependency inversion) | [./archbot/variables.tf:78](./archbot/variables.tf#L78) |
+| `event_bus_webhooks` | `map` | No | Event bus webhook URLs from portal module | [./archbot/variables.tf:84](./archbot/variables.tf#L84) |
+| `access_iam_role_arns` | `map` | No | IAM role ARNs from access module (keyed by module-purpose) | [./archbot/variables.tf:91](./archbot/variables.tf#L91) |
+| `access_iam_role_names` | `map` | No | IAM role names from access module (keyed by module-purpose) | [./archbot/variables.tf:97](./archbot/variables.tf#L97) |
+
+### Attributes
+
+This module exports the following attributes:
+
+| Output | Description | Ref |
+|--------|-------------|-----|
+| `webhook_url` | HTTPS endpoint receiving Atlassian webhook events | [./archbot/outputs.tf:1](./archbot/outputs.tf#L1) |
+| `queue_url` | SQS queue URL receiving Atlassian events | [./archbot/outputs.tf:6](./archbot/outputs.tf#L6) |
+| `dlq_url` | Dead letter queue URL for failed event processing | [./archbot/outputs.tf:11](./archbot/outputs.tf#L11) |
+| `lambda_function_name` | Lambda function name for log tailing and manual invocation | [./archbot/outputs.tf:16](./archbot/outputs.tf#L16) |
+| `knowledge_base_id` | Bedrock Knowledge Base ID (null when KB is disabled) | [./archbot/outputs.tf:21](./archbot/outputs.tf#L21) |
+| `bucket_requests` | Bedrock Knowledge Base document store for archbot RAG | [./archbot/outputs.tf:26](./archbot/outputs.tf#L26) |
+| `kb_documents_bucket` | S3 bucket name for KB documents (null when KB is disabled) | [./archbot/outputs.tf:39](./archbot/outputs.tf#L39) |
+| `event_bus_requests` | KB ingestion lifecycle events (archbot) | [./archbot/outputs.tf:44](./archbot/outputs.tf#L44) |
+| `commands` | Trigger KB document re-indexing for archbot RAG | [./archbot/outputs.tf:56](./archbot/outputs.tf#L56) |
+| `access_requests` | IAM access requests for the access module (access creates resources, returns ARNs) | [./archbot/outputs.tf:80](./archbot/outputs.tf#L80) |
+| `access_resource_policies` | Resource-level policies for the access module (SQS queue policy) | [./archbot/outputs.tf:86](./archbot/outputs.tf#L86) |
+| `service_url_entry` | Structured service URL entry for the portal service registry | [./archbot/outputs.tf:91](./archbot/outputs.tf#L91) |
+
 ## Module: archivist
 
 Path: [`./archivist`](./archivist)
@@ -148,6 +221,327 @@ This module exports the following attributes:
 | `repository_requests` | Git-based archive of scrubbed platformer codebase for GitOps workflows | [./archivist/outputs.tf:20](./archivist/outputs.tf#L20) |
 | `artifact_requests` | Artifact registry entries for the portal module (dependency inversion). Each entry describes a build artifact produced by this module. | [./archivist/outputs.tf:35](./archivist/outputs.tf#L35) |
 | `archive_path` | Absolute path of the most-recently-built archive on the local filesystem. | [./archivist/outputs.tf:40](./archivist/outputs.tf#L40) |
+
+## Module: archorchestrator
+
+Path: [`./archorchestrator`](./archorchestrator)
+
+Domain orchestration module for ArchOrchestrator (IO Cloud / SaaSApp) deployments on AWS ECS Fargate.
+
+### State Fragment Structure
+
+```yaml
+services:
+  archorchestrator:
+    <key>:
+        cpu: number
+        memory: number
+        image: string  # ECR image tag from source repo (e.g., "saasapp-5.2.0-alpha...")
+        desired_count: number  # default: 1
+        port: number  # Container port
+        architecture: string  # CPU architecture: X86_64 or ARM64 (default: X86_64)
+        protocol: string  # Target group protocol: HTTP or HTTPS (default: HTTP)
+        environment: {}  # map(string) - User overrides for environment variables (module synthesizes defaults)
+      ecr_source_profile: string  # default: acme-saasapp-cloud-dev
+      ecr_source_account_id: string  # default: 666666666666
+      ecr_source_region: string  # default: us-east-1
+      ecr_source_repo: string  # default: saas-us-east-1-deploymentecrrepository-7dc3wtgyh2tn
+      rds:  # object
+        engine: string  # default: sqlserver-se
+        engine_version: string
+        instance_class: string
+        allocated_storage: number
+        storage_type: string  # default: gp3
+        multi_az: bool  # default: false
+        deletion_protection: bool  # default: true
+        backup_retention_period: number  # default: 7
+      s3:  # list
+        - purpose: string
+          lifecycle_days: number  # default: 90
+      network: string
+```
+
+### Arguments
+
+This module supports the following arguments:
+
+| Variable | Type | Required | Description | Ref |
+|----------|------|----------|-------------|-----|
+| `namespace` | `string` | **Yes** | Deployment namespace for resource isolation | [./archorchestrator/variables.tf:4](./archorchestrator/variables.tf#L4) |
+| `aws_account_id` | `string` | **Yes** | AWS account ID | [./archorchestrator/variables.tf:9](./archorchestrator/variables.tf#L9) |
+| `aws_region` | `string` | **Yes** | AWS region for ECR image URIs | [./archorchestrator/variables.tf:19](./archorchestrator/variables.tf#L19) |
+| `aws_profile` | `string` | **Yes** | AWS profile for destination ECR authentication | [./archorchestrator/variables.tf:24](./archorchestrator/variables.tf#L24) |
+| `tenants_by_deployment` | `map` | No | Map of deployment name to entitled tenant list (from tenants module) | [./archorchestrator/variables.tf:31](./archorchestrator/variables.tf#L31) |
+| `config` | `map(object)` | No | ArchOrchestrator deployment configurations - map of deployment name to deployment config | [./archorchestrator/variables.tf:39](./archorchestrator/variables.tf#L39) |
+| `networks` | `any` | **Yes** | Network module outputs | [./archorchestrator/variables.tf:84](./archorchestrator/variables.tf#L84) |
+| `ecs_clusters` | `any` | No | ECS clusters from compute module (keyed by purpose) | [./archorchestrator/variables.tf:89](./archorchestrator/variables.tf#L89) |
+| `rds_instances` | `any` | No | RDS instances from storage module (keyed by purpose) | [./archorchestrator/variables.tf:96](./archorchestrator/variables.tf#L96) |
+| `s3_buckets` | `map` | No | S3 bucket names from storage module (keyed by purpose) | [./archorchestrator/variables.tf:103](./archorchestrator/variables.tf#L103) |
+| `access_iam_role_arns` | `map` | No | IAM role ARNs from access module (keyed by module-purpose) | [./archorchestrator/variables.tf:110](./archorchestrator/variables.tf#L110) |
+| `access_iam_role_names` | `map` | No | IAM role names from access module (keyed by module-purpose) | [./archorchestrator/variables.tf:116](./archorchestrator/variables.tf#L116) |
+
+### Attributes
+
+This module exports the following attributes:
+
+| Output | Description | Ref |
+|--------|-------------|-----|
+| `rds_cluster_requests` | RDS cluster requests for storage module (SQL Server standalone instances) | [./archorchestrator/outputs.tf:3](./archorchestrator/outputs.tf#L3) |
+| `bucket_requests` | S3 bucket requests for storage module | [./archorchestrator/outputs.tf:8](./archorchestrator/outputs.tf#L8) |
+| `compute_class_requests` | ArchOrchestrator deployment ${deploy_name} | [./archorchestrator/outputs.tf:15](./archorchestrator/outputs.tf#L15) |
+| `config` | ArchOrchestrator configuration summary | [./archorchestrator/outputs.tf:32](./archorchestrator/outputs.tf#L32) |
+| `access_requests` | IAM access requests for the access module (access creates resources, returns ARNs) | [./archorchestrator/outputs.tf:47](./archorchestrator/outputs.tf#L47) |
+| `access_security_groups` | Security groups with rules for the access module (AWS-native format) | [./archorchestrator/outputs.tf:53](./archorchestrator/outputs.tf#L53) |
+| `alb_urls` | ALB DNS names per deployment (use these to access services) | [./archorchestrator/outputs.tf:59](./archorchestrator/outputs.tf#L59) |
+| `ecs_clusters` | ECS cluster ARNs per deployment | [./archorchestrator/outputs.tf:68](./archorchestrator/outputs.tf#L68) |
+
+## Module: archpacs
+
+Path: [`./archpacs`](./archpacs)
+
+(WIP) Domain orchestration for ArchPACS medical imaging PACS deployments using dependency inversion pattern.
+
+### State Fragment Structure
+
+```yaml
+services:
+  archpacs:
+    <key>:
+      maestro:  # object
+        pacs_version: string  # e.g., "PACS-5-8-1-R32"
+        iv_version: string  # e.g., "5-8-1-R32" (defaults to pacs_version)
+        orchestrator_class: string  # Compute class that hosts the Maestro orchestrator
+        client_code: string  # Client code for distribute.cfg (default: PLATFORMER)
+      compute:  # map
+        <key>:
+          type: string  # "ec2" or "eks"
+          server_type: string
+          ami_filter: string
+          ami_owner: string
+          instance_type: string  # default: t3.small
+          volume_size: number  # default: 30
+          volume_type: string  # default: gp3
+          count: number  # default: 1
+          user_data_script: string
+          subnet_tier: string
+          associate_public_ip: bool  # default: true
+          security_group_ids: []  # list(string)
+          ingress:  # list
+            - port: number
+              cidrs: []  # list(string)
+              protocol: string  # default: http
+          version: string
+          support_type: string  # default: STANDARD
+          vpc_id: string
+          subnet_ids: []  # list(string)
+          node_groups:  # map
+            <key>:
+              instance_types: []  # list(string)
+              min_size: number
+              max_size: number
+              desired_size: number
+              labels: {}  # map(string)
+              taints:  # list
+                - key: string
+                  value: string
+                  effect: string
+          addons: []  # list(string)
+          endpoint_public_access: bool  # default: false
+          endpoint_private_access: bool  # default: true
+          cluster_admins: []  # list(string)
+          description: string
+          tags: {}  # map(string)
+          network_name: string
+          applications:  # list
+            - script: string
+              params: {}  # map(string)
+              type: string  # default: ssm
+              playbook: string
+              playbook_file: string
+              chart: string
+              repository: string
+              version: string
+              namespace: string  # default: default
+              release_name: string
+              values: string
+              wait: bool  # default: true
+              timeout: number  # default: 300
+      rds:  # object
+        lifimage_cns:  # object
+          engine_version: string
+          instance_class: string
+          instances: number
+          database_name: string
+          deletion_protection: bool  # default: false
+          backup_retention_period: number  # default: 7
+      s3:  # list
+        - purpose: string
+          versioning: bool  # default: false
+          lifecycle: {}  # map
+          retention_days: number
+```
+
+### Arguments
+
+This module supports the following arguments:
+
+| Variable | Type | Required | Description | Ref |
+|----------|------|----------|-------------|-----|
+| `tenants_by_deployment` | `map` | No | Map of deployment name to entitled tenant list (from tenants module) | [./archpacs/variables.tf:5](./archpacs/variables.tf#L5) |
+| `config` | `map(object)` | No | ArchPACS deployment configurations - map of deployment name to deployment config | [./archpacs/variables.tf:13](./archpacs/variables.tf#L13) |
+| `namespace` | `string` | **Yes** | Namespace for resource naming | [./archpacs/variables.tf:110](./archpacs/variables.tf#L110) |
+| `networks` | `map` | **Yes** | Available networks from networking module | [./archpacs/variables.tf:115](./archpacs/variables.tf#L115) |
+
+### Attributes
+
+This module exports the following attributes:
+
+| Output | Description | Ref |
+|--------|-------------|-----|
+| `compute_class_requests` | Compute class definitions for the compute module (prefixed with deployment name) | [./archpacs/outputs.tf:6](./archpacs/outputs.tf#L6) |
+| `rds_cluster_requests` | RDS Aurora cluster requests for storage module | [./archpacs/outputs.tf:22](./archpacs/outputs.tf#L22) |
+| `bucket_requests` | S3 bucket requests for storage module | [./archpacs/outputs.tf:27](./archpacs/outputs.tf#L27) |
+| `elasticache_cluster_requests` | ElastiCache cluster requests for storage module (future) | [./archpacs/outputs.tf:32](./archpacs/outputs.tf#L32) |
+| `config` | ArchPACS configuration summary | [./archpacs/outputs.tf:38](./archpacs/outputs.tf#L38) |
+| `access_security_groups` | Security groups with rules for the access module (AWS-native format) | [./archpacs/outputs.tf:50](./archpacs/outputs.tf#L50) |
+| `maestro` | Maestro configuration per deployment (for bootstrap playbook parameterization) | [./archpacs/outputs.tf:56](./archpacs/outputs.tf#L56) |
+
+## Module: archshare
+
+Path: [`./archshare`](./archshare)
+
+Domain orchestration module for Archshare medical imaging platform.
+
+### State Fragment Structure
+
+```yaml
+services:
+  archshare:
+    <key>:
+      compute:  # object
+        type: string  # "ec2" or "eks"
+        ami_filter: string
+        ami_owner: string
+        instance_type: string  # default: t3.small
+        volume_size: number  # default: 30
+        volume_type: string  # default: gp3
+        count: number  # default: 1
+        user_data_script: string
+        subnet_tier: string
+        associate_public_ip: bool  # default: true
+        security_group_ids: []  # list(string)
+        ingress:  # list
+          - port: number
+            cidrs: []  # list(string)
+            protocol: string  # default: http
+        version: string
+        support_type: string  # default: STANDARD
+        vpc_id: string
+        subnet_ids: []  # list(string)
+        node_groups:  # map
+          <key>:
+            instance_types: []  # list(string)
+            min_size: number
+            max_size: number
+            desired_size: number
+            labels: {}  # map(string)
+            taints:  # list
+              - key: string
+                value: string
+                effect: string
+        addons: []  # list(string)
+        endpoint_public_access: bool  # default: false
+        endpoint_private_access: bool  # default: true
+        cluster_admins: []  # list(string)
+        description: string
+        tags: {}  # map(string)
+        network_name: string
+        applications:  # list
+          - script: string
+            params: {}  # map(string)
+            type: string  # default: ssm
+            playbook: string
+            playbook_file: string
+            chart: string
+            repository: string
+            version: string
+            namespace: string  # default: default
+            release_name: string
+            values: string
+            wait: bool  # default: true
+            timeout: number  # default: 300
+      rds:  # object
+        services:  # object
+          engine_version: string
+          instance_class: string
+          instances: number  # default: 2
+        storage:  # object
+          engine_version: string
+          instance_class: string
+          instances: number  # default: 2
+      elasticache:  # object
+        services:  # object
+          engine: string  # default: valkey
+          engine_version: string
+          node_type: string
+          num_cache_nodes: number  # default: 1
+          transit_encryption_enabled: bool  # default: false
+        storage:  # object
+          engine: string  # default: valkey
+          engine_version: string
+          node_type: string
+          num_cache_nodes: number  # default: 1
+          transit_encryption_enabled: bool  # default: false
+        memcached:  # object
+          engine: string  # default: memcached
+          engine_version: string
+          node_type: string
+          num_cache_nodes: number  # default: 1
+          transit_encryption_enabled: bool  # default: false
+      ecr_registry: string  # default: 777777777777.dkr.ecr.us-east-2.amazonaws.com
+      network: string
+```
+
+### Arguments
+
+This module supports the following arguments:
+
+| Variable | Type | Required | Description | Ref |
+|----------|------|----------|-------------|-----|
+| `namespace` | `string` | **Yes** | Deployment namespace for resource isolation | [./archshare/variables.tf:2](./archshare/variables.tf#L2) |
+| `aws_account_id` | `string` | **Yes** | AWS account ID | [./archshare/variables.tf:7](./archshare/variables.tf#L7) |
+| `tenants_by_deployment` | `map` | No | Map of deployment name to entitled tenant list (from tenants module) | [./archshare/variables.tf:19](./archshare/variables.tf#L19) |
+| `config` | `map(object)` | No | Archshare deployment configurations - map of deployment name to deployment config | [./archshare/variables.tf:27](./archshare/variables.tf#L27) |
+| `networks` | `any` | **Yes** | Network module outputs | [./archshare/variables.tf:136](./archshare/variables.tf#L136) |
+| `compute_security_groups` | `map` | No | Compute module security groups (for DB/cache access) | [./archshare/variables.tf:142](./archshare/variables.tf#L142) |
+| `rds_clusters` | `any` | No | RDS clusters from storage module | [./archshare/variables.tf:149](./archshare/variables.tf#L149) |
+| `elasticache_clusters` | `any` | No | ElastiCache clusters from storage module | [./archshare/variables.tf:156](./archshare/variables.tf#L156) |
+| `s3_buckets` | `map` | No | S3 buckets from storage module | [./archshare/variables.tf:162](./archshare/variables.tf#L162) |
+| `efs_filesystems` | `any` | No | EFS filesystems from storage module | [./archshare/variables.tf:168](./archshare/variables.tf#L168) |
+| `storage_enabled` | `bool` | No | Whether the storage module is active (plan-time-safe guard for SG rule for_each) | [./archshare/variables.tf:175](./archshare/variables.tf#L175) |
+| `storage_rds_security_group_id` | `string` | No | RDS security group ID from storage module | [./archshare/variables.tf:181](./archshare/variables.tf#L181) |
+| `storage_elasticache_security_group_id` | `string` | No | ElastiCache security group ID from storage module | [./archshare/variables.tf:187](./archshare/variables.tf#L187) |
+| `instance_role_name` | `string` | No | IAM role name for compute instances (for attaching ECR pull permissions) | [./archshare/variables.tf:194](./archshare/variables.tf#L194) |
+| `eks_node_role_name` | `string` | No | EKS node group IAM role name for ECR permissions | [./archshare/variables.tf:201](./archshare/variables.tf#L201) |
+| `kubeconfig_ready` | `any` | No | Map from compute module indicating kubeconfig contexts are ready | [./archshare/variables.tf:208](./archshare/variables.tf#L208) |
+| `eks_cluster_security_groups` | `map` | No | EKS cluster security groups from compute module (map: class_name => security_group_id) | [./archshare/variables.tf:215](./archshare/variables.tf#L215) |
+
+### Attributes
+
+This module exports the following attributes:
+
+| Output | Description | Ref |
+|--------|-------------|-----|
+| `rds_cluster_requests` | RDS Aurora cluster requests for storage module | [./archshare/outputs.tf:3](./archshare/outputs.tf#L3) |
+| `elasticache_cluster_requests` | ElastiCache cluster requests for storage module | [./archshare/outputs.tf:8](./archshare/outputs.tf#L8) |
+| `bucket_requests` | S3 bucket requests for storage module | [./archshare/outputs.tf:13](./archshare/outputs.tf#L13) |
+| `compute_class_requests` | Compute class definitions for the compute module (deployment name = class name) | [./archshare/outputs.tf:20](./archshare/outputs.tf#L20) |
+| `config` | Archshare configuration summary | [./archshare/outputs.tf:30](./archshare/outputs.tf#L30) |
+| `storage_endpoints` | Storage backend endpoints per deployment-tenant | [./archshare/outputs.tf:42](./archshare/outputs.tf#L42) |
+| `ansible_bucket_request` | Ansible playbooks for Archshare deployment | [./archshare/outputs.tf:59](./archshare/outputs.tf#L59) |
+| `helm_application_requests` | Helm chart deployment requests for EKS compute | [./archshare/outputs.tf:69](./archshare/outputs.tf#L69) |
+| `eks_deployment_tenants` | EKS deployment-tenant pairs for URL generation | [./archshare/outputs.tf:75](./archshare/outputs.tf#L75) |
+| `frontend_service_urls` | Frontend service LoadBalancer URLs per deployment-tenant | [./archshare/outputs.tf:81](./archshare/outputs.tf#L81) |
 
 ## Module: build
 
@@ -217,27 +611,6 @@ This module supports the following arguments:
 | `aws_region` | `string` | **Yes** | AWS region for deployment | [./clairevoyance/variables.tf:17](./clairevoyance/variables.tf#L17) |
 | `aws_profile` | `string` | **Yes** | AWS CLI profile name for authentication | [./clairevoyance/variables.tf:22](./clairevoyance/variables.tf#L22) |
 | `config` | `object` | No | ClaireVoyance medical AI platform configuration | [./clairevoyance/variables.tf:29](./clairevoyance/variables.tf#L29) |
-
-### Attributes
-
-This module exports the following attributes:
-
-| Output | Description | Ref |
-|--------|-------------|-----|
-| `custom_domain_url` | HTTPS URL with custom domain | [./clairevoyance/outputs.tf:4](./clairevoyance/outputs.tf#L4) |
-| `alb_dns_url` | Backup ALB DNS URL | [./clairevoyance/outputs.tf:9](./clairevoyance/outputs.tf#L9) |
-| `studio_domain_url` | SageMaker Studio URL | [./clairevoyance/outputs.tf:14](./clairevoyance/outputs.tf#L14) |
-| `notebook_instance_url` | SageMaker Notebook instance URL | [./clairevoyance/outputs.tf:19](./clairevoyance/outputs.tf#L19) |
-| `deployment_id` | Random pet name identifier for this deployment | [./clairevoyance/outputs.tf:25](./clairevoyance/outputs.tf#L25) |
-| `aws_account_id` | AWS account ID | [./clairevoyance/outputs.tf:30](./clairevoyance/outputs.tf#L30) |
-| `aws_region` | AWS region | [./clairevoyance/outputs.tf:35](./clairevoyance/outputs.tf#L35) |
-| `s3_bucket_name` | S3 bucket name for notebooks, data, and models | [./clairevoyance/outputs.tf:41](./clairevoyance/outputs.tf#L41) |
-| `ecr_repository_urls` | ECR repository URLs map | [./clairevoyance/outputs.tf:47](./clairevoyance/outputs.tf#L47) |
-| `ecr_login_command` | Docker login command for ECR | [./clairevoyance/outputs.tf:52](./clairevoyance/outputs.tf#L52) |
-| `ssl_certificate_arn` | ACM certificate ARN | [./clairevoyance/outputs.tf:58](./clairevoyance/outputs.tf#L58) |
-| `inference_endpoints` | Map of deployed inference endpoints with details (name, ARN, URL) | [./clairevoyance/outputs.tf:64](./clairevoyance/outputs.tf#L64) |
-| `codebuild_project_name` | CodeBuild project name for Docker image builds | [./clairevoyance/outputs.tf:70](./clairevoyance/outputs.tf#L70) |
-| `codebuild_console_url` | Console URL for monitoring CodeBuild | [./clairevoyance/outputs.tf:75](./clairevoyance/outputs.tf#L75) |
 
 ## Module: compute
 
@@ -588,400 +961,6 @@ This module exports the following attributes:
 | Output | Description | Ref |
 |--------|-------------|-----|
 | `id` | The generated namespace identifier | [./hashing/outputs.tf:1](./hashing/outputs.tf#L1) |
-
-## Module: archbot
-
-Path: [`./archbot`](./archbot)
-
-Event-driven AI assistant for Atlassian tickets. Ingests webhook events via API Gateway, rebuilds full ticket context from the REST API, delegates to a configurable AI backend (Bedrock, Devin, or test), and posts responses as comments.
-
-### State Fragment Structure
-
-```yaml
-services:
-  archbot:
-    atlassian_base_url: string
-    atlassian_email: string
-    project_keys: []  # list(string)
-    ai_backend: string  # default: test
-    debug: bool  # default: false
-    system_prompt: string
-    response_rate: number  # default: 0
-    bedrock_model_id: string  # default: us.anthropic.claude-haiku-4-5-20251001-v1:0
-    bedrock_max_tokens: number  # default: 512
-    bedrock_temperature: number  # default: 0
-    queue_visibility_timeout: number  # default: 300
-    lambda_timeout: number  # default: 300
-    lambda_memory: number  # default: 512
-    devin_poll_interval: number  # default: 15
-    devin_max_wait: number  # default: 720
-    knowledge_base_enabled: bool  # default: false
-    embedding_model_id: string  # default: amazon.titan-embed-text-v2:0
-    kb_max_results: number  # default: 5
-    kb_chunking_strategy: string  # default: SEMANTIC
-    kb_document_paths: []  # list(string)
-    kb_supported_extensions: []  # list(string)
-    kb_remap_to_txt_extensions: []  # list(string)
-    deny_list: []  # list(string)
-```
-
-### Arguments
-
-This module supports the following arguments:
-
-| Variable | Type | Required | Description | Ref |
-|----------|------|----------|-------------|-----|
-| `namespace` | `string` | **Yes** | Unique deployment identifier for resource naming and tagging | [./archbot/variables.tf:1](./archbot/variables.tf#L1) |
-| `config` | `object` | No | archbot service configuration from state fragment | [./archbot/variables.tf:6](./archbot/variables.tf#L6) |
-| `atlassian_secret_arn` | `string` | **Yes** | ARN of the replicated Atlassian PAT in Secrets Manager (from secrets module) | [./archbot/variables.tf:50](./archbot/variables.tf#L50) |
-| `devin_secret_arn` | `string` | **Yes** | ARN of the replicated Devin API key in Secrets Manager (from secrets module) | [./archbot/variables.tf:55](./archbot/variables.tf#L55) |
-| `aws_profile` | `string` | No | AWS CLI profile name for provisioner scripts (KB index creation, ingestion jobs) | [./archbot/variables.tf:60](./archbot/variables.tf#L60) |
-| `kb_documents_bucket_trigger` | `string` | No | Replacement sentinel from storage module - changes when the KB documents bucket is recreated | [./archbot/variables.tf:66](./archbot/variables.tf#L66) |
-| `kb_documents_bucket_name` | `string` | No | KB documents S3 bucket name from storage module (dependency inversion) | [./archbot/variables.tf:72](./archbot/variables.tf#L72) |
-| `kb_documents_bucket_arn` | `string` | No | KB documents S3 bucket ARN from storage module (dependency inversion) | [./archbot/variables.tf:78](./archbot/variables.tf#L78) |
-| `event_bus_webhooks` | `map` | No | Event bus webhook URLs from portal module | [./archbot/variables.tf:84](./archbot/variables.tf#L84) |
-| `access_iam_role_arns` | `map` | No | IAM role ARNs from access module (keyed by module-purpose) | [./archbot/variables.tf:91](./archbot/variables.tf#L91) |
-| `access_iam_role_names` | `map` | No | IAM role names from access module (keyed by module-purpose) | [./archbot/variables.tf:97](./archbot/variables.tf#L97) |
-
-### Attributes
-
-This module exports the following attributes:
-
-| Output | Description | Ref |
-|--------|-------------|-----|
-| `webhook_url` | HTTPS endpoint receiving Atlassian webhook events | [./archbot/outputs.tf:1](./archbot/outputs.tf#L1) |
-| `queue_url` | SQS queue URL receiving Atlassian events | [./archbot/outputs.tf:6](./archbot/outputs.tf#L6) |
-| `dlq_url` | Dead letter queue URL for failed event processing | [./archbot/outputs.tf:11](./archbot/outputs.tf#L11) |
-| `lambda_function_name` | Lambda function name for log tailing and manual invocation | [./archbot/outputs.tf:16](./archbot/outputs.tf#L16) |
-| `knowledge_base_id` | Bedrock Knowledge Base ID (null when KB is disabled) | [./archbot/outputs.tf:21](./archbot/outputs.tf#L21) |
-| `bucket_requests` | Bedrock Knowledge Base document store for archbot RAG | [./archbot/outputs.tf:26](./archbot/outputs.tf#L26) |
-| `kb_documents_bucket` | S3 bucket name for KB documents (null when KB is disabled) | [./archbot/outputs.tf:39](./archbot/outputs.tf#L39) |
-| `event_bus_requests` | KB ingestion lifecycle events (archbot) | [./archbot/outputs.tf:44](./archbot/outputs.tf#L44) |
-| `commands` | Trigger KB document re-indexing for archbot RAG | [./archbot/outputs.tf:56](./archbot/outputs.tf#L56) |
-| `access_requests` | IAM access requests for the access module (access creates resources, returns ARNs) | [./archbot/outputs.tf:80](./archbot/outputs.tf#L80) |
-| `access_resource_policies` | Resource-level policies for the access module (SQS queue policy) | [./archbot/outputs.tf:86](./archbot/outputs.tf#L86) |
-| `service_url_entry` | Structured service URL entry for the portal service registry | [./archbot/outputs.tf:91](./archbot/outputs.tf#L91) |
-
-## Module: archorchestrator
-
-Path: [`./archorchestrator`](./archorchestrator)
-
-Domain orchestration module for ArchOrchestrator (IO Cloud / SaaSApp) deployments on AWS ECS Fargate.
-
-### State Fragment Structure
-
-```yaml
-services:
-  archorchestrator:
-    <key>:
-        cpu: number
-        memory: number
-        image: string  # ECR image tag from source repo (e.g., "saasapp-5.2.0-alpha...")
-        desired_count: number  # default: 1
-        port: number  # Container port
-        architecture: string  # CPU architecture: X86_64 or ARM64 (default: X86_64)
-        protocol: string  # Target group protocol: HTTP or HTTPS (default: HTTP)
-        environment: {}  # map(string) - User overrides for environment variables (module synthesizes defaults)
-      ecr_source_profile: string  # default: acme-saasapp-cloud-dev
-      ecr_source_account_id: string  # default: 666666666666
-      ecr_source_region: string  # default: us-east-1
-      ecr_source_repo: string  # default: saas-us-east-1-deploymentecrrepository-7dc3wtgyh2tn
-      rds:  # object
-        engine: string  # default: sqlserver-se
-        engine_version: string
-        instance_class: string
-        allocated_storage: number
-        storage_type: string  # default: gp3
-        multi_az: bool  # default: false
-        deletion_protection: bool  # default: true
-        backup_retention_period: number  # default: 7
-      s3:  # list
-        - purpose: string
-          lifecycle_days: number  # default: 90
-      network: string
-```
-
-### Arguments
-
-This module supports the following arguments:
-
-| Variable | Type | Required | Description | Ref |
-|----------|------|----------|-------------|-----|
-| `namespace` | `string` | **Yes** | Deployment namespace for resource isolation | [./archorchestrator/variables.tf:4](./archorchestrator/variables.tf#L4) |
-| `aws_account_id` | `string` | **Yes** | AWS account ID | [./archorchestrator/variables.tf:9](./archorchestrator/variables.tf#L9) |
-| `aws_region` | `string` | **Yes** | AWS region for ECR image URIs | [./archorchestrator/variables.tf:19](./archorchestrator/variables.tf#L19) |
-| `aws_profile` | `string` | **Yes** | AWS profile for destination ECR authentication | [./archorchestrator/variables.tf:24](./archorchestrator/variables.tf#L24) |
-| `tenants_by_deployment` | `map` | No | Map of deployment name to entitled tenant list (from tenants module) | [./archorchestrator/variables.tf:31](./archorchestrator/variables.tf#L31) |
-| `config` | `map(object)` | No | ArchOrchestrator deployment configurations - map of deployment name to deployment config | [./archorchestrator/variables.tf:39](./archorchestrator/variables.tf#L39) |
-| `networks` | `any` | **Yes** | Network module outputs | [./archorchestrator/variables.tf:84](./archorchestrator/variables.tf#L84) |
-| `ecs_clusters` | `any` | No | ECS clusters from compute module (keyed by purpose) | [./archorchestrator/variables.tf:89](./archorchestrator/variables.tf#L89) |
-| `rds_instances` | `any` | No | RDS instances from storage module (keyed by purpose) | [./archorchestrator/variables.tf:96](./archorchestrator/variables.tf#L96) |
-| `s3_buckets` | `map` | No | S3 bucket names from storage module (keyed by purpose) | [./archorchestrator/variables.tf:103](./archorchestrator/variables.tf#L103) |
-| `access_iam_role_arns` | `map` | No | IAM role ARNs from access module (keyed by module-purpose) | [./archorchestrator/variables.tf:110](./archorchestrator/variables.tf#L110) |
-| `access_iam_role_names` | `map` | No | IAM role names from access module (keyed by module-purpose) | [./archorchestrator/variables.tf:116](./archorchestrator/variables.tf#L116) |
-
-### Attributes
-
-This module exports the following attributes:
-
-| Output | Description | Ref |
-|--------|-------------|-----|
-| `rds_cluster_requests` | RDS cluster requests for storage module (SQL Server standalone instances) | [./archorchestrator/outputs.tf:3](./archorchestrator/outputs.tf#L3) |
-| `bucket_requests` | S3 bucket requests for storage module | [./archorchestrator/outputs.tf:8](./archorchestrator/outputs.tf#L8) |
-| `compute_class_requests` | ArchOrchestrator deployment ${deploy_name} | [./archorchestrator/outputs.tf:15](./archorchestrator/outputs.tf#L15) |
-| `config` | ArchOrchestrator configuration summary | [./archorchestrator/outputs.tf:32](./archorchestrator/outputs.tf#L32) |
-| `access_requests` | IAM access requests for the access module (access creates resources, returns ARNs) | [./archorchestrator/outputs.tf:47](./archorchestrator/outputs.tf#L47) |
-| `access_security_groups` | Security groups with rules for the access module (AWS-native format) | [./archorchestrator/outputs.tf:53](./archorchestrator/outputs.tf#L53) |
-| `alb_urls` | ALB DNS names per deployment (use these to access services) | [./archorchestrator/outputs.tf:59](./archorchestrator/outputs.tf#L59) |
-| `ecs_clusters` | ECS cluster ARNs per deployment | [./archorchestrator/outputs.tf:68](./archorchestrator/outputs.tf#L68) |
-
-## Module: archpacs
-
-Path: [`./archpacs`](./archpacs)
-
-(WIP) Domain orchestration for ArchPACS medical imaging PACS deployments using dependency inversion pattern.
-
-### State Fragment Structure
-
-```yaml
-services:
-  archpacs:
-    <key>:
-      maestro:  # object
-        pacs_version: string  # e.g., "PACS-5-8-1-R32"
-        iv_version: string  # e.g., "5-8-1-R32" (defaults to pacs_version)
-        orchestrator_class: string  # Compute class that hosts the Maestro orchestrator
-        client_code: string  # Client code for distribute.cfg (default: PLATFORMER)
-      compute:  # map
-        <key>:
-          type: string  # "ec2" or "eks"
-          server_type: string
-          ami_filter: string
-          ami_owner: string
-          instance_type: string  # default: t3.small
-          volume_size: number  # default: 30
-          volume_type: string  # default: gp3
-          count: number  # default: 1
-          user_data_script: string
-          subnet_tier: string
-          associate_public_ip: bool  # default: true
-          security_group_ids: []  # list(string)
-          ingress:  # list
-            - port: number
-              cidrs: []  # list(string)
-              protocol: string  # default: http
-          version: string
-          support_type: string  # default: STANDARD
-          vpc_id: string
-          subnet_ids: []  # list(string)
-          node_groups:  # map
-            <key>:
-              instance_types: []  # list(string)
-              min_size: number
-              max_size: number
-              desired_size: number
-              labels: {}  # map(string)
-              taints:  # list
-                - key: string
-                  value: string
-                  effect: string
-          addons: []  # list(string)
-          endpoint_public_access: bool  # default: false
-          endpoint_private_access: bool  # default: true
-          cluster_admins: []  # list(string)
-          description: string
-          tags: {}  # map(string)
-          network_name: string
-          applications:  # list
-            - script: string
-              params: {}  # map(string)
-              type: string  # default: ssm
-              playbook: string
-              playbook_file: string
-              chart: string
-              repository: string
-              version: string
-              namespace: string  # default: default
-              release_name: string
-              values: string
-              wait: bool  # default: true
-              timeout: number  # default: 300
-      rds:  # object
-        lifimage_cns:  # object
-          engine_version: string
-          instance_class: string
-          instances: number
-          database_name: string
-          deletion_protection: bool  # default: false
-          backup_retention_period: number  # default: 7
-      s3:  # list
-        - purpose: string
-          versioning: bool  # default: false
-          lifecycle: {}  # map
-          retention_days: number
-```
-
-### Arguments
-
-This module supports the following arguments:
-
-| Variable | Type | Required | Description | Ref |
-|----------|------|----------|-------------|-----|
-| `tenants_by_deployment` | `map` | No | Map of deployment name to entitled tenant list (from tenants module) | [./archpacs/variables.tf:5](./archpacs/variables.tf#L5) |
-| `config` | `map(object)` | No | ArchPACS deployment configurations - map of deployment name to deployment config | [./archpacs/variables.tf:13](./archpacs/variables.tf#L13) |
-| `namespace` | `string` | **Yes** | Namespace for resource naming | [./archpacs/variables.tf:110](./archpacs/variables.tf#L110) |
-| `networks` | `map` | **Yes** | Available networks from networking module | [./archpacs/variables.tf:115](./archpacs/variables.tf#L115) |
-
-### Attributes
-
-This module exports the following attributes:
-
-| Output | Description | Ref |
-|--------|-------------|-----|
-| `compute_class_requests` | Compute class definitions for the compute module (prefixed with deployment name) | [./archpacs/outputs.tf:6](./archpacs/outputs.tf#L6) |
-| `rds_cluster_requests` | RDS Aurora cluster requests for storage module | [./archpacs/outputs.tf:22](./archpacs/outputs.tf#L22) |
-| `bucket_requests` | S3 bucket requests for storage module | [./archpacs/outputs.tf:27](./archpacs/outputs.tf#L27) |
-| `elasticache_cluster_requests` | ElastiCache cluster requests for storage module (future) | [./archpacs/outputs.tf:32](./archpacs/outputs.tf#L32) |
-| `config` | ArchPACS configuration summary | [./archpacs/outputs.tf:38](./archpacs/outputs.tf#L38) |
-| `access_security_groups` | Security groups with rules for the access module (AWS-native format) | [./archpacs/outputs.tf:50](./archpacs/outputs.tf#L50) |
-| `maestro` | Maestro configuration per deployment (for bootstrap playbook parameterization) | [./archpacs/outputs.tf:56](./archpacs/outputs.tf#L56) |
-
-## Module: archshare
-
-Path: [`./archshare`](./archshare)
-
-Domain orchestration module for Archshare medical imaging platform.
-
-### State Fragment Structure
-
-```yaml
-services:
-  archshare:
-    <key>:
-      compute:  # object
-        type: string  # "ec2" or "eks"
-        ami_filter: string
-        ami_owner: string
-        instance_type: string  # default: t3.small
-        volume_size: number  # default: 30
-        volume_type: string  # default: gp3
-        count: number  # default: 1
-        user_data_script: string
-        subnet_tier: string
-        associate_public_ip: bool  # default: true
-        security_group_ids: []  # list(string)
-        ingress:  # list
-          - port: number
-            cidrs: []  # list(string)
-            protocol: string  # default: http
-        version: string
-        support_type: string  # default: STANDARD
-        vpc_id: string
-        subnet_ids: []  # list(string)
-        node_groups:  # map
-          <key>:
-            instance_types: []  # list(string)
-            min_size: number
-            max_size: number
-            desired_size: number
-            labels: {}  # map(string)
-            taints:  # list
-              - key: string
-                value: string
-                effect: string
-        addons: []  # list(string)
-        endpoint_public_access: bool  # default: false
-        endpoint_private_access: bool  # default: true
-        cluster_admins: []  # list(string)
-        description: string
-        tags: {}  # map(string)
-        network_name: string
-        applications:  # list
-          - script: string
-            params: {}  # map(string)
-            type: string  # default: ssm
-            playbook: string
-            playbook_file: string
-            chart: string
-            repository: string
-            version: string
-            namespace: string  # default: default
-            release_name: string
-            values: string
-            wait: bool  # default: true
-            timeout: number  # default: 300
-      rds:  # object
-        services:  # object
-          engine_version: string
-          instance_class: string
-          instances: number  # default: 2
-        storage:  # object
-          engine_version: string
-          instance_class: string
-          instances: number  # default: 2
-      elasticache:  # object
-        services:  # object
-          engine: string  # default: valkey
-          engine_version: string
-          node_type: string
-          num_cache_nodes: number  # default: 1
-          transit_encryption_enabled: bool  # default: false
-        storage:  # object
-          engine: string  # default: valkey
-          engine_version: string
-          node_type: string
-          num_cache_nodes: number  # default: 1
-          transit_encryption_enabled: bool  # default: false
-        memcached:  # object
-          engine: string  # default: memcached
-          engine_version: string
-          node_type: string
-          num_cache_nodes: number  # default: 1
-          transit_encryption_enabled: bool  # default: false
-      ecr_registry: string  # default: 777777777777.dkr.ecr.us-east-2.amazonaws.com
-      network: string
-```
-
-### Arguments
-
-This module supports the following arguments:
-
-| Variable | Type | Required | Description | Ref |
-|----------|------|----------|-------------|-----|
-| `namespace` | `string` | **Yes** | Deployment namespace for resource isolation | [./archshare/variables.tf:2](./archshare/variables.tf#L2) |
-| `aws_account_id` | `string` | **Yes** | AWS account ID | [./archshare/variables.tf:7](./archshare/variables.tf#L7) |
-| `tenants_by_deployment` | `map` | No | Map of deployment name to entitled tenant list (from tenants module) | [./archshare/variables.tf:19](./archshare/variables.tf#L19) |
-| `config` | `map(object)` | No | Archshare deployment configurations - map of deployment name to deployment config | [./archshare/variables.tf:27](./archshare/variables.tf#L27) |
-| `networks` | `any` | **Yes** | Network module outputs | [./archshare/variables.tf:136](./archshare/variables.tf#L136) |
-| `compute_security_groups` | `map` | No | Compute module security groups (for DB/cache access) | [./archshare/variables.tf:142](./archshare/variables.tf#L142) |
-| `rds_clusters` | `any` | No | RDS clusters from storage module | [./archshare/variables.tf:149](./archshare/variables.tf#L149) |
-| `elasticache_clusters` | `any` | No | ElastiCache clusters from storage module | [./archshare/variables.tf:156](./archshare/variables.tf#L156) |
-| `s3_buckets` | `map` | No | S3 buckets from storage module | [./archshare/variables.tf:162](./archshare/variables.tf#L162) |
-| `efs_filesystems` | `any` | No | EFS filesystems from storage module | [./archshare/variables.tf:168](./archshare/variables.tf#L168) |
-| `storage_enabled` | `bool` | No | Whether the storage module is active (plan-time-safe guard for SG rule for_each) | [./archshare/variables.tf:175](./archshare/variables.tf#L175) |
-| `storage_rds_security_group_id` | `string` | No | RDS security group ID from storage module | [./archshare/variables.tf:181](./archshare/variables.tf#L181) |
-| `storage_elasticache_security_group_id` | `string` | No | ElastiCache security group ID from storage module | [./archshare/variables.tf:187](./archshare/variables.tf#L187) |
-| `instance_role_name` | `string` | No | IAM role name for compute instances (for attaching ECR pull permissions) | [./archshare/variables.tf:194](./archshare/variables.tf#L194) |
-| `eks_node_role_name` | `string` | No | EKS node group IAM role name for ECR permissions | [./archshare/variables.tf:201](./archshare/variables.tf#L201) |
-| `kubeconfig_ready` | `any` | No | Map from compute module indicating kubeconfig contexts are ready | [./archshare/variables.tf:208](./archshare/variables.tf#L208) |
-| `eks_cluster_security_groups` | `map` | No | EKS cluster security groups from compute module (map: class_name => security_group_id) | [./archshare/variables.tf:215](./archshare/variables.tf#L215) |
-
-### Attributes
-
-This module exports the following attributes:
-
-| Output | Description | Ref |
-|--------|-------------|-----|
-| `rds_cluster_requests` | RDS Aurora cluster requests for storage module | [./archshare/outputs.tf:3](./archshare/outputs.tf#L3) |
-| `elasticache_cluster_requests` | ElastiCache cluster requests for storage module | [./archshare/outputs.tf:8](./archshare/outputs.tf#L8) |
-| `bucket_requests` | S3 bucket requests for storage module | [./archshare/outputs.tf:13](./archshare/outputs.tf#L13) |
-| `compute_class_requests` | Compute class definitions for the compute module (deployment name = class name) | [./archshare/outputs.tf:20](./archshare/outputs.tf#L20) |
-| `config` | Archshare configuration summary | [./archshare/outputs.tf:30](./archshare/outputs.tf#L30) |
-| `storage_endpoints` | Storage backend endpoints per deployment-tenant | [./archshare/outputs.tf:42](./archshare/outputs.tf#L42) |
-| `ansible_bucket_request` | Ansible playbooks for Archshare deployment | [./archshare/outputs.tf:59](./archshare/outputs.tf#L59) |
-| `helm_application_requests` | Helm chart deployment requests for EKS compute | [./archshare/outputs.tf:69](./archshare/outputs.tf#L69) |
-| `eks_deployment_tenants` | EKS deployment-tenant pairs for URL generation | [./archshare/outputs.tf:75](./archshare/outputs.tf#L75) |
-| `frontend_service_urls` | Frontend service LoadBalancer URLs per deployment-tenant | [./archshare/outputs.tf:81](./archshare/outputs.tf#L81) |
 
 ## Module: legacy
 
