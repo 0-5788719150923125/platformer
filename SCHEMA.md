@@ -121,36 +121,40 @@ This module exports the following attributes:
 
 Path: [`./archbot`](./archbot)
 
-Event-driven AI assistant for Atlassian tickets. Ingests webhook events via API Gateway, rebuilds full ticket context from the REST API, delegates to a configurable AI backend (Bedrock, Devin, or test), and posts responses as comments.
+Multi-target AI bot module. Routes config by target type:
 
 ### State Fragment Structure
 
 ```yaml
 services:
   archbot:
-    atlassian_base_url: string
-    atlassian_email: string
-    project_keys: []  # list(string)
-    ai_backend: string  # default: test
-    debug: bool  # default: false
-    system_prompt: string
-    response_rate: number  # default: 0
-    bedrock_model_id: string  # default: us.anthropic.claude-haiku-4-5-20251001-v1:0
-    bedrock_max_tokens: number  # default: 512
-    bedrock_temperature: number  # default: 0
-    queue_visibility_timeout: number  # default: 300
-    lambda_timeout: number  # default: 300
-    lambda_memory: number  # default: 512
-    devin_poll_interval: number  # default: 15
-    devin_max_wait: number  # default: 720
-    knowledge_base_enabled: bool  # default: false
-    embedding_model_id: string  # default: amazon.titan-embed-text-v2:0
-    kb_max_results: number  # default: 5
-    kb_chunking_strategy: string  # default: SEMANTIC
-    kb_document_paths: []  # list(string)
-    kb_supported_extensions: []  # list(string)
-    kb_remap_to_txt_extensions: []  # list(string)
-    deny_list: []  # list(string)
+    <key>:
+      target: string  # "atlassian" or "discord"
+      ai_backend: string  # default: bedrock
+      debug: bool  # default: false
+      system_prompt: string
+      response_rate: number  # default: 0
+      bedrock_model_id: string  # default: us.anthropic.claude-haiku-4-5-20251001-v1:0
+      bedrock_max_tokens: number  # default: 512
+      bedrock_temperature: number  # default: 0
+      deny_list: []  # list(string)
+      atlassian_base_url: string
+      atlassian_email: string
+      project_keys: []  # list(string)
+      queue_visibility_timeout: number  # default: 300
+      lambda_timeout: number  # default: 300
+      lambda_memory: number  # default: 512
+      devin_poll_interval: number  # default: 15
+      devin_max_wait: number  # default: 720
+      discord_nickname: string
+      discord_history_limit: number  # default: 20
+      knowledge_base_enabled: bool  # default: false
+      embedding_model_id: string  # default: amazon.titan-embed-text-v2:0
+      kb_max_results: number  # default: 5
+      kb_chunking_strategy: string  # default: SEMANTIC
+      kb_document_paths: []  # list(string)
+      kb_supported_extensions: []  # list(string)
+      kb_remap_to_txt_extensions: []  # list(string)
 ```
 
 ### Arguments
@@ -160,16 +164,16 @@ This module supports the following arguments:
 | Variable | Type | Required | Description | Ref |
 |----------|------|----------|-------------|-----|
 | `namespace` | `string` | **Yes** | Unique deployment identifier for resource naming and tagging | [./archbot/variables.tf:1](./archbot/variables.tf#L1) |
-| `config` | `object` | No | archbot service configuration from state fragment | [./archbot/variables.tf:6](./archbot/variables.tf#L6) |
-| `atlassian_secret_arn` | `string` | **Yes** | ARN of the replicated Atlassian PAT in Secrets Manager (from secrets module) | [./archbot/variables.tf:50](./archbot/variables.tf#L50) |
-| `devin_secret_arn` | `string` | **Yes** | ARN of the replicated Devin API key in Secrets Manager (from secrets module) | [./archbot/variables.tf:55](./archbot/variables.tf#L55) |
-| `aws_profile` | `string` | No | AWS CLI profile name for provisioner scripts (KB index creation, ingestion jobs) | [./archbot/variables.tf:60](./archbot/variables.tf#L60) |
-| `kb_documents_bucket_trigger` | `string` | No | Replacement sentinel from storage module - changes when the KB documents bucket is recreated | [./archbot/variables.tf:66](./archbot/variables.tf#L66) |
-| `kb_documents_bucket_name` | `string` | No | KB documents S3 bucket name from storage module (dependency inversion) | [./archbot/variables.tf:72](./archbot/variables.tf#L72) |
-| `kb_documents_bucket_arn` | `string` | No | KB documents S3 bucket ARN from storage module (dependency inversion) | [./archbot/variables.tf:78](./archbot/variables.tf#L78) |
-| `event_bus_webhooks` | `map` | No | Event bus webhook URLs from portal module | [./archbot/variables.tf:84](./archbot/variables.tf#L84) |
-| `access_iam_role_arns` | `map` | No | IAM role ARNs from access module (keyed by module-purpose) | [./archbot/variables.tf:91](./archbot/variables.tf#L91) |
-| `access_iam_role_names` | `map` | No | IAM role names from access module (keyed by module-purpose) | [./archbot/variables.tf:97](./archbot/variables.tf#L97) |
+| `config` | `map(object)` | No | Map of bot configurations keyed by bot name, with target type discriminator | [./archbot/variables.tf:6](./archbot/variables.tf#L6) |
+| `atlassian_secret_arn` | `string` | **Yes** | ARN of the replicated Atlassian PAT in Secrets Manager (from secrets module) | [./archbot/variables.tf:67](./archbot/variables.tf#L67) |
+| `devin_secret_arn` | `string` | **Yes** | ARN of the replicated Devin API key in Secrets Manager (from secrets module) | [./archbot/variables.tf:72](./archbot/variables.tf#L72) |
+| `aws_profile` | `string` | No | AWS CLI profile name for provisioner scripts (KB index creation, ingestion jobs) | [./archbot/variables.tf:77](./archbot/variables.tf#L77) |
+| `kb_documents_bucket_trigger` | `string` | No | Replacement sentinel from storage module - changes when the KB documents bucket is recreated | [./archbot/variables.tf:83](./archbot/variables.tf#L83) |
+| `kb_documents_bucket_name` | `string` | No | KB documents S3 bucket name from storage module (dependency inversion) | [./archbot/variables.tf:89](./archbot/variables.tf#L89) |
+| `kb_documents_bucket_arn` | `string` | No | KB documents S3 bucket ARN from storage module (dependency inversion) | [./archbot/variables.tf:95](./archbot/variables.tf#L95) |
+| `event_bus_webhooks` | `map` | No | Event bus webhook URLs from portal module | [./archbot/variables.tf:101](./archbot/variables.tf#L101) |
+| `access_iam_role_arns` | `map` | No | IAM role ARNs from access module (keyed by module-purpose) | [./archbot/variables.tf:108](./archbot/variables.tf#L108) |
+| `access_iam_role_names` | `map` | No | IAM role names from access module (keyed by module-purpose) | [./archbot/variables.tf:114](./archbot/variables.tf#L114) |
 
 ### Attributes
 
@@ -177,10 +181,10 @@ This module exports the following attributes:
 
 | Output | Description | Ref |
 |--------|-------------|-----|
-| `webhook_url` | HTTPS endpoint receiving Atlassian webhook events | [./archbot/outputs.tf:1](./archbot/outputs.tf#L1) |
-| `queue_url` | SQS queue URL receiving Atlassian events | [./archbot/outputs.tf:6](./archbot/outputs.tf#L6) |
-| `dlq_url` | Dead letter queue URL for failed event processing | [./archbot/outputs.tf:11](./archbot/outputs.tf#L11) |
-| `lambda_function_name` | Lambda function name for log tailing and manual invocation | [./archbot/outputs.tf:16](./archbot/outputs.tf#L16) |
+| `webhook_urls` | HTTPS endpoints receiving Atlassian webhook events (keyed by bot name) | [./archbot/outputs.tf:1](./archbot/outputs.tf#L1) |
+| `queue_urls` | SQS queue URLs receiving Atlassian events (keyed by bot name) | [./archbot/outputs.tf:6](./archbot/outputs.tf#L6) |
+| `dlq_urls` | Dead letter queue URLs for failed event processing (keyed by bot name) | [./archbot/outputs.tf:11](./archbot/outputs.tf#L11) |
+| `lambda_function_names` | Lambda function names for log tailing and manual invocation (keyed by bot name) | [./archbot/outputs.tf:16](./archbot/outputs.tf#L16) |
 | `knowledge_base_id` | Bedrock Knowledge Base ID (null when KB is disabled) | [./archbot/outputs.tf:21](./archbot/outputs.tf#L21) |
 | `bucket_requests` | Bedrock Knowledge Base document store for archbot RAG | [./archbot/outputs.tf:26](./archbot/outputs.tf#L26) |
 | `kb_documents_bucket` | S3 bucket name for KB documents (null when KB is disabled) | [./archbot/outputs.tf:39](./archbot/outputs.tf#L39) |
@@ -188,7 +192,8 @@ This module exports the following attributes:
 | `commands` | Trigger KB document re-indexing for archbot RAG | [./archbot/outputs.tf:56](./archbot/outputs.tf#L56) |
 | `access_requests` | IAM access requests for the access module (access creates resources, returns ARNs) | [./archbot/outputs.tf:80](./archbot/outputs.tf#L80) |
 | `access_resource_policies` | Resource-level policies for the access module (SQS queue policy) | [./archbot/outputs.tf:86](./archbot/outputs.tf#L86) |
-| `service_url_entry` | Structured service URL entry for the portal service registry | [./archbot/outputs.tf:91](./archbot/outputs.tf#L91) |
+| `service_url_entries` | Structured service URL entries for the portal service registry | [./archbot/outputs.tf:91](./archbot/outputs.tf#L91) |
+| `discord_bots` | Discord bot container info (keyed by bot name) | [./archbot/outputs.tf:112](./archbot/outputs.tf#L112) |
 
 ## Module: archivist
 
@@ -1252,12 +1257,12 @@ This module exports the following attributes:
 
 | Output | Description | Ref |
 |--------|-------------|-----|
-| `service_urls` | Service URL registry  -  key-to-URL mapping (null entries excluded) | [./outputs.tf:148](./outputs.tf#L148) |
-| `commands` | Single operational commands by category | [./outputs.tf:158](./outputs.tf#L158) |
-| `workflows` | Multi-step operational workflows by category | [./outputs.tf:167](./outputs.tf#L167) |
-| `enabled_services` | List of enabled services in this deployment (includes auto-enabled and explicitly configured) | [./outputs.tf:176](./outputs.tf#L176) |
-| `deployment_id` | Unique deployment identifier (namespace) for this account/region deployment | [./outputs.tf:181](./outputs.tf#L181) |
-| `access_summary` | Access control summary - rule counts by module | [./outputs.tf:186](./outputs.tf#L186) |
+| `service_urls` | Service URL registry  -  key-to-URL mapping (null entries excluded) | [./outputs.tf:149](./outputs.tf#L149) |
+| `commands` | Single operational commands by category | [./outputs.tf:159](./outputs.tf#L159) |
+| `workflows` | Multi-step operational workflows by category | [./outputs.tf:168](./outputs.tf#L168) |
+| `enabled_services` | List of enabled services in this deployment (includes auto-enabled and explicitly configured) | [./outputs.tf:177](./outputs.tf#L177) |
+| `deployment_id` | Unique deployment identifier (namespace) for this account/region deployment | [./outputs.tf:182](./outputs.tf#L182) |
+| `access_summary` | Access control summary - rule counts by module | [./outputs.tf:187](./outputs.tf#L187) |
 
 ## Module: secrets
 

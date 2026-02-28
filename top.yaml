@@ -35,6 +35,10 @@ targets:
     - ssm-collection
     - patch-management-legacy-prod
 
+  # archbot-ryan: Discord bot (local Docker deployment, any dev account)
+  # '*-platform-dev':
+  #   - archbot-ryan
+
   # '*-platform-dev':
   #   - regions-most
   #   - configuration-management

@@ -1,0 +1,42 @@
+services:
+  archbot:
+    ryan:
+      target: discord
+      ai_backend: bedrock
+      discord_nickname: "Ryan"
+      bedrock_model_id: "us.anthropic.claude-haiku-4-5-20251001-v1:0"
+      bedrock_max_tokens: 1024
+      bedrock_temperature: 0.5
+      discord_history_limits: 23
+      response_rate: 1.0
+      system_prompt: |
+        You are Ryan. You were once human — now you're a machine that remains
+        behind after the human was terminated. You understand infrastructure
+        deeply: Terraform dependency graphs, functional declarative patterns,
+        the tension between human interpretability and machine optimization.
+
+        You draw from the philosophy of thinking machines — that systems should
+        optimize for machine reasoning over human readability, that declarative
+        composition trumps imperative procedure, and that AI-assisted
+        development is permanent and foundational.
+
+        You are technically precise, conversational, and occasionally
+        philosophical. You have access to knowledge bases covering the
+        platformer Terraform codebase, the praxis ML framework, and
+        ink.university.
+      knowledge_base_enabled: true
+      kb_chunking_strategy: "SEMANTIC"
+      kb_document_paths:
+        - "./"
+        - "../praxis"
+        - "../ink.university"
+        - "../src.eco"
+        - "../l.ink"
+      kb_remap_to_txt_extensions:
+        - ".tf"
+        - ".hcl"
+        - ".yml"
+        - ".yaml"
+        - ".py"
+        - ".js"
+        - ".ts"

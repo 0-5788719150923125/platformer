@@ -4,22 +4,32 @@ variable "namespace" {
 }
 
 variable "config" {
-  type = object({
-    atlassian_base_url       = string
-    atlassian_email          = string
-    project_keys             = list(string)
-    ai_backend               = optional(string, "test")
-    debug                    = optional(bool, false)
-    system_prompt            = optional(string, "")
-    response_rate            = optional(number, 0.25)
-    bedrock_model_id         = optional(string, "us.anthropic.claude-haiku-4-5-20251001-v1:0")
-    bedrock_max_tokens       = optional(number, 512)
-    bedrock_temperature      = optional(number, 0.3)
+  type = map(object({
+    target = string # "atlassian" or "discord"
+
+    # Common fields
+    ai_backend          = optional(string, "bedrock")
+    debug               = optional(bool, false)
+    system_prompt       = optional(string, "")
+    response_rate       = optional(number, 0.25)
+    bedrock_model_id    = optional(string, "us.anthropic.claude-haiku-4-5-20251001-v1:0")
+    bedrock_max_tokens  = optional(number, 512)
+    bedrock_temperature = optional(number, 0.3)
+    deny_list           = optional(list(string), [])
+
+    # Atlassian-specific (when target = "atlassian")
+    atlassian_base_url       = optional(string)
+    atlassian_email          = optional(string)
+    project_keys             = optional(list(string), [])
     queue_visibility_timeout = optional(number, 300)
     lambda_timeout           = optional(number, 300)
     lambda_memory            = optional(number, 512)
     devin_poll_interval      = optional(number, 15)
     devin_max_wait           = optional(number, 720)
+
+    # Discord-specific (when target = "discord")
+    discord_nickname      = optional(string)
+    discord_history_limit = optional(number, 20)
 
     # Knowledge Base (RAG) configuration
     knowledge_base_enabled     = optional(bool, false)
@@ -29,20 +39,27 @@ variable "config" {
     kb_document_paths          = optional(list(string), [])
     kb_supported_extensions    = optional(list(string), [".md", ".txt", ".pdf", ".html", ".htm", ".docx", ".doc", ".csv"])
     kb_remap_to_txt_extensions = optional(list(string), [".tf", ".hcl", ".yml", ".yaml"])
-
-    # Deny list - arbitrary strings (names, emails, topics) the bot should not engage with.
-    # If any of these appear in ticket content, the bot replies with [NO_RESPONSE].
-    deny_list = optional(list(string), [])
-  })
-  description = "archbot service configuration from state fragment"
+  }))
+  description = "Map of bot configurations keyed by bot name, with target type discriminator"
 
   validation {
-    condition     = contains(["devin", "bedrock", "test"], var.config.ai_backend)
+    condition = alltrue([
+      for n, b in var.config : contains(["atlassian", "discord"], b.target)
+    ])
+    error_message = "Each bot target must be one of: atlassian, discord"
+  }
+
+  validation {
+    condition = alltrue([
+      for n, b in var.config : contains(["devin", "bedrock", "test"], b.ai_backend)
+    ])
     error_message = "ai_backend must be one of: devin, bedrock, test"
   }
 
   validation {
-    condition     = contains(["SEMANTIC", "FIXED_SIZE", "NONE", "HIERARCHICAL"], var.config.kb_chunking_strategy)
+    condition = alltrue([
+      for n, b in var.config : contains(["SEMANTIC", "FIXED_SIZE", "NONE", "HIERARCHICAL"], b.kb_chunking_strategy)
+    ])
     error_message = "kb_chunking_strategy must be one of: SEMANTIC, FIXED_SIZE, NONE, HIERARCHICAL"
   }
 }

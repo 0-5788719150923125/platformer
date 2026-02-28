@@ -110,9 +110,10 @@ locals {
       } : {}
     ) : {},
 
-    # archbot webhook URL
+    # archbot webhook URLs (one per atlassian bot)
     local.archbot_enabled ? {
-      "archbot-jira-bot" = module.archbot[0].service_url_entry
+      for entry in module.archbot[0].service_url_entries :
+      entry.deployment => entry
     } : {},
 
     # Archshare URLs (per deployment-tenant, queried from Kubernetes)

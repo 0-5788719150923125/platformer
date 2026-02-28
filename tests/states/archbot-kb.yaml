@@ -12,14 +12,16 @@ services:
       description: "Devin API key for archbot"
 
   archbot:
-    atlassian_base_url: "https://example.atlassian.net"
-    atlassian_email: "test@example.com"
-    project_keys:
-      - TEST
-    ai_backend: "bedrock"
-    knowledge_base_enabled: true
-    embedding_model_id: "amazon.titan-embed-text-v2:0"
-    kb_max_results: 5
-    kb_chunking_strategy: "SEMANTIC"
-    kb_document_paths:
-      - "../environment/prod/org-root"
+    jira-bot:
+      target: atlassian
+      atlassian_base_url: "https://example.atlassian.net"
+      atlassian_email: "test@example.com"
+      project_keys:
+        - TEST
+      ai_backend: "bedrock"
+      knowledge_base_enabled: true
+      embedding_model_id: "amazon.titan-embed-text-v2:0"
+      kb_max_results: 5
+      kb_chunking_strategy: "SEMANTIC"
+      kb_document_paths:
+        - "../environment/prod/org-root"

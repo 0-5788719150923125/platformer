@@ -72,7 +72,7 @@ The following tools must be available in `PATH` for full functionality:
 
 - **access**: Centralized access control reporting using dependency inversion. Modules declare the IAM roles, security groups, and resource policies they provision, and the audit module aggregates them into a single JSON report rendered in AWS-native format. ([docs](./access/README.md))
 - **applications**: Data transformation layer for application deployment. Enriches application requests with file paths and routes them to appropriate deployment modules. ([docs](./applications/README.md))
-- **archbot**: Event-driven AI assistant for Atlassian tickets. Ingests webhook events via API Gateway, rebuilds full ticket context from the REST API, delegates to a configurable AI backend (Bedrock, Devin, or test), and posts responses as comments. ([docs](./archbot/README.md))
+- **archbot**: Multi-target AI bot module. Routes config by target type: ([docs](./archbot/README.md))
 - **archivist**: Produces a scrubbed, versioned tarball of the `platformer/` codebase on every `terraform apply`. The archive is safe to distribute - sensitive strings (AWS account IDs, internal domain names, S3 bucket names, and account-specific targets) are replaced with generic placeholders before packaging. ([docs](./archivist/README.md))
 - **archorchestrator**: Domain orchestration module for ArchOrchestrator (IO Cloud / SaaSApp) deployments on AWS ECS Fargate. ([docs](./archorchestrator/README.md))
 - **archpacs**: (WIP) Domain orchestration for ArchPACS medical imaging PACS deployments using dependency inversion pattern. ([docs](./archpacs/README.md))

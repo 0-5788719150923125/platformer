@@ -1,21 +1,21 @@
-output "webhook_url" {
-  value       = "${trimsuffix(aws_apigatewayv2_stage.default.invoke_url, "/")}/events"
-  description = "HTTPS endpoint receiving Atlassian webhook events"
+output "webhook_urls" {
+  value       = { for n, _ in local.atlassian_bots : n => "${trimsuffix(aws_apigatewayv2_stage.default[n].invoke_url, "/")}/events" }
+  description = "HTTPS endpoints receiving Atlassian webhook events (keyed by bot name)"
 }
 
-output "queue_url" {
-  value       = aws_sqs_queue.main.url
-  description = "SQS queue URL receiving Atlassian events"
+output "queue_urls" {
+  value       = { for n, _ in local.atlassian_bots : n => aws_sqs_queue.main[n].url }
+  description = "SQS queue URLs receiving Atlassian events (keyed by bot name)"
 }
 
-output "dlq_url" {
-  value       = aws_sqs_queue.dlq.url
-  description = "Dead letter queue URL for failed event processing"
+output "dlq_urls" {
+  value       = { for n, _ in local.atlassian_bots : n => aws_sqs_queue.dlq[n].url }
+  description = "Dead letter queue URLs for failed event processing (keyed by bot name)"
 }
 
-output "lambda_function_name" {
-  value       = aws_lambda_function.atlassian_bot.function_name
-  description = "Lambda function name for log tailing and manual invocation"
+output "lambda_function_names" {
+  value       = { for n, _ in local.atlassian_bots : n => aws_lambda_function.atlassian_bot[n].function_name }
+  description = "Lambda function names for log tailing and manual invocation (keyed by bot name)"
 }
 
 output "knowledge_base_id" {
@@ -43,7 +43,7 @@ output "kb_documents_bucket" {
 
 output "event_bus_requests" {
   description = "Event bus webhook subscription requests (portal creates webhooks)"
-  value = var.config.knowledge_base_enabled ? [
+  value = local.kb_enabled ? [
     {
       purpose     = "kb-ingestion-lifecycle"
       description = "KB ingestion lifecycle events (archbot)"
@@ -55,7 +55,7 @@ output "event_bus_requests" {
 
 output "commands" {
   description = "Operational commands for portal self-service actions"
-  value = var.config.knowledge_base_enabled ? [
+  value = local.kb_enabled ? [
     {
       title          = "Reindex Knowledge Base"
       description    = "Trigger KB document re-indexing for archbot RAG"
@@ -88,21 +88,33 @@ output "access_resource_policies" {
   value       = local.access_resource_policies
 }
 
-output "service_url_entry" {
+output "service_url_entries" {
+  value = [
+    for n, _ in local.atlassian_bots : {
+      url        = "${trimsuffix(aws_apigatewayv2_stage.default[n].invoke_url, "/")}/events"
+      service    = "archbot"
+      module     = "archbot"
+      tenants    = []
+      deployment = "archbot-${n}"
+      metadata = {
+        type        = "api-gateway"
+        protocol    = "https"
+        description = "Jira Automation webhook receiver - ${n}"
+        queue_url   = aws_sqs_queue.main[n].url
+        dlq_url     = aws_sqs_queue.dlq[n].url
+        lambda      = aws_lambda_function.atlassian_bot[n].function_name
+      }
+    }
+  ]
+  description = "Structured service URL entries for the portal service registry"
+}
+
+output "discord_bots" {
   value = {
-    url        = "${trimsuffix(aws_apigatewayv2_stage.default.invoke_url, "/")}/events"
-    service    = "archbot"
-    module     = "archbot"
-    tenants    = []
-    deployment = "archbot-atlassian-bot"
-    metadata = {
-      type        = "api-gateway"
-      protocol    = "https"
-      description = "Jira Automation webhook receiver - issue created events"
-      queue_url   = aws_sqs_queue.main.url
-      dlq_url     = aws_sqs_queue.dlq.url
-      lambda      = aws_lambda_function.atlassian_bot.function_name
+    for n, b in local.discord_bots : n => {
+      nickname       = b.discord_nickname
+      container_name = "archbot-${n}-${var.namespace}"
     }
   }
-  description = "Structured service URL entry for the portal service registry"
+  description = "Discord bot container info (keyed by bot name)"
 }

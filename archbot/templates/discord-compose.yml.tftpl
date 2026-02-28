@@ -1,0 +1,27 @@
+services:
+  ${bot_name}:
+    build:
+      context: ${build_context}
+    container_name: archbot-${bot_name}-${namespace}
+    restart: unless-stopped
+    env_file:
+      - path: ${env_file}
+        required: false
+    volumes:
+      - ~/.aws:/root/.aws:ro
+    environment:
+      AWS_PROFILE: "${aws_profile}"
+      AWS_REGION: "${aws_region}"
+      BOT_NAME: "${bot_name}"
+      DISCORD_NICKNAME: "${discord_nickname}"
+      AI_BACKEND: "${ai_backend}"
+      BEDROCK_MODEL_ID: "${bedrock_model_id}"
+      BEDROCK_MAX_TOKENS: "${bedrock_max_tokens}"
+      BEDROCK_TEMPERATURE: "${bedrock_temperature}"
+      DEBUG_MODE: "${debug}"
+      SYSTEM_PROMPT_PARAM: "${system_prompt_param}"
+      DENY_LIST: '${deny_list}'
+      RESPONSE_RATE: "${response_rate}"
+      DISCORD_HISTORY_LIMIT: "${discord_history_limit}"
+      KNOWLEDGE_BASE_ID: "${knowledge_base_id}"
+      KB_MAX_RESULTS: "${kb_max_results}"

@@ -1,80 +1,113 @@
 # archbot
 
-Event-driven AI assistant for Atlassian tickets. Ingests webhook events via API Gateway, rebuilds full ticket context from the REST API, delegates to a configurable AI backend (Bedrock, Devin, or test), and posts responses as comments.
+Multi-target AI bot module. Routes config by target type:
 
-## Architecture
+- **atlassian**: API Gateway → SQS → Lambda → Bedrock → Jira REST API
+- **discord**: Local Docker container → Bedrock → Discord API
 
-Jira Automation rule -> API Gateway HTTP API -> SQS -> Lambda -> AI backend -> Atlassian REST API (comment)
+Both targets share a common AI backend (`lambdas/shared/ai_backend.py`) for Bedrock Converse, KB retrieval, tool execution, and prompt composition.
 
-API Gateway forwards directly to SQS (no Lambda at ingestion). Failed messages retry 3 times before landing in a dead letter queue (14-day retention). The Lambda re-fetches full ticket context on every invocation - no persistence layer.
+## Configuration
 
-## Jira Automation Setup
+`var.config` is a `map(object({...}))` keyed by bot name. Each bot declares a `target` ("atlassian" or "discord") and the module creates the appropriate infrastructure.
 
-After `terraform apply`, create Jira Automation rules to forward events to the webhook endpoint. Both rules use the same `webhook_url` Terraform output. This does not require Jira administrator permissions - any project member can create automation rules.
+```yaml
+# states/archbot-example.yaml
+services:
+  archbot:
+    jira-bot:
+      target: atlassian
+      atlassian_base_url: "https://example.atlassian.net"
+      atlassian_email: "bot@example.com"
+      ai_backend: bedrock
+      knowledge_base_enabled: true
+      kb_document_paths:
+        - "./"
+
+    ryan:
+      target: discord
+      discord_nickname: "Ryan"
+      ai_backend: bedrock
+      bedrock_model_id: "us.anthropic.claude-haiku-4-5-20251001-v1:0"
+      response_rate: 1.0
+      knowledge_base_enabled: true
+      kb_document_paths:
+        - "./"
+        - "../praxis"
+```
+
+The Knowledge Base is shared across all KB-enabled bots — document paths are merged, and a single Bedrock KB + S3 Vectors index is provisioned.
+
+## Discord Bot
+
+### Prerequisites
+
+- Docker
+- AWS credentials available at `~/.aws` (the container mounts this read-only)
+- `DISCORD_TOKEN` in `.env` at the repo root
+
+### How it works
+
+Terraform generates a `compose.yml` per Discord bot and runs `docker compose up -d --build`. The container connects to Discord and responds to @mentions, replies, and DMs using Bedrock Converse.
+
+The bot loads its system prompt from SSM (same pattern as the Atlassian Lambda), applies deny list filtering and response rate sampling, and optionally enriches the system prompt with KB retrieval context.
+
+### Build script
+
+`scripts/build-lambdas.sh` copies `lambdas/shared/ai_backend.py` into each bot directory before Terraform packages them. This runs automatically via a `null_resource` triggered by the shared module's source hash.
+
+## Atlassian Bot
+
+### Architecture
+
+Jira Automation rule → API Gateway HTTP API → SQS → Lambda → AI backend → Jira REST API (comment)
+
+API Gateway forwards directly to SQS (no Lambda at ingestion). Failed messages retry 3 times before landing in a dead letter queue (14-day retention). The Lambda re-fetches full ticket context on every invocation — no persistence layer.
+
+### Jira Automation Setup
+
+After `terraform apply`, create Jira Automation rules to forward events to the webhook endpoint. Both rules use the same `webhook_urls["<bot-name>"]` output. This does not require Jira administrator permissions.
 
 > **Limitation:** The system webhooks API and the Automation REST API both require Jira administrator permissions that InfoSec will not grant. Automation rules must be configured through the Jira UI.
 
-### Rule 1: New issues
+#### Rule 1: New issues
 
-1. Go to your Jira project (e.g. MAINT) -> **Project settings** -> **Automation**
+1. Go to your Jira project → **Project settings** → **Automation**
 2. Click **Create rule**
-3. **Trigger:** Select "Issue created"
-4. **Action:** Select "Send web request"
-   - **URL:** Paste the `webhook_url` Terraform output
+3. **Trigger:** "Issue created"
+4. **Action:** "Send web request"
+   - **URL:** Paste the `webhook_urls` output for your bot
    - **HTTP method:** POST
    - **Web request body:** Custom data
    - **Custom data:**
      ```json
      {
        "event": "issue_created",
-       "issue": {
-         "key": "{{issue.key}}"
-       }
+       "issue": { "key": "{{issue.key}}" }
      }
      ```
-   - **Headers:** None required (the endpoint is unauthenticated)
-5. Name the rule (e.g. "archbot - forward new issues") and **Turn it on**
+   - **Headers:** None required (unauthenticated endpoint)
+5. Name the rule and turn it on
 
-### Rule 2: New comments
+#### Rule 2: New comments
 
-1. Go to your Jira project -> **Project settings** -> **Automation**
-2. Click **Create rule**
-3. **Trigger:** Select "Comment created"
-4. **Action:** Select "Send web request"
-   - **URL:** Paste the `webhook_url` Terraform output (same URL as Rule 1)
-   - **HTTP method:** POST
-   - **Web request body:** Custom data
-   - **Custom data:**
-     ```json
-      {
-        "event": "comment_created",
-        "issue": {
-          "key": "{{issue.key}}"
-        }
-      }
-     ```
-   - **Headers:** None required
-5. Name the rule (e.g. "archbot - forward new comments") and **Turn it on**
+Same as above, but with trigger "Comment created" and payload:
+```json
+{
+  "event": "comment_created",
+  "issue": { "key": "{{issue.key}}" }
+}
+```
 
-> **Do NOT include `{{comment.body}}` in the webhook payload.** Atlassian Automation interpolates smart values without JSON-escaping them. Any quotes, code blocks, or special characters in the comment body will produce invalid JSON and the Lambda will not be able to parse the payload. The Lambda re-fetches the full ticket (including all comments) from the Jira REST API on every invocation, so the webhook only needs to signal the event type and ticket key.
+> **Do NOT include `{{comment.body}}` in the webhook payload.** Atlassian Automation interpolates smart values without JSON-escaping. The Lambda re-fetches the full ticket from the Jira REST API, so the webhook only needs the event type and ticket key.
 
-### Loop prevention
+#### Loop prevention
 
-The Lambda uses two loop guards to prevent responding to its own comments:
+Two guards prevent the bot from responding to its own comments:
 
-1. **Pre-fetch guard:** If the webhook payload includes a `comment.body` field, the Lambda checks whether it starts with `*[archbot]*` (the prefix that `_post_comment()` always adds). If it matches, processing stops.
-2. **Post-fetch guard:** After re-fetching the ticket from the Jira API, the Lambda checks whether the most recent comment starts with `*[archbot]*`. This catches bot-echo events even when the webhook JSON was malformed and the pre-fetch guard could not read the body.
+1. **Pre-fetch:** Checks webhook `comment.body` for the `*[archbot]*` prefix
+2. **Post-fetch:** After re-fetching the ticket, checks the latest comment for the same prefix
 
-If both guards fail (e.g. malformed webhook AND a race condition on comment ordering), the AI backend will still see its own prior response as an assistant turn in the conversation, which limits the damage to a single unnecessary reply.
+### Atlassian API Token
 
-Repeat both rules for each project in `project_keys` if they are separate Jira projects.
-
-## Atlassian API Token
-
-The token requires these scopes on the target project(s):
-
-- Browse Projects
-- View Issue (`read:jira-work`)
-- Add Comments (`write:jira-work`)
-
-Auth uses Basic (email:token), not Bearer. The email is configured via `atlassian_email` in the state fragment.
+Required scopes: Browse Projects, View Issue (`read:jira-work`), Add Comments (`write:jira-work`). Auth uses Basic (email:token). The email is configured via `atlassian_email` in the state fragment.

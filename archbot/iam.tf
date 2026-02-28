@@ -6,7 +6,8 @@
 
 locals {
   access_requests = concat(
-    [
+    # API Gateway + Lambda roles only when atlassian bots exist
+    local.has_atlassian_bots ? [
       # API Gateway SQS role - sends webhook events to SQS queue
       {
         module              = "archbot"
@@ -32,13 +33,13 @@ locals {
         trust_actions       = ["sts:AssumeRole"]
         trust_conditions    = "{}"
         managed_policy_arns = []
-        inline_policies     = {} # SQS/secrets/bedrock policy stays local (references aws_sqs_queue.main/dlq.arn)
+        inline_policies     = {} # SQS/secrets/bedrock policy stays local
         instance_profile    = false
       },
-    ],
+    ] : [],
     # KB roles (conditional on knowledge base being enabled)
     local.kb_enabled ? [
-      # Bedrock Knowledge Base service role - reads S3 docs, writes to S3 Vectors, invokes embedding model
+      # Bedrock Knowledge Base service role
       {
         module         = "archbot"
         type           = "iam-role"
@@ -73,14 +74,14 @@ locals {
               {
                 Effect   = "Allow"
                 Action   = "bedrock:InvokeModel"
-                Resource = "arn:aws:bedrock:${local.aws_region}::foundation-model/${var.config.embedding_model_id}"
+                Resource = "arn:aws:bedrock:${local.aws_region}::foundation-model/${local.kb_embedding_model_id}"
               }
             ]
           })
         }
         instance_profile = false
       },
-      # KB Ingestion Reporter Lambda role - starts ingestion jobs, reports to Port
+      # KB Ingestion Reporter Lambda role
       {
         module              = "archbot"
         type                = "iam-role"
@@ -91,7 +92,7 @@ locals {
         trust_actions       = ["sts:AssumeRole"]
         trust_conditions    = "{}"
         managed_policy_arns = []
-        inline_policies     = {} # Bedrock ingestion policy stays local (references aws_bedrockagent_knowledge_base.archbot[0].arn)
+        inline_policies     = {} # Bedrock ingestion policy stays local
         instance_profile    = false
       },
     ] : []
@@ -100,11 +101,11 @@ locals {
 
 locals {
   access_resource_policies = [
-    {
+    for n, b in local.atlassian_bots : {
       module        = "archbot"
       resource_type = "sqs-queue-policy"
-      resource_name = aws_sqs_queue.main.name
-      policy        = aws_sqs_queue_policy.main.policy
+      resource_name = aws_sqs_queue.main[n].name
+      policy        = aws_sqs_queue_policy.main[n].policy
     }
   ]
 }
