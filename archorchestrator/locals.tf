@@ -18,7 +18,7 @@ locals {
   # Service-specific environment variable defaults
   # Synthesized based on service name and deployment context
   service_env_defaults = {
-    clario = {
+    saasapp = {
       SPRINGBOOT_PROFILES       = "saas"
       BOOTSTRAP_INSTANCE_DOMAIN = "io.local" # Spring Boot bootstrap property
       BOOTSTRAP_CELL_ID         = "default"  # Cell identifier for multi-cell deployments
@@ -28,7 +28,7 @@ locals {
   }
 
   # Flatten ECS services across all deployments for resource creation
-  # Key: "deployment/service" (e.g., "dev1/clario")
+  # Key: "deployment/service" (e.g., "dev1/saasapp")
   # Merges user-provided environment variables with auto-synthesized defaults
   ecs_services = merge([
     for deploy_name, config in var.config : {
@@ -44,14 +44,14 @@ locals {
         protocol      = svc_config.protocol
         # Merge: service defaults + deployment-specific synthesis + user overrides
         environment = merge(
-          # 1. Service-specific defaults (e.g., clario SPRINGBOOT_PROFILES)
+          # 1. Service-specific defaults (e.g., saasapp SPRINGBOOT_PROFILES)
           lookup(local.service_env_defaults, svc_name, {}),
           # 2. Deployment-specific synthesis (router configuration with dynamic values)
           svc_name == "router" ? {
             INSTANCE_DOMAIN_NAME      = "${deploy_name}.io.local"
-            CLARIO_TENANT_BUCKET      = try(var.s3_buckets["${deploy_name}-configuration"], "")
-            CLARIO_TENANT_MAPPING_KEY = "router/tenant-mapping.json"
-            CLARIO_DNS_TEMPLATE       = "clario.${deploy_name}.io.local:30000"
+            SAASAPP_TENANT_BUCKET      = try(var.s3_buckets["${deploy_name}-configuration"], "")
+            SAASAPP_TENANT_MAPPING_KEY = "router/tenant-mapping.json"
+            SAASAPP_DNS_TEMPLATE       = "saasapp.${deploy_name}.io.local:30000"
           } : {},
           # 3. User-provided overrides from state fragment (highest priority)
           svc_config.environment

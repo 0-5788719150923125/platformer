@@ -1,17 +1,17 @@
 # ArchOrchestrator
 
-Domain orchestration module for ArchOrchestrator (IO Cloud / Clario SaaS) deployments on AWS ECS Fargate.
+Domain orchestration module for ArchOrchestrator (IO Cloud / SaaSApp) deployments on AWS ECS Fargate.
 
 ## Overview
 
-This module provisions cloud-native infrastructure for the ArchOrchestrator platform, which runs as a set of containerized services (Clario, CoreApps, SaaS Router) on ECS Fargate with an MSSQL backend.
+This module provisions cloud-native infrastructure for the ArchOrchestrator platform, which runs as a set of containerized services (SaaSApp, CoreApps, SaaS Router) on ECS Fargate with an MSSQL backend.
 
 **Key architecture principle**: This module uses **dependency inversion** - it generates infrastructure requests (RDS SQL Server, S3 buckets) that the storage module fulfills. Container images are replicated from a source ECR account into a local ECR repository at apply time.
 
 ## Current Status
 
 ### Working
-- ✅ ECS Fargate infrastructure (Clario, CoreApps, Router services running)
+- ✅ ECS Fargate infrastructure (SaaSApp, CoreApps, Router services running)
 - ✅ Application Load Balancer with HTTP routing to Router
 - ✅ Cloud Map service discovery (dev1.io.local namespace)
 - ✅ RDS SQL Server database provisioned
@@ -19,12 +19,12 @@ This module provisions cloud-native infrastructure for the ArchOrchestrator plat
 - ✅ DynamoDB tenant metadata table
 - ✅ Tenant DynamoDB records created automatically
 - ✅ S3 tenant mapping JSON (router configuration)
-- ✅ Router successfully forwards requests to Clario with x-tenant-id header
+- ✅ Router successfully forwards requests to SaaSApp with x-tenant-id header
 
 ### Blocked
-- ⚠️ **SQL Server tenant initialization** - Clario returns 403 (cannot resolve tenant from database)
-- Investigation complete: Clario's build process uses a pre-built baseline database backup (`clario_baseline.bak` from AWS CodeArtifact)
-- Liquibase changesets in clario-swl repo are upgrade migrations only, not initial schema creation
+- ⚠️ **SQL Server tenant initialization** - SaaSApp returns 403 (cannot resolve tenant from database)
+- Investigation complete: SaaSApp's build process uses a pre-built baseline database backup (`saasapp_baseline.bak` from AWS CodeArtifact)
+- Liquibase changesets in saasapp-swl repo are upgrade migrations only, not initial schema creation
 - No "create from scratch" SQL scripts exist - all initialization is done via RESTORE DATABASE from baseline backup
 - Resolution requires either: (1) download and restore baseline backup, or (2) manual SQL schema creation
 
@@ -59,8 +59,8 @@ State Fragment -> ArchOrchestrator Module -> Infrastructure Requests -> Storage 
 Images are published by the bakery pipeline to a source ECR in a separate AWS account. At `terraform apply` time, a `null_resource` with `local-exec` authenticates to both source and destination ECR registries, then pulls, re-tags, and pushes each image into a local ECR repository. ECS task definitions reference the local copy.
 
 ```
-Source ECR (acme-clario-cloud-dev)     Local ECR (deployment account)
-666666666666/saas-...-repo:clario-5.2.0  -> 555555555555/{namespace}-io:clario-5.2.0
+Source ECR (acme-saasapp-cloud-dev)     Local ECR (deployment account)
+666666666666/saas-...-repo:saasapp-5.2.0  -> 555555555555/{namespace}-io:saasapp-5.2.0
 ```
 
 ## What It Creates
@@ -68,8 +68,8 @@ Source ECR (acme-clario-cloud-dev)     Local ECR (deployment account)
 ### Per Deployment
 
 - **ECS Cluster** - one Fargate cluster per named deployment
-- **ECS Services + Task Definitions** - one per service (e.g., clario, coreapps, router)
-  - Only router is attached to ALB; clario and coreapps use service discovery only
+- **ECS Services + Task Definitions** - one per service (e.g., saasapp, coreapps, router)
+  - Only router is attached to ALB; saasapp and coreapps use service discovery only
 - **Application Load Balancer** - HTTP listener forwarding all traffic to router
 - **Cloud Map** - private DNS namespace for inter-service discovery (`{deployment}.io.local`)
 - **SSM Parameters** - extensive parameter tree for application configuration:
@@ -145,16 +145,16 @@ services:
   archorchestrator:
     dev1:
       ecs:
-        clario:
+        saasapp:
           cpu: 2048
           memory: 8192
-          image: "clario-5.2.0-alpha.0.20260126002129765_dev"
+          image: "saasapp-5.2.0-alpha.0.20260126002129765_dev"
           desired_count: 1
           port: 30000
         coreapps:
           cpu: 2048
           memory: 4096
-          image: "clario-coreapps-5.1.16"
+          image: "saasapp-coreapps-5.1.16"
           desired_count: 1
           port: 17000
         router:
@@ -164,8 +164,8 @@ services:
           desired_count: 2
           port: 8080
 
-      # ECR source (defaults to acme-clario-cloud-dev)
-      ecr_source_profile: acme-clario-cloud-dev
+      # ECR source (defaults to acme-saasapp-cloud-dev)
+      ecr_source_profile: acme-saasapp-cloud-dev
       ecr_source_account_id: "666666666666"
       ecr_source_region: us-east-1
       ecr_source_repo: saas-us-east-1-deploymentecrrepository-7dc3wtgyh2tn
@@ -211,25 +211,25 @@ terraform output archorchestrator_urls
 
 The ALB uses HTTP (port 80) with **router-only exposure**:
 
-- **Only the router service is exposed via ALB** - clario and coreapps use service discovery only
+- **Only the router service is exposed via ALB** - saasapp and coreapps use service discovery only
 - **Default action**: forwards all traffic to the router target group
 - **No listener rules** - router handles all routing internally based on Host header and tenant mapping
 
-The router extracts tenant information from the Host header (e.g., `test.dev1.io.local`), looks up the tenant in S3 configuration (`router/tenant-mapping.json`), and forwards requests to the appropriate Clario backend via Cloud Map service discovery.
+The router extracts tenant information from the Host header (e.g., `test.dev1.io.local`), looks up the tenant in S3 configuration (`router/tenant-mapping.json`), and forwards requests to the appropriate SaaSApp backend via Cloud Map service discovery.
 
 HTTPS, custom domains, and ACM certificates are deferred to a future phase.
 
 ## Router Configuration
 
-The SaaS Router is the entry point for all external traffic and handles tenant-based routing to Clario backends.
+The SaaS Router is the entry point for all external traffic and handles tenant-based routing to SaaSApp backends.
 
 ### Environment Variables (Synthesized Automatically)
 
 ```hcl
 INSTANCE_DOMAIN_NAME      = "dev1.io.local"
-CLARIO_TENANT_BUCKET      = "io-{namespace}-dev1-configuration-{id}"
-CLARIO_TENANT_MAPPING_KEY = "router/tenant-mapping.json"
-CLARIO_DNS_TEMPLATE       = "clario.dev1.io.local:30000"
+SAASAPP_TENANT_BUCKET      = "io-{namespace}-dev1-configuration-{id}"
+SAASAPP_TENANT_MAPPING_KEY = "router/tenant-mapping.json"
+SAASAPP_DNS_TEMPLATE       = "saasapp.dev1.io.local:30000"
 ```
 
 ### Tenant Mapping Format
@@ -242,7 +242,7 @@ The router reads `router/tenant-mapping.json` from the configuration S3 bucket. 
     "code": "test",
     "id": "f41cad84-2adb-589c-8371-2333a79b583a",
     "state": "active",
-    "version": "clario-5.2.0-alpha.0.20260126002129765_dev"
+    "version": "saasapp-5.2.0-alpha.0.20260126002129765_dev"
   }
 ]
 ```
@@ -253,8 +253,8 @@ The router reads `router/tenant-mapping.json` from the configuration S3 bucket. 
 1. Request arrives with Host header: `test.dev1.io.local`
 2. Router extracts tenant code: `test`
 3. Router looks up tenant in mapping file
-4. Router forwards to Clario with `x-tenant-id: f41cad84-2adb-589c-8371-2333a79b583a`
-5. Clario resolves tenant from database (tenant initialization required)
+4. Router forwards to SaaSApp with `x-tenant-id: f41cad84-2adb-589c-8371-2333a79b583a`
+5. SaaSApp resolves tenant from database (tenant initialization required)
 
 ## Tenant Management
 
@@ -264,13 +264,13 @@ Direct tenant provisioning via bash scripts during `terraform apply`. Simple app
 - DynamoDB tenant metadata table creation
 - DynamoDB tenant records (tenant ID, code, name, state, version)
 - S3 tenant mapping JSON in configuration bucket (router reads this)
-- tenants.json in documents bucket (Clario reads this)
+- tenants.json in documents bucket (SaaSApp reads this)
 
 **Missing (blocks end-to-end functionality):**
-- SQL Server tenant database records - Clario's authoritative source of truth
-- Clario build process uses baseline database backup from CodeArtifact (`clario.releng.db/db-baseline-mssql:1.0.4`)
+- SQL Server tenant database records - SaaSApp's authoritative source of truth
+- SaaSApp build process uses baseline database backup from CodeArtifact (`saasapp.releng.db/db-baseline-mssql:1.0.4`)
 - No SQL scripts exist for "create from scratch" - only Liquibase migrations that assume baseline exists
-- Resolution: download clario_baseline.bak from CodeArtifact and restore to RDS SQL Server
+- Resolution: download saasapp_baseline.bak from CodeArtifact and restore to RDS SQL Server
 
 ## ECR Source Configuration
 
@@ -278,11 +278,11 @@ Images live in a single ECR repository in the source account, differentiated by 
 
 | Tag Prefix | Service |
 |------------|---------|
-| `clario-*` | Clario (Spring Boot, port 30000) |
-| `clario-coreapps-*` | CoreApps (.NET, port 17000) |
+| `saasapp-*` | SaaSApp (Spring Boot, port 30000) |
+| `saasapp-coreapps-*` | CoreApps (.NET, port 17000) |
 | `saas-router-*` | SaaS Router (port 8080) |
 
-Default source is `acme-clario-cloud-dev` (666666666666). Override per deployment via `ecr_source_*` fields for staging/production images.
+Default source is `acme-saasapp-cloud-dev` (666666666666). Override per deployment via `ecr_source_*` fields for staging/production images.
 
 ## Infrastructure Naming
 
@@ -300,7 +300,7 @@ Default source is `acme-clario-cloud-dev` (666666666666). Override per deploymen
 ## Deferred Features
 
 ### Placeholders
-SSM parameters with placeholder values to satisfy Clario's configuration binding:
+SSM parameters with placeholder values to satisfy SaaSApp's configuration binding:
 - DynamoDB tables (gateway, job-lock)
 - Lambda function (job-dispatch)
 - SES email (domain, identity)

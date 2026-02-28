@@ -666,7 +666,7 @@ This module exports the following attributes:
 
 Path: [`./archorchestrator`](./archorchestrator)
 
-Domain orchestration module for ArchOrchestrator (IO Cloud / Clario SaaS) deployments on AWS ECS Fargate.
+Domain orchestration module for ArchOrchestrator (IO Cloud / SaaSApp) deployments on AWS ECS Fargate.
 
 ### State Fragment Structure
 
@@ -676,13 +676,13 @@ services:
     <key>:
         cpu: number
         memory: number
-        image: string  # ECR image tag from source repo (e.g., "clario-5.2.0-alpha...")
+        image: string  # ECR image tag from source repo (e.g., "saasapp-5.2.0-alpha...")
         desired_count: number  # default: 1
         port: number  # Container port
         architecture: string  # CPU architecture: X86_64 or ARM64 (default: X86_64)
         protocol: string  # Target group protocol: HTTP or HTTPS (default: HTTP)
         environment: {}  # map(string) - User overrides for environment variables (module synthesizes defaults)
-      ecr_source_profile: string  # default: acme-clario-cloud-dev
+      ecr_source_profile: string  # default: acme-saasapp-cloud-dev
       ecr_source_account_id: string  # default: 666666666666
       ecr_source_region: string  # default: us-east-1
       ecr_source_repo: string  # default: saas-us-east-1-deploymentecrrepository-7dc3wtgyh2tn

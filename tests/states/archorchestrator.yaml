@@ -8,10 +8,10 @@ services:
   archorchestrator:
     dev1:
       ecs:
-        clario:
+        saasapp:
           cpu: 2048
           memory: 8192
-          image: "clario-5.2.0-alpha.0.20260126002129765_dev"
+          image: "saasapp-5.2.0-alpha.0.20260126002129765_dev"
           desired_count: 1
           port: 30000
           protocol: HTTPS
@@ -24,7 +24,7 @@ services:
           architecture: ARM64
           protocol: HTTPS
 
-      ecr_source_profile: acme-clario-cloud-dev
+      ecr_source_profile: acme-saasapp-cloud-dev
       ecr_source_account_id: "666666666666"
       ecr_source_region: us-east-1
       ecr_source_repo: saas-us-east-1-deploymentecrrepository-7dc3wtgyh2tn

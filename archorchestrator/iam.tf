@@ -61,7 +61,7 @@ locals {
               ]
               Resource = [
                 "arn:aws:ssm:${var.aws_region}:${var.aws_account_id}:parameter/${var.namespace}/archorchestrator/*",
-                "arn:aws:ssm:${var.aws_region}:${var.aws_account_id}:parameter/clario/*",
+                "arn:aws:ssm:${var.aws_region}:${var.aws_account_id}:parameter/saasapp/*",
               ]
             },
             {
@@ -97,12 +97,12 @@ locals {
         })
       }
     },
-    # ECS Bootstrap Role - Clario credential isolation (assumed by task role)
+    # ECS Bootstrap Role - SaaSApp credential isolation (assumed by task role)
     {
       module              = "archorchestrator"
       type                = "iam-role"
       purpose             = "ecs-bootstrap"
-      description         = "ECS bootstrap role (Clario credential isolation)"
+      description         = "ECS bootstrap role (SaaSApp credential isolation)"
       trust_services      = []
       trust_roles         = ["archorchestrator-ecs-task"]
       trust_actions       = ["sts:AssumeRole", "sts:SetSourceIdentity"]
@@ -123,7 +123,7 @@ locals {
               ]
               Resource = [
                 "arn:aws:ssm:${var.aws_region}:${var.aws_account_id}:parameter/${var.namespace}/archorchestrator/*",
-                "arn:aws:ssm:${var.aws_region}:${var.aws_account_id}:parameter/clario/*",
+                "arn:aws:ssm:${var.aws_region}:${var.aws_account_id}:parameter/saasapp/*",
               ]
             }
           ]
@@ -143,7 +143,7 @@ locals {
       instance_profile    = false
       trust_conditions = jsonencode({
         StringEquals = {
-          "sts:SourceIdentity" = "clario-app-5259d757-1477-4786-ad8c-a498cba80499"
+          "sts:SourceIdentity" = "saasapp-app-5259d757-1477-4786-ad8c-a498cba80499"
         }
       })
       inline_policies = {
@@ -172,7 +172,7 @@ locals {
               Action = [
                 "secretsmanager:GetSecretValue",
               ]
-              Resource = "arn:aws:secretsmanager:${var.aws_region}:${var.aws_account_id}:secret:/clario/*"
+              Resource = "arn:aws:secretsmanager:${var.aws_region}:${var.aws_account_id}:secret:/saasapp/*"
             },
             {
               Sid    = "SSMParameterAccess"
@@ -183,7 +183,7 @@ locals {
                 "ssm:DeleteParameter",
               ]
               Resource = [
-                "arn:aws:ssm:${var.aws_region}:${var.aws_account_id}:parameter/clario-app/*",
+                "arn:aws:ssm:${var.aws_region}:${var.aws_account_id}:parameter/saasapp-app/*",
               ]
             },
             {

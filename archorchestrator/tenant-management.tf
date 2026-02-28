@@ -52,7 +52,7 @@ resource "null_resource" "create_tenants" {
     aws_region     = var.aws_region
     dynamodb_table = aws_dynamodb_table.tenants[each.value.deployment].name
     rds_endpoint   = try(var.rds_instances["${each.value.deployment}-mssql"].endpoint, "")
-    image_version  = try(var.config[each.value.deployment].ecs.clario.image, "unknown")
+    image_version  = try(var.config[each.value.deployment].ecs.saasapp.image, "unknown")
   }
 
   provisioner "local-exec" {

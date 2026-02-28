@@ -37,7 +37,7 @@ locals {
         metadata = {
           type        = "alb"
           protocol    = "http"
-          description = "IO Cloud services (Clario, CoreApps, Router)"
+          description = "IO Cloud services (SaaSApp, CoreApps, Router)"
         }
       }
     } : {},

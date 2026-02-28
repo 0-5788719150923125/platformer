@@ -1,5 +1,5 @@
 # ArchOrchestrator Module
-# Domain orchestration for ArchOrchestrator (IO Cloud / Clario SaaS) deployments
+# Domain orchestration for ArchOrchestrator (IO Cloud / SaaSApp) deployments
 # Provisions ECS Fargate services with ALB, Cloud Map service discovery, and SSM parameters
 # Generates infrastructure requests (RDS, S3, ECS clusters) via dependency inversion
 # ECS clusters are provided by compute module through dependency inversion
@@ -21,7 +21,7 @@ resource "aws_cloudwatch_log_group" "ecs" {
 }
 
 # ── Cloud Map Service Discovery (per deployment) ────────────────────────────
-# Enables inter-service discovery (e.g., router → clario.io.local)
+# Enables inter-service discovery (e.g., router → saasapp.io.local)
 
 resource "aws_service_discovery_private_dns_namespace" "main" {
   for_each = var.config
@@ -102,8 +102,8 @@ resource "aws_ecs_task_definition" "main" {
           { name = "BOOTSTRAP_AWS_REGION", value = var.aws_region },
           { name = "BOOTSTRAP_INSTANCEID", value = each.value.deployment },
         ],
-        # Clario-specific: bootstrap role ARN for credential isolation
-        each.value.service == "clario" ? [
+        # SaaSApp-specific: bootstrap role ARN for credential isolation
+        each.value.service == "saasapp" ? [
           { name = "BOOTSTRAP_AWS_ASSUME_ROLE_ARN", value = var.access_iam_role_arns["archorchestrator-ecs-bootstrap"] }
         ] : [],
         [for k, v in each.value.environment : { name = k, value = v }]
@@ -138,7 +138,7 @@ resource "aws_ecs_service" "main" {
     assign_public_ip = true # Required: default VPC has no NAT gateway for private subnet egress
   }
 
-  # Only router is exposed via ALB; clario and coreapps use service discovery only
+  # Only router is exposed via ALB; saasapp and coreapps use service discovery only
   dynamic "load_balancer" {
     for_each = each.value.service == "router" ? [1] : []
     content {
@@ -239,7 +239,7 @@ resource "aws_lb_listener" "http" {
 }
 
 # No listener rules needed - router is the only service exposed via ALB (default action)
-# Clario and CoreApps are accessed internally via service discovery only
+# SaaSApp and CoreApps are accessed internally via service discovery only
 
 # ── SSM Parameters (deployment context) ─────────────────────────────────────
 # Connection strings and bucket names for application configuration
@@ -271,8 +271,8 @@ resource "aws_ssm_parameter" "deployment_context" {
 }
 
 # ── Application SSM Parameters (legacy paths) ────────────────────────────────
-# Clario/CoreApps applications read configuration from hardcoded SSM paths
-# under /clario/{deployment}/properties/*. We seed required parameters here.
+# SaaSApp/CoreApps applications read configuration from hardcoded SSM paths
+# under /saasapp/{deployment}/properties/*. We seed required parameters here.
 
 resource "random_password" "jwt_key" {
   for_each = var.config
@@ -283,7 +283,7 @@ resource "random_password" "jwt_key" {
 resource "aws_ssm_parameter" "internal_jwt_key" {
   for_each = var.config
 
-  name  = "/clario/${each.key}/properties/internal-jwt-key"
+  name  = "/saasapp/${each.key}/properties/internal-jwt-key"
   type  = "SecureString"
   value = random_password.jwt_key[each.key].result
 
@@ -301,7 +301,7 @@ resource "aws_ssm_parameter" "internal_jwt_key" {
 resource "aws_ssm_parameter" "application_role_arn" {
   for_each = var.config
 
-  name  = "/clario/${each.key}/properties/application-role-arn"
+  name  = "/saasapp/${each.key}/properties/application-role-arn"
   type  = "String"
   value = var.access_iam_role_arns["archorchestrator-ecs-app"]
 
@@ -316,7 +316,7 @@ resource "aws_ssm_parameter" "application_role_arn" {
 resource "aws_ssm_parameter" "wss_endpoint" {
   for_each = var.config
 
-  name  = "/clario/${each.key}/properties/wss-endpoint"
+  name  = "/saasapp/${each.key}/properties/wss-endpoint"
   type  = "String"
   value = "wss://${aws_lb.main[each.key].dns_name}/ws"
 
@@ -328,12 +328,12 @@ resource "aws_ssm_parameter" "wss_endpoint" {
 }
 
 # Service connectivity configuration (cell-based)
-# Clario expects connectivity configuration under /clario/{deployment}/cell/{cell_id}/properties/
+# SaaSApp expects connectivity configuration under /saasapp/{deployment}/cell/{cell_id}/properties/
 # Cell ID is set via BOOTSTRAP_CELL_ID environment variable (default: "default")
 resource "aws_ssm_parameter" "connectivity_coreapps" {
   for_each = var.config
 
-  name  = "/clario/${each.key}/cell/default/properties/connectivity.internal.coreapps.base-url"
+  name  = "/saasapp/${each.key}/cell/default/properties/connectivity.internal.coreapps.base-url"
   type  = "String"
   value = "http://coreapps.${each.key}.io.local:17000"
 
@@ -347,9 +347,9 @@ resource "aws_ssm_parameter" "connectivity_coreapps" {
 resource "aws_ssm_parameter" "connectivity_control_plane" {
   for_each = var.config
 
-  name  = "/clario/${each.key}/cell/default/properties/connectivity.internal.control-plane.base-url"
+  name  = "/saasapp/${each.key}/cell/default/properties/connectivity.internal.control-plane.base-url"
   type  = "String"
-  value = "http://clario.${each.key}.io.local:30000"
+  value = "http://saasapp.${each.key}.io.local:30000"
 
   tags = {
     Namespace  = var.namespace
@@ -361,9 +361,9 @@ resource "aws_ssm_parameter" "connectivity_control_plane" {
 resource "aws_ssm_parameter" "connectivity_internal_api" {
   for_each = var.config
 
-  name  = "/clario/${each.key}/cell/default/properties/connectivity.internal.internal-api.base-url"
+  name  = "/saasapp/${each.key}/cell/default/properties/connectivity.internal.internal-api.base-url"
   type  = "String"
-  value = "http://clario.${each.key}.io.local:30000"
+  value = "http://saasapp.${each.key}.io.local:30000"
 
   tags = {
     Namespace  = var.namespace
@@ -373,12 +373,12 @@ resource "aws_ssm_parameter" "connectivity_internal_api" {
 }
 
 # AWS resource mappings - S3 buckets for tenant data, messaging, and configuration
-# Path format: /clario/${instanceId}/aws-resources/{scope}/{type}/{identifier}
+# Path format: /saasapp/${instanceId}/aws-resources/{scope}/{type}/{identifier}
 # Scope "app" is used for application-level resources
 resource "aws_ssm_parameter" "aws_resource_s3_tenant" {
   for_each = var.config
 
-  name  = "/clario/${each.key}/aws-resources/app/s3/tenant"
+  name  = "/saasapp/${each.key}/aws-resources/app/s3/tenant"
   type  = "String"
   value = var.s3_buckets["${each.key}-documents"]
 
@@ -392,7 +392,7 @@ resource "aws_ssm_parameter" "aws_resource_s3_tenant" {
 resource "aws_ssm_parameter" "aws_resource_s3_messaging" {
   for_each = var.config
 
-  name  = "/clario/${each.key}/aws-resources/app/s3/messaging"
+  name  = "/saasapp/${each.key}/aws-resources/app/s3/messaging"
   type  = "String"
   value = var.s3_buckets["${each.key}-messaging"]
 
@@ -406,7 +406,7 @@ resource "aws_ssm_parameter" "aws_resource_s3_messaging" {
 resource "aws_ssm_parameter" "aws_resource_s3_configuration" {
   for_each = var.config
 
-  name  = "/clario/${each.key}/aws-resources/app/s3/configuration"
+  name  = "/saasapp/${each.key}/aws-resources/app/s3/configuration"
   type  = "String"
   value = var.s3_buckets["${each.key}-configuration"]
 
@@ -417,11 +417,11 @@ resource "aws_ssm_parameter" "aws_resource_s3_configuration" {
   }
 }
 
-# Additional S3 buckets required by Clario application
+# Additional S3 buckets required by SaaSApp application
 resource "aws_ssm_parameter" "aws_resource_s3_documents" {
   for_each = var.config
 
-  name  = "/clario/${each.key}/aws-resources/app/s3/documents"
+  name  = "/saasapp/${each.key}/aws-resources/app/s3/documents"
   type  = "String"
   value = var.s3_buckets["${each.key}-documents"]
 
@@ -435,7 +435,7 @@ resource "aws_ssm_parameter" "aws_resource_s3_documents" {
 resource "aws_ssm_parameter" "aws_resource_s3_download" {
   for_each = var.config
 
-  name  = "/clario/${each.key}/aws-resources/app/s3/download"
+  name  = "/saasapp/${each.key}/aws-resources/app/s3/download"
   type  = "String"
   value = var.s3_buckets["${each.key}-configuration"]
 
@@ -451,9 +451,9 @@ resource "aws_ssm_parameter" "aws_resource_s3_download" {
 resource "aws_ssm_parameter" "aws_resource_log_group" {
   for_each = var.config
 
-  name  = "/clario/${each.key}/aws-resources/app/log-group/app-logs"
+  name  = "/saasapp/${each.key}/aws-resources/app/log-group/app-logs"
   type  = "String"
-  value = "/ecs/${var.namespace}/io/${each.key}-clario"
+  value = "/ecs/${var.namespace}/io/${each.key}-saasapp"
 
   tags = {
     Namespace  = var.namespace
@@ -466,7 +466,7 @@ resource "aws_ssm_parameter" "aws_resource_log_group" {
 resource "aws_ssm_parameter" "aws_resource_dynamodb_gateway" {
   for_each = var.config
 
-  name  = "/clario/${each.key}/aws-resources/app/dynamodb/gateway"
+  name  = "/saasapp/${each.key}/aws-resources/app/dynamodb/gateway"
   type  = "String"
   value = "placeholder-gateway-table"
 
@@ -481,7 +481,7 @@ resource "aws_ssm_parameter" "aws_resource_dynamodb_gateway" {
 resource "aws_ssm_parameter" "aws_resource_dynamodb_job_lock" {
   for_each = var.config
 
-  name  = "/clario/${each.key}/aws-resources/app/dynamodb/job-lock"
+  name  = "/saasapp/${each.key}/aws-resources/app/dynamodb/job-lock"
   type  = "String"
   value = "placeholder-job-lock-table"
 
@@ -497,7 +497,7 @@ resource "aws_ssm_parameter" "aws_resource_dynamodb_job_lock" {
 resource "aws_ssm_parameter" "aws_resource_lambda_job_dispatch" {
   for_each = var.config
 
-  name  = "/clario/${each.key}/aws-resources/app/lambda/job-dispatch-lambda-arn"
+  name  = "/saasapp/${each.key}/aws-resources/app/lambda/job-dispatch-lambda-arn"
   type  = "String"
   value = "arn:aws:lambda:${var.aws_region}:${var.aws_account_id}:function:placeholder-job-dispatch"
 
@@ -513,7 +513,7 @@ resource "aws_ssm_parameter" "aws_resource_lambda_job_dispatch" {
 resource "aws_ssm_parameter" "aws_resource_iam_job_dispatch_role" {
   for_each = var.config
 
-  name  = "/clario/${each.key}/aws-resources/app/iam-role/job-dispatch-lambda-role-arn"
+  name  = "/saasapp/${each.key}/aws-resources/app/iam-role/job-dispatch-lambda-role-arn"
   type  = "String"
   value = var.access_iam_role_arns["archorchestrator-ecs-app"]
 
@@ -529,7 +529,7 @@ resource "aws_ssm_parameter" "aws_resource_iam_job_dispatch_role" {
 resource "aws_ssm_parameter" "aws_resource_ses_domain" {
   for_each = var.config
 
-  name  = "/clario/${each.key}/aws-resources/app/ses/domain"
+  name  = "/saasapp/${each.key}/aws-resources/app/ses/domain"
   type  = "String"
   value = "mail.${each.key}.example.com"
 
@@ -544,7 +544,7 @@ resource "aws_ssm_parameter" "aws_resource_ses_domain" {
 resource "aws_ssm_parameter" "aws_resource_ses_identity" {
   for_each = var.config
 
-  name  = "/clario/${each.key}/aws-resources/app/ses/identity-arn"
+  name  = "/saasapp/${each.key}/aws-resources/app/ses/identity-arn"
   type  = "String"
   value = "arn:aws:ses:${var.aws_region}:${var.aws_account_id}:identity/${each.key}.example.com"
 
@@ -606,7 +606,7 @@ locals {
     for deploy_name, tenants in var.tenants_by_deployment : deploy_name => jsonencode([
       for tenant in tenants : {
         state   = "active"
-        version = try(var.config[deploy_name].ecs.clario.image, "unknown")
+        version = try(var.config[deploy_name].ecs.saasapp.image, "unknown")
         id      = uuidv5("dns", "${var.namespace}.${deploy_name}.${tenant}")
         code    = tenant
       }

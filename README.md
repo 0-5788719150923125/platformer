@@ -83,7 +83,7 @@ The following tools must be available in `PATH` for full functionality:
 - **domains**: Route53 zone lookup and ACM wildcard certificate provisioning with DNS validation. ([docs](./domains/README.md))
 - **hashing**: Deterministic namespace generation for parallel deployments. ([docs](./hashing/README.md))
 - **archbot**: Event-driven AI assistant for Atlassian tickets. Ingests webhook events via API Gateway, rebuilds full ticket context from the REST API, delegates to a configurable AI backend (Bedrock, Devin, or test), and posts responses as comments. ([docs](./archbot/README.md))
-- **archorchestrator**: Domain orchestration module for ArchOrchestrator (IO Cloud / Clario SaaS) deployments on AWS ECS Fargate. ([docs](./archorchestrator/README.md))
+- **archorchestrator**: Domain orchestration module for ArchOrchestrator (IO Cloud / SaaSApp) deployments on AWS ECS Fargate. ([docs](./archorchestrator/README.md))
 - **archpacs**: (WIP) Domain orchestration for ArchPACS medical imaging PACS deployments using dependency inversion pattern. ([docs](./archpacs/README.md))
 - **archshare**: Domain orchestration module for Archshare medical imaging platform. ([docs](./archshare/README.md))
 - **legacy**: Disposable EC2 instance with Atlantis pre-built via Packer. ([docs](./legacy/README.md))

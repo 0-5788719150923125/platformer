@@ -43,7 +43,7 @@ variable "config" {
     ecs = map(object({
       cpu           = number
       memory        = number
-      image         = string # ECR image tag from source repo (e.g., "clario-5.2.0-alpha...")
+      image         = string # ECR image tag from source repo (e.g., "saasapp-5.2.0-alpha...")
       desired_count = optional(number, 1)
       port          = number                     # Container port
       architecture  = optional(string, "X86_64") # CPU architecture: X86_64 or ARM64
@@ -52,7 +52,7 @@ variable "config" {
     }))
 
     # ECR source for image replication (pull from source, push to local ECR)
-    ecr_source_profile    = optional(string, "acme-clario-cloud-dev")
+    ecr_source_profile    = optional(string, "acme-saasapp-cloud-dev")
     ecr_source_account_id = optional(string, "666666666666")
     ecr_source_region     = optional(string, "us-east-1")
     ecr_source_repo       = optional(string, "saas-us-east-1-deploymentecrrepository-7dc3wtgyh2tn")

@@ -724,7 +724,7 @@ module "archpacs" {
 }
 
 # ArchOrchestrator Module
-# IO Cloud / Clario SaaS platform - ECS Fargate services with MSSQL backend
+# IO Cloud / SaaSApp platform - ECS Fargate services with MSSQL backend
 # Generates infrastructure requests for storage module (RDS SQL Server, S3)
 module "archorchestrator" {
   count  = local.archorchestrator_enabled ? 1 : 0
