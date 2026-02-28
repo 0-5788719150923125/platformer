@@ -135,7 +135,7 @@ locals {
 
 # Deployment namespace for resource isolation
 module "namespace" {
-  source = "git::https://github.com/acme-sandbox/platformer//platformer/hashing?ref=32f494a44c07828cecb58311e55b1095d0804a55"
+  source = "./hashing"
 
   algorithm = "pokeform"
 }
@@ -156,7 +156,7 @@ data "terraform_remote_state" "default_workspace" {
 
 # Auto-documentation - Generates SCHEMA.md from all variables.tf files
 module "auto_docs" {
-  source = "git::https://github.com/acme-sandbox/platformer//platformer/auto-docs?ref=32f494a44c07828cecb58311e55b1095d0804a55"
+  source = "./auto-docs"
 }
 
 # Access Module - Centralized access control reporting
@@ -164,7 +164,7 @@ module "auto_docs" {
 # modules into a JSON report in AWS-native format. Emits artifact_requests for the
 # portal artifact catalog.
 module "access" {
-  source = "git::https://github.com/acme-sandbox/platformer//platformer/access?ref=32f494a44c07828cecb58311e55b1095d0804a55"
+  source = "./access"
 
   namespace      = module.namespace.id
   aws_account_id = local.aws_account_id
@@ -201,7 +201,7 @@ module "access" {
 # Always-on. Emits bucket_requests (consumed by storage) and artifact_requests (consumed by portal).
 # Bucket name is computed directly here to avoid a module cycle with storage.
 module "archivist" {
-  source = "git::https://github.com/acme-sandbox/platformer//platformer/archivist?ref=32f494a44c07828cecb58311e55b1095d0804a55"
+  source = "./archivist"
 
   bucket_name = "archivist-${module.namespace.id}"
   repo_name   = "archivist-${module.namespace.id}"
@@ -220,7 +220,7 @@ module "archivist" {
 # Loads terraform.tfvars.{workspace} files for environment-specific overrides
 # Falls back to base terraform.tfvars when workspace file doesn't exist
 module "workspaces" {
-  source = "git::https://github.com/acme-sandbox/platformer//platformer/workspaces?ref=32f494a44c07828cecb58311e55b1095d0804a55"
+  source = "./workspaces"
 
   # Pass base terraform.tfvars values as defaults
   default_aws_profile = var.aws_profile
@@ -235,7 +235,7 @@ module "workspaces" {
 # Config Module - Resolves final service configuration
 # Loads and merges state fragments (single source of truth)
 module "config" {
-  source = "git::https://github.com/acme-sandbox/platformer//platformer/config?ref=32f494a44c07828cecb58311e55b1095d0804a55"
+  source = "./config"
 
   states      = module.workspaces.states
   states_dirs = ["../states", "../tests/states"]
@@ -245,7 +245,7 @@ module "config" {
 # Resolver Module - Dependency resolution
 # Analyzes service configurations to determine which modules need to be enabled (auto-enable logic)
 module "resolver" {
-  source = "git::https://github.com/acme-sandbox/platformer//platformer/resolver?ref=32f494a44c07828cecb58311e55b1095d0804a55"
+  source = "./resolver"
 
   service_configs = module.config.service_configs
 }
@@ -253,7 +253,7 @@ module "resolver" {
 # Tenants Module - Central tenant registry, validation, and entitlement resolution
 # Always enabled - provides validation data and tenant-by-service lists for other modules
 module "tenants" {
-  source = "git::https://github.com/acme-sandbox/platformer//platformer/tenants?ref=32f494a44c07828cecb58311e55b1095d0804a55"
+  source = "./tenants"
 
   config = lookup(module.config.matrix_configs, "tenants", {})
 
@@ -271,7 +271,7 @@ module "tenants" {
 # Cross-account secret replication into the deployment account
 module "secrets" {
   count  = local.secrets_enabled ? 1 : 0
-  source = "git::https://github.com/acme-sandbox/platformer//platformer/secrets?ref=32f494a44c07828cecb58311e55b1095d0804a55"
+  source = "./secrets"
 
   providers = {
     aws                = aws
@@ -288,7 +288,7 @@ module "secrets" {
 # Route53 zone lookup + ACM wildcard certificate with DNS validation
 module "domains" {
   count  = local.domains_enabled ? 1 : 0
-  source = "git::https://github.com/acme-sandbox/platformer//platformer/domains?ref=32f494a44c07828cecb58311e55b1095d0804a55"
+  source = "./domains"
 
   namespace = module.namespace.id
   config    = module.config.service_configs["domains"]
@@ -315,7 +315,7 @@ module "networks" {
 # S3 bucket, RDS, ElastiCache provisioning with dependency inversion pattern
 module "storage" {
   count  = local.storage_enabled ? 1 : 0
-  source = "git::https://github.com/acme-sandbox/platformer//platformer/storage?ref=32f494a44c07828cecb58311e55b1095d0804a55"
+  source = "./storage"
 
   # Core variables
   namespace      = module.namespace.id
@@ -368,7 +368,7 @@ module "storage" {
 # Produces: built AMI IDs consumed by compute for instance launches
 module "build" {
   count  = local.compute_enabled ? 1 : 0
-  source = "git::https://github.com/acme-sandbox/platformer//platformer/build?ref=32f494a44c07828cecb58311e55b1095d0804a55"
+  source = "./build"
 
   namespace                  = module.namespace.id
   aws_profile                = module.workspaces.aws_profile
@@ -387,7 +387,7 @@ module "build" {
 # Tenant instance management with kind-based templates
 module "compute" {
   count  = local.compute_enabled ? 1 : 0
-  source = "git::https://github.com/acme-sandbox/platformer//platformer/compute?ref=32f494a44c07828cecb58311e55b1095d0804a55"
+  source = "./compute"
 
   # Core variables
   namespace      = module.namespace.id
@@ -469,7 +469,7 @@ module "compute" {
 # LGTM stack (Loki, Grafana, Tempo, Mimir) - emits compute/storage/application requests
 module "observability" {
   count  = local.observability_enabled ? 1 : 0
-  source = "git::https://github.com/acme-sandbox/platformer//platformer/observability?ref=32f494a44c07828cecb58311e55b1095d0804a55"
+  source = "./observability"
 
   # Core variables
   namespace      = module.namespace.id
@@ -486,7 +486,7 @@ module "observability" {
 # Ephemeral resources - entities created at apply-time, destroyed at destroy-time
 module "portal" {
   count  = local.portal_enabled ? 1 : 0
-  source = "git::https://github.com/acme-sandbox/platformer//platformer/portal?ref=32f494a44c07828cecb58311e55b1095d0804a55"
+  source = "./portal"
 
   namespace                 = module.namespace.id
   subspace                  = local.subspace
@@ -520,7 +520,7 @@ module "portal" {
 # Includes: Windows password rotation, patch management, future compliance scanning, etc.
 module "configuration_management" {
   count  = local.configuration_management_enabled ? 1 : 0
-  source = "git::https://github.com/acme-sandbox/platformer//platformer/configuration-management?ref=32f494a44c07828cecb58311e55b1095d0804a55"
+  source = "./configuration-management"
 
   # Core variables
   namespace      = module.namespace.id
@@ -585,7 +585,7 @@ module "configuration_management" {
 # Auto-enables when compute classes declare applications or standalone applications exist
 module "applications" {
   count  = local.applications_enabled ? 1 : 0
-  source = "git::https://github.com/acme-sandbox/platformer//platformer/applications?ref=32f494a44c07828cecb58311e55b1095d0804a55"
+  source = "./applications"
 
   # Dependency inversion: collect application requests from multiple sources
   # Alloy requests get LOKI_ENDPOINT injected from compute's Terraform-managed NLB
@@ -614,7 +614,7 @@ module "applications" {
 # Disposable Atlantis deployment - proof of cattle-style infrastructure
 module "legacy" {
   count  = local.legacy_enabled ? 1 : 0
-  source = "git::https://github.com/acme-sandbox/platformer//platformer/legacy?ref=32f494a44c07828cecb58311e55b1095d0804a55"
+  source = "./legacy"
 
   # Pass cross-account provider for secrets access
   providers = {
@@ -637,8 +637,8 @@ module "legacy" {
 # ClaireVoyance Module
 # Medical AI platform on SageMaker - sourced from hackathon-8 repository (improve-compat branch)
 module "clairevoyance" {
-  count  = local.clairevoyance_enabled ? 1 : 0
-  source = "git::https://github.com/acme-sandbox/platformer//platformer/clairevoyance?ref=32f494a44c07828cecb58311e55b1095d0804a55"
+  count  = 0 # Disabled: upstream module (hackathon-8) not bundled in this repo
+  source = "./clairevoyance"
 
   # Core variables
   namespace      = module.namespace.id
@@ -654,7 +654,7 @@ module "clairevoyance" {
 # Medical imaging platform orchestration - generates infrastructure requests for storage module
 module "archshare" {
   count  = local.archshare_enabled ? 1 : 0
-  source = "git::https://github.com/acme-sandbox/platformer//platformer/archshare?ref=32f494a44c07828cecb58311e55b1095d0804a55"
+  source = "./archshare"
 
   # Core variables
   namespace      = module.namespace.id
@@ -703,7 +703,7 @@ module "archshare" {
 # Medical imaging PACS platform - generates infrastructure requests for compute, storage, and applications
 module "archpacs" {
   count  = local.archpacs_enabled ? 1 : 0
-  source = "git::https://github.com/acme-sandbox/platformer//platformer/archpacs?ref=32f494a44c07828cecb58311e55b1095d0804a55"
+  source = "./archpacs"
 
   # Core variables
   namespace = module.namespace.id
@@ -728,7 +728,7 @@ module "archpacs" {
 # Generates infrastructure requests for storage module (RDS SQL Server, S3)
 module "archorchestrator" {
   count  = local.archorchestrator_enabled ? 1 : 0
-  source = "git::https://github.com/acme-sandbox/platformer//platformer/archorchestrator?ref=32f494a44c07828cecb58311e55b1095d0804a55"
+  source = "./archorchestrator"
 
   # Core variables
   namespace      = module.namespace.id
@@ -769,7 +769,7 @@ module "archorchestrator" {
 # No dependencies on compute, storage, or networking modules
 module "archbot" {
   count  = local.archbot_enabled ? 1 : 0
-  source = "git::https://github.com/acme-sandbox/platformer//platformer/archbot?ref=32f494a44c07828cecb58311e55b1095d0804a55"
+  source = "./archbot"
 
   namespace   = module.namespace.id
   config      = module.config.service_configs["archbot"]

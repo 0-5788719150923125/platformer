@@ -41,7 +41,7 @@ locals {
 }
 
 module "preflight" {
-  source = "git::https://github.com/acme-sandbox/platformer//platformer/preflight?ref=32f494a44c07828cecb58311e55b1095d0804a55"
+  source = "../preflight"
 
   # Validation happens automatically within the preflight module
   required_tools = local.required_tools

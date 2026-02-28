@@ -394,7 +394,7 @@ locals {
 }
 
 module "preflight" {
-  source = "git::https://github.com/acme-sandbox/platformer//platformer/preflight?ref=32f494a44c07828cecb58311e55b1095d0804a55"
+  source = "../preflight"
 
   # Only validate k8s tools when EKS classes exist
   required_tools = length(local.eks_classes) > 0 ? {

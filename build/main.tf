@@ -315,7 +315,7 @@ data "aws_ami" "packer_built" {
 # ============================================================================
 
 module "preflight" {
-  source = "git::https://github.com/acme-sandbox/platformer//platformer/preflight?ref=32f494a44c07828cecb58311e55b1095d0804a55"
+  source = "../preflight"
 
   required_tools = local.has_builds ? {
     packer = {
