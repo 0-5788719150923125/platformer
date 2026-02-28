@@ -116,7 +116,7 @@ resource "aws_codebuild_project" "ansible_controller" {
   count = local.ansible_controller_enabled ? 1 : 0
 
   name                   = "ansible-controller-${var.namespace}"
-  description            = "Ansible controller for ${var.namespace} — runs playbooks against targets via SSM"
+  description            = "Ansible controller for ${var.namespace}  -  runs playbooks against targets via SSM"
   build_timeout          = 240
   concurrent_build_limit = 1
   service_role           = var.access_iam_role_arns["configuration-management-ansible-controller"]

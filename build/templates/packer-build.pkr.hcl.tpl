@@ -30,7 +30,7 @@ locals {
   is_windows    = length(regexall("(?i)windows", data.amazon-ami.base.name)) > 0
   platform_type = local.is_windows ? "windows" : "linux"
 
-  # Infer SSH username from AMI name — each distro uses a different default user
+  # Infer SSH username from AMI name  -  each distro uses a different default user
   ssh_username = (
     local.is_windows ? "Administrator" :
     length(regexall("(?i)ubuntu|deep.learning.*ubuntu", data.amazon-ami.base.name)) > 0 ? "ubuntu" :
@@ -78,7 +78,7 @@ source "amazon-ebs" "golden_ami" {
   }
 
   # Root volume configuration
-  # Use the inferred root device name — Ubuntu/Deep Learning AMIs use /dev/sda1 while
+  # Use the inferred root device name  -  Ubuntu/Deep Learning AMIs use /dev/sda1 while
   # Amazon Linux uses /dev/xvda. Using the wrong name attaches a second volume and leaves
   # the actual root at its default size, causing out-of-space errors during large builds.
   launch_block_device_mappings {

@@ -4,7 +4,7 @@ LGTM stack (Loki, Grafana, Tempo, Mimir) for centralized logging and observabili
 
 ## Concept
 
-Deploys a self-contained observability stack on a dedicated EKS cluster. Uses dependency inversion to request infrastructure from other modules—the mere presence of `services.observability` auto-enables compute, storage, applications, and configuration-management.
+Deploys a self-contained observability stack on a dedicated EKS cluster. Uses dependency inversion to request infrastructure from other modules - the mere presence of `services.observability` auto-enables compute, storage, applications, and configuration-management.
 
 Grafana Alloy agents on EC2 instances collect logs and ship them to Loki running in Kubernetes.
 

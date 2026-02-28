@@ -37,7 +37,7 @@ Platform Architects can deploy infrastructure to any account immediately. The en
 - Test and validate changes
 - `terraform destroy` → clean teardown
 
-Namespace isolation ensures multiple developers can work safely in shared accounts without collision. All deployments are ephemeral and on-demand—spin up what you need, test it, tear it down.
+Namespace isolation ensures multiple developers can work safely in shared accounts without collision. All deployments are ephemeral and on-demand - spin up what you need, test it, tear it down.
 
 ---
 

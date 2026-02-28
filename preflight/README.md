@@ -4,7 +4,7 @@ Reusable dependency validation utilities for checking CLI tool availability.
 
 ## Purpose
 
-Fast-fail dependency checking to prevent partial Terraform applies when required external tools are missing. Validation happens automatically at plan time—just declare your dependencies.
+Fast-fail dependency checking to prevent partial Terraform applies when required external tools are missing. Validation happens automatically at plan time - just declare your dependencies.
 
 ## Check Types
 

@@ -92,7 +92,7 @@ resource "aws_ssm_patch_group" "baseline_class" {
   patch_group = each.value.patch_group
 }
 
-# Static patch group tagging — apply Patch Group tag to instances in statically-targeted classes
+# Static patch group tagging  -  apply Patch Group tag to instances in statically-targeted classes
 # Dynamic targeting (baselines with empty classes) is handled by the dynamic targeting Lambda
 # Uses stable instance keys (e.g., "bravo-rocky-linux-0") for for_each to avoid plan-time errors
 # when instance IDs are unknown (e.g., during ImageBuilder AMI rebuilds)

@@ -203,7 +203,7 @@ resource "port_blueprint" "platformer_compute_instance" {
 }
 
 locals {
-  # SSO console URL prefix — wraps raw AWS console URLs so users land on the
+  # SSO console URL prefix  -  wraps raw AWS console URLs so users land on the
   # SSO role-picker for the correct account instead of a generic login page.
   sso_prefix = "${var.aws_sso_start_url}/#/console?account_id=${data.aws_caller_identity.current.account_id}&destination="
 

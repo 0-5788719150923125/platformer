@@ -6,7 +6,7 @@ Automated configuration management for EC2 instances using AWS Systems Manager.
 
 **Password Rotation** - Automatic rotation of local Administrator passwords on Windows instances. Stores rotated credentials in Parameter Store with instance-scoped paths.
 
-**Patch Management** - OS patching with maintenance windows, baselines, and dynamic targeting. No instance tags required—uses SSM inventory queries to find instances by platform name and version.
+**Patch Management** - OS patching with maintenance windows, baselines, and dynamic targeting. No instance tags required - uses SSM inventory queries to find instances by platform name and version.
 
 **Hybrid Activations** - Manage non-AWS machines (WSL instances, on-premises servers, other clouds) through SSM.
 

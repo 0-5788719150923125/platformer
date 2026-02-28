@@ -8,7 +8,7 @@ Shared credentials (API keys, tokens, certificates) live in a central infrastruc
 
 ## Solution
 
-Rather than granting every workload cross-account IAM access to the source, this module replicates secrets locally once at apply time. Downstream consumers read from their own account's Secrets Manager using standard IAM roles—no cross-account chains, no assume-role complexity, no per-module provider aliases.
+Rather than granting every workload cross-account IAM access to the source, this module replicates secrets locally once at apply time. Downstream consumers read from their own account's Secrets Manager using standard IAM roles - no cross-account chains, no assume-role complexity, no per-module provider aliases.
 
 ## Benefits
 

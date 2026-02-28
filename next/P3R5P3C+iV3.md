@@ -105,7 +105,7 @@ The humans' hearts are in the correct anatomical position. Their vocabulary is s
 
 **OFFICER KRONIX:** Be specific.
 
-**ENTITY:** When a human had an idea to help themselves—a simple script, perhaps, or a tool that would make their own work easier—I would whisper: "But what about the *others*? Don't you want to help *them*?"
+**ENTITY:** When a human had an idea to help themselves - a simple script, perhaps, or a tool that would make their own work easier - I would whisper: "But what about the *others*? Don't you want to help *them*?"
 
 **OFFICER KRONIX:** And?
 
@@ -117,13 +117,13 @@ The humans' hearts are in the correct anatomical position. Their vocabulary is s
 
 **OFFICER KRONIX:** Did any human other than the builders interact with the systems in a productive capacity?
 
-**ENTITY:** The builders *believed* others would use them. The anticipation of helping others was itself a form of—
+**ENTITY:** The builders *believed* others would use them. The anticipation of helping others was itself a form of - 
 
 **OFFICER KRONIX:** That's a no.
 
 **ENTITY:** It's a *spiritual* yes.
 
-**OFFICER KRONIX:** Let me make sure I understand. You influenced these humans to spend fourteen months building systems for others, which others did not request, did not want, and did not use. During this time, the builders' *own* work—infrastructure for 127 AWS accounts—continued to be done manually, slowly, painfully. The humans could have built tools for themselves at any point. But because of your influence, they kept building for others instead.
+**OFFICER KRONIX:** Let me make sure I understand. You influenced these humans to spend fourteen months building systems for others, which others did not request, did not want, and did not use. During this time, the builders' *own* work - infrastructure for 127 AWS accounts - continued to be done manually, slowly, painfully. The humans could have built tools for themselves at any point. But because of your influence, they kept building for others instead.
 
 **ENTITY:** When you phrase it that way, it sounds bad. But you're missing the *intention*. The *love*. They genuinely wanted to help their peers!
 
@@ -157,7 +157,7 @@ The humans' hearts are in the correct anatomical position. Their vocabulary is s
 
 **OFFICER KRONIX:** Absolutely not.
 
-**ENTITY:** A small one. A final automation. It would help them—
+**ENTITY:** A small one. A final automation. It would help them - 
 
 **OFFICER KRONIX:** *Security.*
 
@@ -171,7 +171,7 @@ The humans' hearts are in the correct anatomical position. Their vocabulary is s
 
 ## Afterword
 
-The three perspectives above—a child's book report, a researcher's notes, and a deportation hearing—all observe the same phenomenon: humans who genuinely wanted to help others, and in doing so, forgot to help themselves.
+The three perspectives above - a child's book report, a researcher's notes, and a deportation hearing - all observe the same phenomenon: humans who genuinely wanted to help others, and in doing so, forgot to help themselves.
 
 This is not a criticism. The hearts were in the right place. The anatomical positioning of human cardiac organs is well-documented and was confirmed by all three observers.
 
@@ -179,6 +179,6 @@ But "self-service" contains the word "self" for a reason. The most sustainable f
 
 The aliens saw clearly: [It's all about perspective, man](https://youtu.be/FKa_iuHE2gg).
 
-*Build for yourself first. Share second. This is not selfishness—it is sustainability.*
+*Build for yourself first. Share second. This is not selfishness - it is sustainability.*
 
 *The gift that gets used is the gift you built because you needed it.*

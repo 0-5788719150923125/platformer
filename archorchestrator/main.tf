@@ -163,7 +163,7 @@ resource "aws_ecs_service" "main" {
 }
 
 # ── Application Load Balancer (per deployment) ──────────────────────────────
-# HTTP only for now — HTTPS via ACM can be added when DNS is configured
+# HTTP only for now  -  HTTPS via ACM can be added when DNS is configured
 
 resource "aws_lb" "main" {
   for_each = var.config
@@ -216,7 +216,7 @@ resource "aws_lb_target_group" "ecs" {
 
 }
 
-# HTTP listener — default action forwards to the first service (router)
+# HTTP listener  -  default action forwards to the first service (router)
 # Additional path-based rules route to specific services
 resource "aws_lb_listener" "http" {
   for_each = var.config

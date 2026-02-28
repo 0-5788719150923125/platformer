@@ -23,7 +23,7 @@ variable "application_requests" {
     })))
 
     # Direct instance targeting (for mode: 1-master cluster requests)
-    instance_id = optional(string) # EC2 instance ID — used when targeting_mode = "instance"
+    instance_id = optional(string) # EC2 instance ID  -  used when targeting_mode = "instance"
 
     # Helm deployment fields (for helm)
     chart        = optional(string) # Chart name (e.g., "ingress-nginx")

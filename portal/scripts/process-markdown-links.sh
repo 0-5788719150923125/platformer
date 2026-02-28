@@ -211,8 +211,8 @@ processed_content=$(echo "$processed_content" | perl -pe '
 # PASS 4: Replace unsupported HTML tags with Port-supported equivalents
 # Port's markdown renderer allowlists specific HTML tags. Tags not on the list
 # are stripped silently, breaking formatting. Map to closest supported tag:
-#   <ins>  → <u>    (underline — semantic insert marker → visual underline)
-#   <del>  → <s>    (strikethrough — semantic delete marker → visual strikethrough)
+#   <ins>  → <u>    (underline  -  semantic insert marker → visual underline)
+#   <del>  → <s>    (strikethrough  -  semantic delete marker → visual strikethrough)
 processed_content=$(echo "$processed_content" | sed \
   -e 's/<ins>/<u>/g' -e 's/<\/ins>/<\/u>/g' \
   -e 's/<del>/<s>/g' -e 's/<\/del>/<\/s>/g')

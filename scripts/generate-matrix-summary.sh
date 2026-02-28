@@ -13,7 +13,7 @@ if ! command -v jq &> /dev/null; then
 fi
 
 # Input: matrix JSON (required), commit metadata (optional, via env)
-# COMMIT_TITLE and COMMIT_SHA are set by the workflow — avoids shell escaping issues
+# COMMIT_TITLE and COMMIT_SHA are set by the workflow  -  avoids shell escaping issues
 MATRIX_JSON="${1:-}"
 COMMIT_TITLE="${COMMIT_TITLE:-}"
 COMMIT_SHA="${COMMIT_SHA:-}"

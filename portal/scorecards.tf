@@ -1,7 +1,7 @@
 # Patch Management Readiness Scorecard
 # Evaluates compute instances on patch management configuration status
 # Uses default levels: Basic (no config) → Bronze → Silver → Gold (fully configured)
-# Filtered to EC2 instances only — EKS instances show "Basic" (no patch management expected)
+# Filtered to EC2 instances only  -  EKS instances show "Basic" (no patch management expected)
 
 resource "port_scorecard" "patch_management_readiness" {
   count = local.is_subspace ? 0 : 1

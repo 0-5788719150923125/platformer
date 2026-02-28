@@ -4,7 +4,7 @@ Unified compute provisioning with type-based routing. Single configuration inter
 
 ## Concept
 
-Rather than separate modules for each compute type, this module provides a unified `classes` configuration. The `type` field determines which implementation to use—EC2 instances, EKS clusters, Lambda functions, ECS tasks, etc.
+Rather than separate modules for each compute type, this module provides a unified `classes` configuration. The `type` field determines which implementation to use - EC2 instances, EKS clusters, Lambda functions, ECS tasks, etc.
 
 ## Current Support
 

@@ -4,7 +4,7 @@
 # Self-healing: runs every 30 minutes via Ansible controller
 #
 # LOKI_ENDPOINT is injected by Terraform from the Terraform-managed NLB DNS name
-# (no runtime discovery needed — the NLB is in Terraform state)
+# (no runtime discovery needed  -  the NLB is in Terraform state)
 
 - name: Install and configure Grafana Alloy
   hosts: linux

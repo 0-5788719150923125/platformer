@@ -90,7 +90,7 @@ services:
     compliance_severity: "HIGH"
 ```
 
-Each fragment defines only what differs from the module's defaults—everything else is inherited.
+Each fragment defines only what differs from the module's defaults - everything else is inherited.
 
 ---
 

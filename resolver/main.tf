@@ -22,12 +22,12 @@ locals {
   ])
 
   # Check if archshare/archpacs deployments declare applications in their compute config
-  # Archshare: deployment model — each deployment has its own compute object
+  # Archshare: deployment model  -  each deployment has its own compute object
   archshare_has_apps = anytrue([
     for name, deploy in try(var.service_configs["archshare"], {}) :
     length(try(deploy.compute.applications, [])) > 0
   ])
-  # Archpacs: deployment model — each deployment has its own compute map
+  # Archpacs: deployment model  -  each deployment has its own compute map
   archpacs_has_apps = anytrue(flatten([
     for _, deploy in try(var.service_configs["archpacs"], {}) : [
       for _, class_config in try(deploy.compute, {}) :

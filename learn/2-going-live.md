@@ -1,8 +1,8 @@
 # Going Live: Compute Classes and Tenant Entitlements
 
-**User Story**: *As a platform engineer, I need to deploy different server configurations for different tenants — one tenant needs both Windows and Linux servers, while another only needs Windows.*
+**User Story**: *As a platform engineer, I need to deploy different server configurations for different tenants  -  one tenant needs both Windows and Linux servers, while another only needs Windows.*
 
-This walkthrough builds on the Getting Started document. You've deployed a basic Windows compute class locally — now it's time to understand how tenants, classes, and entitlements compose to create differentiated infrastructure.
+This walkthrough builds on the Getting Started document. You've deployed a basic Windows compute class locally  -  now it's time to understand how tenants, classes, and entitlements compose to create differentiated infrastructure.
 
 ---
 
@@ -16,7 +16,7 @@ This walkthrough builds on the Getting Started document. You've deployed a basic
 
 ## The Scenario
 
-Two tenants — `bravo` and `training` — need compute infrastructure in the same environment. But their requirements differ:
+Two tenants  -  `bravo` and `training`  -  need compute infrastructure in the same environment. But their requirements differ:
 
 - **bravo** needs both Windows and Linux servers (full suite)
 - **training** only needs Windows servers
@@ -52,7 +52,7 @@ services:
       description: "Windows Server 2022 for POC"
 ```
 
-This fragment defines one class (`windows-poc`) and two tenants (`alpha`, `november`). Both tenants have `entitlements: [compute.*]` — the `compute.*` wildcard entitlement means they receive **all** compute classes. Since there's only one class, both tenants get one Windows instance each. Total: 2 instances.
+This fragment defines one class (`windows-poc`) and two tenants (`alpha`, `november`). Both tenants have `entitlements: [compute.*]`  -  the `compute.*` wildcard entitlement means they receive **all** compute classes. Since there's only one class, both tenants get one Windows instance each. Total: 2 instances.
 
 ---
 
@@ -94,9 +94,9 @@ services:
 
 | Entitlement | Meaning |
 |---|---|
-| `compute.*` | Wildcard — tenant gets **all** compute classes |
-| `compute.windows-server` | Scoped — tenant gets **only** the `windows-server` class |
-| `compute.rocky-linux` | Scoped — tenant gets **only** the `rocky-linux` class |
+| `compute.*` | Wildcard  -  tenant gets **all** compute classes |
+| `compute.windows-server` | Scoped  -  tenant gets **only** the `windows-server` class |
+| `compute.rocky-linux` | Scoped  -  tenant gets **only** the `rocky-linux` class |
 
 The compute module uses these entitlements to filter the tenant × class expansion:
 
@@ -136,8 +136,8 @@ Notice the naming convention: `{tenant}-{class}-{index}`. Each instance is tagge
 
 Entitlements are declared in `matrix.tenants` within state fragments. The tenants module resolves them into two outputs:
 
-- **`tenants_by_service`** — flat list of all tenants mentioning a service (e.g., `["bravo", "training"]` for compute)
-- **`tenants_by_class`** — per-class tenant lists (e.g., `{ "windows-server" = ["bravo", "training"], "rocky-linux" = ["bravo"] }`)
+- **`tenants_by_service`**  -  flat list of all tenants mentioning a service (e.g., `["bravo", "training"]` for compute)
+- **`tenants_by_class`**  -  per-class tenant lists (e.g., `{ "windows-server" = ["bravo", "training"], "rocky-linux" = ["bravo"] }`)
 
 Consumer modules pull from these outputs. Only modules that create **per-tenant resources** use entitlements:
 
@@ -146,11 +146,11 @@ Consumer modules pull from these outputs. Only modules that create **per-tenant 
 | compute | Yes | Creates instances per tenant × class |
 | archshare | Yes | Creates RDS/ElastiCache per tenant |
 | archpacs | Yes | Creates RDS/S3 per tenant |
-| configuration-management | No | Global — applies to all instances via tags |
-| portal | No | Global — enabled/disabled via resolver |
+| configuration-management | No | Global  -  applies to all instances via tags |
+| portal | No | Global  -  enabled/disabled via resolver |
 | networking | No | Infrastructure-level, no tenant concept |
 
-If a module doesn't consume tenant lists, putting it in entitlements has no effect. Don't add `portal` or `configuration-management` to entitlements — their presence in the config is what enables them.
+If a module doesn't consume tenant lists, putting it in entitlements has no effect. Don't add `portal` or `configuration-management` to entitlements  -  their presence in the config is what enables them.
 
 ---
 
@@ -197,7 +197,7 @@ services:
 
 Both tenants have `compute.*`, so both get both classes. If you want `bravo` to only get `windows-server`, use scoped entitlements: `entitlements: [compute.windows-server]`.
 
-**Key rule**: Tenant codes are map keys, so they stay distinct through merge. Entitlement lists within the same tenant are union-merged (additive). This means two fragments can independently contribute entitlements for the same tenant — the result is the union.
+**Key rule**: Tenant codes are map keys, so they stay distinct through merge. Entitlement lists within the same tenant are union-merged (additive). This means two fragments can independently contribute entitlements for the same tenant  -  the result is the union.
 
 ---
 
@@ -267,13 +267,13 @@ Tests validate that:
 
 Entitlements control which tenants receive which per-tenant resources. They live in `matrix.tenants` within state fragments and use dot-notation for scoping:
 
-- `compute.*` — wildcard, tenant gets **all** compute classes
-- `compute.windows-server` — scoped, tenant gets **only** the `windows-server` class
-- `archshare` — bare service name (for services without class-level scoping)
+- `compute.*`  -  wildcard, tenant gets **all** compute classes
+- `compute.windows-server`  -  scoped, tenant gets **only** the `windows-server` class
+- `archshare`  -  bare service name (for services without class-level scoping)
 
 Services with classes (like compute) use the wildcard `.*` or scoped `.class-name` syntax. Services without classes (like archshare, archpacs) use bare service names.
 
-Entitlements only matter for modules that create per-tenant resources (compute, archshare, archpacs). Globally-scoped modules like portal and configuration-management are controlled by the resolver — include their service key in the config to enable them, omit it to disable.
+Entitlements only matter for modules that create per-tenant resources (compute, archshare, archpacs). Globally-scoped modules like portal and configuration-management are controlled by the resolver  -  include their service key in the config to enable them, omit it to disable.
 
 ### Tenant Registry
 
@@ -281,7 +281,7 @@ All tenant codes must be registered in `platformer/tenants/tenants.yaml` before 
 
 ### Class Expansion
 
-The compute module expands `tenant × class × count` into individual instances. With entitlements, this becomes `entitled_tenants_for_class × class × count` — each class only creates instances for its entitled tenants.
+The compute module expands `tenant × class × count` into individual instances. With entitlements, this becomes `entitled_tenants_for_class × class × count`  -  each class only creates instances for its entitled tenants.
 
 ### State Fragment Composition
 
@@ -296,7 +296,7 @@ Fragments merge left-to-right with deep merge semantics. Maps merge recursively,
 
 1. **Use wildcard entitlements for the common case**: If a tenant gets all classes, write `compute.*` not `compute.class-a, compute.class-b, compute.class-c`
 2. **Use scoped entitlements for exceptions**: Only scope when a tenant needs a subset of classes (e.g., `compute.windows-server`)
-3. **Don't add non-tenant modules to entitlements**: Portal, configuration-management, networking, storage — these are globally enabled via the resolver, not per-tenant
+3. **Don't add non-tenant modules to entitlements**: Portal, configuration-management, networking, storage  -  these are globally enabled via the resolver, not per-tenant
 4. **Test locally first**: Use `terraform.tfvars` to validate before opening PRs
 5. **Check the tenant registry**: New tenant codes must be added to `tenants.yaml` before use
 

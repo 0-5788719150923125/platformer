@@ -2,7 +2,7 @@
 
 **User Story**: *As a platform architect, I am expected to build maintainable systems that scale gracefully and minimize coupling between components.*
 
-This document provides an overview of the architectural patterns used in Platformer. It's intentionally high-level—the goal is to help you understand *why* the system is structured this way, not to provide exhaustive implementation details.
+This document provides an overview of the architectural patterns used in Platformer. It's intentionally high-level - the goal is to help you understand *why* the system is structured this way, not to provide exhaustive implementation details.
 
 ---
 
@@ -155,7 +155,7 @@ run "basic_monitoring" {
 }
 ```
 
-No need to deploy the entire stack—just the module you're testing.
+No need to deploy the entire stack - just the module you're testing.
 
 ### Evolving the Architecture
 
@@ -196,13 +196,13 @@ This is a stub. Future sections could include:
 - **Performance considerations**: How to optimize plan/apply times in multi-account deployments
 - **Debugging techniques**: How to troubleshoot issues in the orchestration layer
 
-**If you're interested in contributing to this document**, focus on practical, concrete examples. Our audience is experienced Terraform engineers who are skeptical of new approaches—show them working code, not abstract theory.
+**If you're interested in contributing to this document**, focus on practical, concrete examples. Our audience is experienced Terraform engineers who are skeptical of new approaches - show them working code, not abstract theory.
 
 ---
 
 ## Closing Thoughts
 
-These patterns—module composition, dependency inversion, and conditional creation—are not new. They come from decades of software engineering experience, adapted for Terraform's declarative model.
+These patterns - module composition, dependency inversion, and conditional creation - are not new. They come from decades of software engineering experience, adapted for Terraform's declarative model.
 
 The goal is not to be clever. The goal is to be **maintainable**:
 

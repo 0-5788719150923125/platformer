@@ -95,7 +95,7 @@ def generate_inventory(entry, manifest, work_dir):
 
     1. Query EC2 for instances matching targeting filters
     2. Query SSM for online managed instances (with platform type)
-    3. Intersect — only include instances that are both running AND SSM-connected
+    3. Intersect  -  only include instances that are both running AND SSM-connected
     4. Write a static YAML inventory with 'linux' and 'windows' groups
     """
     targeting = entry["targeting"]
@@ -115,7 +115,7 @@ def generate_inventory(entry, manifest, work_dir):
         for h in cluster_hosts:
             iid = h["instance_id"]
             if iid not in ssm_online:
-                print(f"  Cluster node {iid} not connected to SSM — aborting cluster run")
+                print(f"  Cluster node {iid} not connected to SSM  -  aborting cluster run")
                 return None, 0
             host_vars = {
                 "ansible_host": iid,
@@ -143,7 +143,7 @@ def generate_inventory(entry, manifest, work_dir):
 
     elif targeting.get("mode") == "instance":
         # Direct instance targeting (ImageBuilder builds)
-        # Skip EC2 discovery — target a specific instance by ID
+        # Skip EC2 discovery  -  target a specific instance by ID
         instance_id = targeting["instance_id"]
         if instance_id not in ssm_online:
             print(f"  Instance {instance_id} not connected to SSM")

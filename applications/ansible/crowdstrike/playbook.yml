@@ -123,7 +123,7 @@
 
     - name: Display result
       debug:
-        msg: "CrowdStrike Falcon {{ state }} — {{ cs_aid.stdout | default('removed') }}"
+        msg: "CrowdStrike Falcon {{ state }}  -  {{ cs_aid.stdout | default('removed') }}"
 
 # ==========================================================================
 # Windows Play
@@ -208,7 +208,7 @@
         [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
         $installer = "$env:TEMP\falcon_windows_install.ps1"
         (New-Object System.Net.WebClient).DownloadFile('https://raw.githubusercontent.com/CrowdStrike/falcon-scripts/main/powershell/install/falcon_windows_install.ps1', $installer)
-        # Run under Windows PowerShell 5.1 — the CrowdStrike script uses WebException.Response
+        # Run under Windows PowerShell 5.1  -  the CrowdStrike script uses WebException.Response
         # which doesn't exist in PowerShell 7's HttpRequestException
         powershell.exe -ExecutionPolicy Bypass -File $installer -FalconClientId $clientId -FalconClientSecret $clientSecret -FalconCid $cid -FalconCloud "{{ falcon_cloud }}" -Tags "{{ falcon_tags }}"
         if ($LASTEXITCODE -and $LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
@@ -254,4 +254,4 @@
 
     - name: Display result
       debug:
-        msg: "CrowdStrike Falcon {{ state }} — {{ cs_aid.stdout | default('removed') | trim }}"
+        msg: "CrowdStrike Falcon {{ state }}  -  {{ cs_aid.stdout | default('removed') | trim }}"

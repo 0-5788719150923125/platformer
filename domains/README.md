@@ -4,7 +4,7 @@ Route53 zone lookup and ACM wildcard certificate provisioning with DNS validatio
 
 ## Problem
 
-EC2 instances serve web applications over plain HTTP. Corporate Zscaler proxies strip `Upgrade: websocket` headers on unencrypted connections, breaking WebSocket features (live metrics, terminal, hot reload). ACM cannot issue certificates for AWS default hostnames — a custom domain is required.
+EC2 instances serve web applications over plain HTTP. Corporate Zscaler proxies strip `Upgrade: websocket` headers on unencrypted connections, breaking WebSocket features (live metrics, terminal, hot reload). ACM cannot issue certificates for AWS default hostnames  -  a custom domain is required.
 
 ## Solution
 
@@ -12,10 +12,10 @@ This module looks up an existing Route53 hosted zone and provisions a wildcard A
 
 ## Benefits
 
-- **WebSocket Support** — HTTPS connections pass through Zscaler without header stripping
-- **Zero-Touch Validation** — DNS validation records are created automatically in the hosted zone
-- **Wildcard Coverage** — Single certificate covers all `{class}.{zone}` subdomains
-- **Dependency Inversion** — Compute module receives certificate ARN as a variable, no tight coupling
+- **WebSocket Support**  -  HTTPS connections pass through Zscaler without header stripping
+- **Zero-Touch Validation**  -  DNS validation records are created automatically in the hosted zone
+- **Wildcard Coverage**  -  Single certificate covers all `{class}.{zone}` subdomains
+- **Dependency Inversion**  -  Compute module receives certificate ARN as a variable, no tight coupling
 
 ## Configuration
 

@@ -39,7 +39,7 @@ locals {
   # Expand archpacs deployment entitlements to individual compute class names
   # Archpacs has multiple compute classes per deployment (e.g., depot, database)
   # Entitlement "archpacs.ec2-poc" maps to tenants_by_class["ec2-poc"]
-  # But compute classes are named "ec2-poc-depot", "ec2-poc-database" — need expansion
+  # But compute classes are named "ec2-poc-depot", "ec2-poc-database"  -  need expansion
   archpacs_compute_class_tenants = local.archpacs_enabled ? merge([
     for deploy_name in try(keys(module.config.service_configs["archpacs"]), []) : {
       for class_name in try(keys(module.config.service_configs["archpacs"][deploy_name].compute), []) :
@@ -363,7 +363,7 @@ module "storage" {
 }
 
 # Build Module
-# Golden AMI builds — sits between storage and compute in the dependency graph
+# Golden AMI builds  -  sits between storage and compute in the dependency graph
 # Needs: storage (for application-scripts bucket), config (for class definitions)
 # Produces: built AMI IDs consumed by compute for instance launches
 module "build" {
@@ -399,7 +399,7 @@ module "compute" {
   config = local.effective_compute_config
 
   # Domain configuration (dependency inversion from domains module)
-  # domain_enabled is config-derived (plan-time safe) — gates for_each on ALB resources
+  # domain_enabled is config-derived (plan-time safe)  -  gates for_each on ALB resources
   # The remaining values are resource outputs, used only inside resource bodies
   domain_enabled         = local.domains_enabled
   domain_zone_id         = local.domains_enabled ? module.domains[0].zone_id : ""
@@ -549,7 +549,7 @@ module "configuration_management" {
   # Pass application requests from applications module (dependency inversion)
   # Configuration-management filters internally by type (ssm, ansible)
   # Use flatten to handle conditional module existence (count=0 → empty list, count=1 → requests)
-  # Cluster requests (mode: 1-master) come directly from compute — they reference instance IPs
+  # Cluster requests (mode: 1-master) come directly from compute  -  they reference instance IPs
   # and are already enriched with playbook_source_path, so they bypass the applications module
   application_requests = concat(
     flatten([for m in module.applications : m.requests]),

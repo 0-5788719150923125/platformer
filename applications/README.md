@@ -4,7 +4,7 @@ Data transformation layer for application deployment. Enriches application reque
 
 ## Concept
 
-This module creates no AWS resources—it's a pure data pipeline. Takes application declarations from compute classes, adds file paths for scripts and playbooks, then routes by type to deployment modules:
+This module creates no AWS resources - it's a pure data pipeline. Takes application declarations from compute classes, adds file paths for scripts and playbooks, then routes by type to deployment modules:
 
 - **SSM/Ansible** → Configuration-management module (30-minute reconciliation)
 - **User-data** → Compute module (launch-time execution)

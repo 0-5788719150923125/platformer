@@ -185,7 +185,7 @@ locals {
       }
       # S3 access is granted via EKS Pod Identity (bound to loki service account)
 
-      # Expose Loki gateway as NodePort — Terraform-managed NLB handles external access
+      # Expose Loki gateway as NodePort  -  Terraform-managed NLB handles external access
       gateway = {
         service = {
           type     = "NodePort"
@@ -593,7 +593,7 @@ locals {
   }] : []
 
   # ── Alloy Kubernetes DaemonSet (Helm) ─────────────────────────────────
-  # River config for Alloy running as a K8s DaemonSet — discovers pods via
+  # River config for Alloy running as a K8s DaemonSet  -  discovers pods via
   # the Kubernetes API, tails container logs, and forwards to Loki.
   # Placeholders LOKI_PUSH_ENDPOINT, MIMIR_REMOTE_WRITE_ENDPOINT, and CLUSTER_NAME
   # are replaced at plan time.

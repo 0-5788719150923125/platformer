@@ -543,7 +543,7 @@ resource "aws_s3_object" "ansible_playbook_files" {
 }
 
 # Ansible Playbooks: Deployed via CodeBuild controller (ansible-controller.tf)
-# No SSM document or associations needed — controller runs playbooks remotely via aws_ssm connection
+# No SSM document or associations needed  -  controller runs playbooks remotely via aws_ssm connection
 
 # ========================================
 # Application IAM Permissions

@@ -134,7 +134,7 @@
 
     - name: Display result
       debug:
-        msg: "Tenable Nessus Agent {{ state }} — {{ nessus_verify.stdout_lines[0] | default('removed') }}"
+        msg: "Tenable Nessus Agent {{ state }}  -  {{ nessus_verify.stdout_lines[0] | default('removed') }}"
 
 # ==========================================================================
 # Windows Play
@@ -148,7 +148,7 @@
     nessus_groups: "{{ NESSUS_GROUPS | default('ONBOARD', true) }}"
     aws_region: "{{ AWS_REGION | default('us-east-2', true) }}"
     deployment_namespace: "{{ DEPLOYMENT_NAMESPACE | default('platformer', true) }}"
-    # The Tenable install script downloads an MSI, installs, and links — this
+    # The Tenable install script downloads an MSI, installs, and links  -  this
     # can take several minutes. Override the default 60s SSM command timeout.
     ansible_aws_ssm_timeout: 600
 
@@ -208,7 +208,7 @@
 
     # ========== Fresh install via SOP install script ==========
     # The Tenable install script downloads an MSI, installs, and links the agent.
-    # This can take several minutes — async prevents SSM session timeout.
+    # This can take several minutes  -  async prevents SSM session timeout.
     - name: Download and run Tenable Nessus Agent installer
       raw: |
         $ErrorActionPreference = "Stop"

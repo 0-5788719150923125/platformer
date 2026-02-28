@@ -68,7 +68,7 @@ locals {
   # Unique image tags across all services (for ECR replication)
   unique_image_tags = distinct([for svc in local.ecs_services : svc.image_tag])
 
-  # Container image URI resolution — points to local ECR repo (replicated from source)
+  # Container image URI resolution  -  points to local ECR repo (replicated from source)
   container_images = {
     for key, svc in local.ecs_services :
     key => "${var.aws_account_id}.dkr.ecr.${var.aws_region}.amazonaws.com/${var.namespace}-io:${svc.image_tag}"

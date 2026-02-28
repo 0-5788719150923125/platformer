@@ -4,7 +4,7 @@ Ephemeral Port.io integration for compute instance catalog visualization and sel
 
 ## Concept
 
-Creates Port.io catalog entities for all EC2 instances and EKS clusters. Resources are transient—created at apply, destroyed at destroy.
+Creates Port.io catalog entities for all EC2 instances and EKS clusters. Resources are transient - created at apply, destroyed at destroy.
 
 Enables real-time dashboard of compute instances filtered by namespace, with self-service actions executed via AWS SSM.
 

@@ -14,7 +14,7 @@ Supports overrides for: `aws_profile`, `aws_region`, `states`
 
 ## Design
 
-Uses native Terraform functions (`file()`, `regex()`, `try()`) for plan-time evaluation. Partial overrides supported—workspace file can override just profile while inheriting region and states from base.
+Uses native Terraform functions (`file()`, `regex()`, `try()`) for plan-time evaluation. Partial overrides supported - workspace file can override just profile while inheriting region and states from base.
 
 The default workspace always uses base `terraform.tfvars`. Named workspaces use their specific file if it exists, otherwise fall back to base.
 

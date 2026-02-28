@@ -4,7 +4,7 @@
 
 This organization employs dozens of VPs, Directors, and Managers in technical leadership roles. These leaders provide strategic direction, make architectural decisions, approve technical initiatives, and evaluate engineering work. There is a fundamental problem: the vast majority lack the technical capability to do these jobs competently.
 
-The evidence is not anecdotal. It is measured in the artifacts they have approved, the systems they have championed as successes, and the architectural decisions they have made. The infrastructure managing 127 AWS accounts comprises 1000 repositories of fragmented code that takes weeks to modify. Patch management has been non-functional for over 12 months without detection. Security controls exist on paper but not in practice. Changes that should take hours require weeks of coordination. The systems work—barely—despite the architecture, not because of it.
+The evidence is not anecdotal. It is measured in the artifacts they have approved, the systems they have championed as successes, and the architectural decisions they have made. The infrastructure managing 127 AWS accounts comprises 1000 repositories of fragmented code that takes weeks to modify. Patch management has been non-functional for over 12 months without detection. Security controls exist on paper but not in practice. Changes that should take hours require weeks of coordination. The systems work - barely - despite the architecture, not because of it.
 
 This is not a failure of individual effort or commitment. This is a failure of technical competence in leadership positions. Leaders who cannot evaluate technical work inevitably approve poor technical work. Leaders who cannot distinguish good architecture from bad architecture inevitably champion bad architecture. Leaders who lack engineering capability inevitably create organizations that produce low-quality software, convoluted systems, and compounding technical debt.
 
@@ -14,7 +14,7 @@ This document examines how technical incapability in leadership manifests organi
 
 ## The Visionary Gap: Strategy Without Implementation Capability
 
-There is a pattern that repeats across technical organizations at scale. Leaders rise through the ranks—often through tenure rather than technical excellence—until they occupy positions where they provide strategic direction for systems they can no longer build themselves. This is not inherently problematic. Senior leadership should focus on strategy, not implementation. The problem emerges when leaders lack the technical foundation to evaluate whether their strategies are being implemented competently.
+There is a pattern that repeats across technical organizations at scale. Leaders rise through the ranks - often through tenure rather than technical excellence - until they occupy positions where they provide strategic direction for systems they can no longer build themselves. This is not inherently problematic. Senior leadership should focus on strategy, not implementation. The problem emerges when leaders lack the technical foundation to evaluate whether their strategies are being implemented competently.
 
 Consider what happens when a non-technical VP champions a "DevOps transformation":
 
@@ -26,7 +26,7 @@ Consider what happens when a non-technical VP champions a "DevOps transformation
 
 **Reality:** The implementation is 10-100x slower than industry standard DevOps. Task completion time increased rather than decreased. The "DevOps transformation" inverted DevOps principles while adopting DevOps terminology.
 
-The leader cannot detect the inversion because they lack the technical capability to evaluate implementation quality. They see the surface artifacts—Terraform files, CI/CD pipelines, PR reviews—and conclude success. They cannot assess whether the architecture enables velocity or prevents it. They cannot distinguish between DevOps theater and DevOps practice.
+The leader cannot detect the inversion because they lack the technical capability to evaluate implementation quality. They see the surface artifacts - Terraform files, CI/CD pipelines, PR reviews - and conclude success. They cannot assess whether the architecture enables velocity or prevents it. They cannot distinguish between DevOps theater and DevOps practice.
 
 This is the visionary gap: the distance between what leadership wants to achieve and their capability to recognize whether it was achieved competently.
 
@@ -54,7 +54,7 @@ When leaders lack technical capability, the only metric available is completion.
 
 ## The Process Cover: Scrum as Leadership Substitute
 
-Scrum provides structure when leadership cannot provide technical direction. Sprint planning, story estimation, velocity tracking, retrospectives, burndown charts—these ceremonies create the appearance of rigorous engineering management. For non-technical leaders, Scrum provides comfortable metrics: velocity is predictable, backlog is groomed, team is aligned.
+Scrum provides structure when leadership cannot provide technical direction. Sprint planning, story estimation, velocity tracking, retrospectives, burndown charts - these ceremonies create the appearance of rigorous engineering management. For non-technical leaders, Scrum provides comfortable metrics: velocity is predictable, backlog is groomed, team is aligned.
 
 But Scrum cannot substitute for technical leadership. Scrum provides process. Technical leadership provides architectural vision, evaluates implementation quality, makes technology decisions, and ensures that what gets built aligns with strategic objectives.
 
@@ -68,7 +68,7 @@ When technical leaders lack capability to provide technical direction, Scrum fil
 
 **Without capability assessment:** Scrum provides velocity as productivity metric. Leadership compares team velocity quarter-over-quarter. They cannot evaluate whether velocity represents actual value delivery or just story point inflation and technical debt.
 
-The ceremonies feel rigorous. The metrics feel objective. Leadership believes they are managing engineering effectively because they see predictable velocity, organized backlogs, and structured planning. What they cannot see—because they lack technical capability to assess it—is that the engineering is poor quality, the architecture is deteriorating, and the velocity is illusory.
+The ceremonies feel rigorous. The metrics feel objective. Leadership believes they are managing engineering effectively because they see predictable velocity, organized backlogs, and structured planning. What they cannot see - because they lack technical capability to assess it - is that the engineering is poor quality, the architecture is deteriorating, and the velocity is illusory.
 
 ## The 10-100x Differential: When Measurement Contradicts Narrative
 
@@ -123,7 +123,7 @@ The organization claims to practice DevOps. The evidence suggests otherwise.
 
 **DevOps principle:** Unify development and operations. Teams own full lifecycle from code to production.
 
-**What was built:** Fragmented teams across multiple organizations. Platform Architecture, Build Control, SRE, Operations, Support—each with separate repositories, separate processes, separate backlogs. Coordination overhead dominates actual work.
+**What was built:** Fragmented teams across multiple organizations. Platform Architecture, Build Control, SRE, Operations, Support - each with separate repositories, separate processes, separate backlogs. Coordination overhead dominates actual work.
 
 The organization adopted DevOps terminology while implementing the opposite of DevOps principles. This happens when leaders lack the technical capability to distinguish between adopting vocabulary and adopting practice. Leadership sees Terraform files and concludes "infrastructure-as-code achieved." They cannot evaluate whether the Terraform architecture enables rapid change or prevents it. Leadership sees CI/CD pipelines and concludes "continuous deployment achieved." They cannot evaluate whether deployment velocity increased or decreased.
 
@@ -133,7 +133,7 @@ The inversion is invisible to leaders who lack engineering capability. They see 
 
 *(For a deeper examination of this phenomenon, see [survivorship-bias.md](./survivorship-bias.md))*
 
-The organization has grown through 15+ years of continuous acquisitions, culminating in $2.3B acquisition by GE Healthcare. Leadership consists predominantly of "lifers"—VPs, Directors, and Managers with 10, 15, 20+ years of tenure who have spent careers here.
+The organization has grown through 15+ years of continuous acquisitions, culminating in $2.3B acquisition by GE Healthcare. Leadership consists predominantly of "lifers" - VPs, Directors, and Managers with 10, 15, 20+ years of tenure who have spent careers here.
 
 These are the survivors. What is not visible is everyone who left:
 
@@ -161,9 +161,9 @@ The leadership who remained created answers like:
 - "That's just how it works at scale"
 - "You need to be here a few years to understand"
 - "The complexity is necessary for our requirements"
-- "We're doing DevOps—look at our Terraform and pipelines"
+- "We're doing DevOps - look at our Terraform and pipelines"
 
-When the only voices that remain are those who found the status quo acceptable, those voices reinforce each other. Consensus forms not through external validation but through internal agreement among survivors. Leadership believes their patterns are appropriate because everyone in leadership agrees—and everyone who disagreed left.
+When the only voices that remain are those who found the status quo acceptable, those voices reinforce each other. Consensus forms not through external validation but through internal agreement among survivors. Leadership believes their patterns are appropriate because everyone in leadership agrees - and everyone who disagreed left.
 
 Technical capability cannot be validated through internal consensus. It must be validated through external reality: does the system perform? Can it be modified quickly? Does it fail safely? Is it maintainable at scale? Does it align with industry standards?
 
@@ -171,13 +171,13 @@ The survivor leaders lack the technical capability to answer these questions obj
 
 ## What Technical Leadership Requires
 
-Technical leadership requires technical capability. Not the ability to write code daily—senior leaders should focus on strategy. But the capability to evaluate whether strategic vision is being implemented competently.
+Technical leadership requires technical capability. Not the ability to write code daily - senior leaders should focus on strategy. But the capability to evaluate whether strategic vision is being implemented competently.
 
 **Technical leaders must be able to:**
 
 1. **Distinguish good architecture from bad architecture.** When presented with two approaches, assess which is appropriate for scale, maintainability, and velocity. Not based on preference or familiarity, but based on engineering fundamentals.
 
-2. **Recognize when complexity is accidental versus essential.** Essential complexity cannot be eliminated—it's inherent to the problem. Accidental complexity can be eliminated—it's created by approach. Leaders who cannot distinguish between them cannot improve systems.
+2. **Recognize when complexity is accidental versus essential.** Essential complexity cannot be eliminated - it's inherent to the problem. Accidental complexity can be eliminated - it's created by approach. Leaders who cannot distinguish between them cannot improve systems.
 
 3. **Evaluate quality independent of completion.** A deployed system that doesn't work is not successful. A completed project that creates more problems than it solves is not successful. Leaders must measure outcomes, not activity.
 
@@ -213,7 +213,7 @@ The solution is not to fire leadership. The solution is for leadership to acknow
 
 1. **Hire for technical capability, not culture fit.** Bring in engineers and architects who have built systems at scale at organizations with mature engineering cultures. Actually listen to them when they identify problems. Create space for their perspectives without dismissing them as "not understanding how we do things."
 
-2. **Implement external benchmarking.** Measure deployment velocity, incident response time, patch compliance, change failure rate against industry standards. Not internal targets—external reality. Publish results to leadership. Acknowledge gaps.
+2. **Implement external benchmarking.** Measure deployment velocity, incident response time, patch compliance, change failure rate against industry standards. Not internal targets - external reality. Publish results to leadership. Acknowledge gaps.
 
 3. **Mandate technical review by outside experts.** Bring in consultants specifically to evaluate infrastructure patterns and provide honest assessment. Pay them for honesty, not validation. If internal consensus and external assessment diverge, trust external assessment.
 
@@ -235,7 +235,7 @@ Leadership has two choices:
 
 **Option 2: Maintain the narrative.** Continue championing task completion as success. Continue celebrating deployment as achievement. Continue using Scrum velocity as productivity metric. Continue believing internal consensus validates technical correctness. Wait for external reality to force recognition.
 
-External reality is coming. GE Healthcare has enterprise engineering standards. Tenants have reliability requirements. Competitors operate at higher velocity. Security auditors will eventually validate whether controls actually function. The gap between what leadership believes was achieved and what was actually achieved will become visible—either proactively through honest assessment, or reactively through failure.
+External reality is coming. GE Healthcare has enterprise engineering standards. Tenants have reliability requirements. Competitors operate at higher velocity. Security auditors will eventually validate whether controls actually function. The gap between what leadership believes was achieved and what was actually achieved will become visible - either proactively through honest assessment, or reactively through failure.
 
 The question is whether leadership will acknowledge technical incapability and address it, or whether they will continue believing their vision is sufficient while the systems they championed slowly collapse under their own weight.
 
@@ -245,4 +245,4 @@ The organization needs the latter. The question is whether leadership is capable
 
 ---
 
-*Technical competence is not optional in technical leadership. It is foundational. Everything else—strategy, vision, roadmaps, initiatives—depends on the capability to evaluate whether those things are being implemented well or poorly. Without that capability, leadership cannot lead. They can only hope.*
+*Technical competence is not optional in technical leadership. It is foundational. Everything else - strategy, vision, roadmaps, initiatives - depends on the capability to evaluate whether those things are being implemented well or poorly. Without that capability, leadership cannot lead. They can only hope.*

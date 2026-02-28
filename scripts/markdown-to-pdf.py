@@ -115,7 +115,7 @@ CSS_TEMPLATE = """
     hyphens: auto;
   }}
 
-  /* Column widths — adjust these for your table structure */
+  /* Column widths  -  adjust these for your table structure */
   th:nth-child(1), td:nth-child(1) {{ width: 12%; font-weight: 600; hyphens: none; overflow-wrap: normal; word-break: normal; }}
   th:nth-child(2), td:nth-child(2) {{ width: 26%; }}
   th:nth-child(3), td:nth-child(3) {{ width: 26%; }}

@@ -1,4 +1,4 @@
-# Build Module — Golden AMI builds for EC2 classes with build: true
+# Build Module  -  Golden AMI builds for EC2 classes with build: true
 # Extracted from compute module to break dependency cycles:
 #   storage (creates bucket) → build (uploads archives, runs Packer) → compute (uses built AMIs)
 # Build instances get direct S3 access to application-scripts bucket via IAM.
@@ -7,10 +7,10 @@ data "aws_region" "current" {}
 data "aws_caller_identity" "current" {}
 
 # ============================================================================
-# AMI Resolution (self-contained — avoids dependency cycle with compute)
+# AMI Resolution (self-contained  -  avoids dependency cycle with compute)
 # ============================================================================
 
-# Strategy 1: SSM parameter lookup — only for build classes that specify ami_ssm_parameter
+# Strategy 1: SSM parameter lookup  -  only for build classes that specify ami_ssm_parameter
 data "aws_ssm_parameter" "ami" {
   for_each = {
     for class_name, class_config in var.config : class_name => class_config
@@ -20,7 +20,7 @@ data "aws_ssm_parameter" "ami" {
   name = each.value.ami_ssm_parameter
 }
 
-# Strategy 2: AMI filter — only for build classes that use ami_filter (without ami_ssm_parameter)
+# Strategy 2: AMI filter  -  only for build classes that use ami_filter (without ami_ssm_parameter)
 data "aws_ami" "class" {
   for_each = {
     for class_name, class_config in var.config : class_name => class_config
@@ -42,7 +42,7 @@ data "aws_ami" "class" {
 }
 
 locals {
-  # Unified AMI ID map for build classes — SSM parameter wins when both are specified
+  # Unified AMI ID map for build classes  -  SSM parameter wins when both are specified
   resolved_amis = merge(
     { for k, v in data.aws_ami.class : k => v.id },
     { for k, v in data.aws_ssm_parameter.ami : k => nonsensitive(v.value) },
@@ -85,7 +85,7 @@ locals {
     ]
   }
 
-  # Filter to buildable applications per class (ssm, user-data, ansible — not helm)
+  # Filter to buildable applications per class (ssm, user-data, ansible  -  not helm)
   # Merges class-level applications with matched standalone applications
   build_applications = {
     for class_name, class_config in local.build_classes : class_name => concat(

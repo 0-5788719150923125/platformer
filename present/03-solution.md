@@ -1,6 +1,6 @@
 ## The Solution: One State
 
-This diagram shows how a single codebase with pattern matching replaces the fragmented approach. Pattern expressions like `*-platform-dev` automatically match multiple accounts discovered via the AWS Organizations API. Every deployment converges toward the same state—one unified configuration manifest where services are conditionally enabled based on composed state fragments. The deployment matrix generates parallel executions across matched accounts and regions, eliminating the need for manual coordination.
+This diagram shows how a single codebase with pattern matching replaces the fragmented approach. Pattern expressions like `*-platform-dev` automatically match multiple accounts discovered via the AWS Organizations API. Every deployment converges toward the same state - one unified configuration manifest where services are conditionally enabled based on composed state fragments. The deployment matrix generates parallel executions across matched accounts and regions, eliminating the need for manual coordination.
 
 ```mermaid
 graph TB

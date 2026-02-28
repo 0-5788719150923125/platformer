@@ -432,7 +432,7 @@ variable "hooks_bucket" {
 
 # Instances grouped by class (populated from compute module via dependency inversion)
 variable "instances_by_class" {
-  description = "Instances grouped by class name — map of class_name => { instance_key => instance_id } (provided by compute module)"
+  description = "Instances grouped by class name  -  map of class_name => { instance_key => instance_id } (provided by compute module)"
   type        = map(map(string))
   default     = {}
 }
@@ -468,9 +468,9 @@ variable "application_requests" {
     })))
 
     # Direct instance targeting (for mode: 1-master cluster requests)
-    instance_id = optional(string) # EC2 instance ID — used when targeting_mode = "instance"
+    instance_id = optional(string) # EC2 instance ID  -  used when targeting_mode = "instance"
 
-    # Cluster targeting (for mode: 1-master) — all nodes in one Ansible invocation
+    # Cluster targeting (for mode: 1-master)  -  all nodes in one Ansible invocation
     hosts = optional(list(object({
       instance_id = string
       vars        = optional(map(string), {})
@@ -496,7 +496,7 @@ variable "application_requests" {
 # The root computes this from config alone, avoiding a dependency cycle:
 #   build ← storage ← config-mgmt.bucket_requests ← compute ← build
 variable "has_application_deployments" {
-  description = "Whether any application deployments (SSM/Ansible) exist — drives application-scripts bucket request"
+  description = "Whether any application deployments (SSM/Ansible) exist  -  drives application-scripts bucket request"
   type        = bool
   default     = false
 }
