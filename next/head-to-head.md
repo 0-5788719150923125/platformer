@@ -98,6 +98,6 @@ The document is called *Head-to-Head* because that's what honest comparison requ
 
 ## Final Thoughts
 
-Karl Johnsen said it well on a recent townhall: *"We are addressing the needs that customers have, before they realize they have those needs."*
+Our CFO said it well on a recent townhall: *"We are addressing the needs that customers have, before they realize they have those needs."*
 
 Our customers are our peers. Every row in this matrix is a need that already exists - felt in 4-week deploy cycles, in 1am maintenance windows, in patch dashboards that drift immediately after deployment. This is my attempt to address those needs before the next audit, the next outage, or the next resignation makes them impossible to ignore.

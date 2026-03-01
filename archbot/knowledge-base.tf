@@ -194,7 +194,7 @@ resource "aws_bedrockagent_data_source" "s3" {
     }
   }
 
-  data_deletion_policy = "DELETE"
+  data_deletion_policy = "RETAIN"
 
   lifecycle {
     replace_triggered_by = [aws_bedrockagent_knowledge_base.archbot[0].id]

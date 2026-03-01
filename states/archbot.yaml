@@ -26,6 +26,9 @@ services:
         ink.university.
       discord_tool_channels:
         - the-pit
+        - the-university
+        - the-library
+        - the-museum
       knowledge_base_enabled: true
       kb_chunking_strategy: "SEMANTIC"
       kb_document_paths:
@@ -34,6 +37,8 @@ services:
         - "../ink.university"
         - "../src.eco"
         - "../l.ink"
+        - "../eliza"
+        - "../reaper"
       kb_remap_to_txt_extensions:
         - ".tf"
         - ".hcl"
