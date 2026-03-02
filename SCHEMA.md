@@ -630,7 +630,7 @@ Unified compute provisioning with type-based routing. Single configuration inter
 services:
   compute:
     <key>:
-      type: string  # REQUIRED: "ec2", "eks", or "ecs" - determines compute implementation
+      type: string  # REQUIRED: "ec2", "eks", "ecs", or "localhost" - determines compute implementation
       network_name: string  # Name of network to use (from networks map). If null, uses default VPC.
       ami_ssm_parameter: string  # SSM parameter path for AMI ID (e.g., "/aws/service/ami-amazon-linux-latest/al2023-ami-kernel-default-x86_64") - deterministic, AWS-maintained
       ami_filter: string  # AWS AMI name filter (e.g., "Windows_Server-2022-*") - fallback when SSM parameter unavailable (default: Windows_Server-2022-*)
@@ -675,7 +675,7 @@ services:
       applications:  # list
         - script: string  # Script filename in applications/scripts/ (required if type=ssm|user-data)
           params: {}  # map(string) - Parameters passed as environment variables to the script
-          type: string  # Deployment type: "ssm" (default), "user-data", "helm", or "ansible"
+          type: string  # Deployment type: "ssm" (default), "user-data", "helm", "ansible", or "shell"
           playbook: string  # Playbook directory name in applications/ansible/ (e.g., "redis") (default: redis)
           playbook_file: string  # Playbook filename within directory (default: "playbook.yml")
           chart: string  # Chart name (e.g., "ingress-nginx") (default: ingress-nginx)

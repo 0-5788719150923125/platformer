@@ -4,5 +4,6 @@
 __pycache__
 *.tfstate
 *.backup
-*.tfvars
+*.tfvars*
+!terraform.tfvars.example
 .env

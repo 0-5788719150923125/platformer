@@ -45,7 +45,7 @@ variable "tenants_by_class" {
 variable "config" {
   description = "Compute service configuration - map of class name to class definition"
   type = map(object({
-    type = string # REQUIRED: "ec2", "eks", or "ecs" - determines compute implementation
+    type = string # REQUIRED: "ec2", "eks", "ecs", or "localhost" - determines compute implementation
 
     # Network selection (applies to all compute types)
     network_name = optional(string) # Name of network to use (from networks map). If null, uses default VPC.
@@ -105,7 +105,7 @@ variable "config" {
       # Script-based deployments (SSM/user-data)
       script = optional(string)          # Script filename in applications/scripts/ (required if type=ssm|user-data)
       params = optional(map(string), {}) # Parameters passed as environment variables to the script
-      type   = optional(string, "ssm")   # Deployment type: "ssm" (default), "user-data", "helm", or "ansible"
+      type   = optional(string, "ssm")   # Deployment type: "ssm" (default), "user-data", "helm", "ansible", or "shell"
 
       # Ansible-specific fields (required if type=ansible)
       playbook      = optional(string) # Playbook directory name in applications/ansible/ (e.g., "redis")
@@ -129,9 +129,9 @@ variable "config" {
   validation {
     condition = alltrue([
       for class_name, class_config in var.config :
-      contains(["ec2", "eks", "ecs"], class_config.type)
+      contains(["ec2", "eks", "ecs", "localhost"], class_config.type)
     ])
-    error_message = "Class type must be one of: ec2, eks, ecs"
+    error_message = "Class type must be one of: ec2, eks, ecs, localhost"
   }
 
   # Validation: EC2 classes must have ami_ssm_parameter or ami_filter

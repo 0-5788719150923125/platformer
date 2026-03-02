@@ -1,0 +1,10 @@
+services:
+  compute:
+    praxis-local:
+      type: localhost
+      applications:
+        - type: shell
+          script: "./launch compose --india --no-dashboard --headless"
+          params:
+            WORKING_DIR: /home/crow/repos/praxis
+            STOP_CMD: "./launch stop"

@@ -56,7 +56,8 @@ def list_files(abs_path):
         )
         files = [line for line in result.stdout.splitlines() if line]
         if files:
-            return [(os.path.join(abs_path, f), f) for f in files]
+            # Filter out files deleted from disk but still in the git index
+            return [(os.path.join(abs_path, f), f) for f in files if os.path.isfile(os.path.join(abs_path, f))]
     except (subprocess.CalledProcessError, FileNotFoundError, OSError):
         pass
 
