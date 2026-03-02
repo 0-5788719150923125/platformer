@@ -59,7 +59,7 @@ output "commands" {
     {
       title          = "Reindex Knowledge Base"
       description    = "Trigger KB document re-indexing for archbot RAG"
-      commands       = ["aws lambda invoke --function-name ${aws_lambda_function.kb_ingestion_reporter[0].function_name} --payload '{\"knowledge_base_id\":\"${aws_bedrockagent_knowledge_base.archbot[0].id}\",\"data_source_id\":\"${aws_bedrockagent_data_source.s3[0].data_source_id}\"}' --region ${local.aws_region} /tmp/kb-reindex.json"]
+      commands       = ["aws lambda invoke --function-name ${aws_lambda_function.kb_ingestion_reporter[0].function_name} --cli-binary-format raw-in-base64-out --payload '{\"knowledge_base_id\":\"${aws_bedrockagent_knowledge_base.archbot[0].id}\",\"data_source_id\":\"${aws_bedrockagent_data_source.s3[0].data_source_id}\"}' --region ${local.aws_region} /tmp/kb-reindex.json"]
       service        = "archbot"
       category       = "kb-reindex"
       target_type    = "service"

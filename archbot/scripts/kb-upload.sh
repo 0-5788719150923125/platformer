@@ -9,8 +9,9 @@
 # 'git ls-files' to enumerate tracked files only. Non-git directories
 # fall back to os.walk (excluding .terraform/ and .git/).
 #
-# A (source_path, s3_key) index is built in memory first, then all uploads
-# run concurrently from their original locations - no staging, no copies.
+# Uses a staging directory + 'aws s3 sync --delete' for incremental uploads.
+# Only changed files are uploaded; orphaned S3 objects are removed. Hard links
+# preserve source file mtimes so sync compares correctly (instant, no copies).
 #
 # Environment variables (set by Terraform provisioner):
 #   BUCKET          S3 bucket name
@@ -22,13 +23,13 @@ set -euo pipefail
 python3 - <<'PYEOF'
 import json
 import os
+import shutil
 import subprocess
 import sys
-from concurrent.futures import ThreadPoolExecutor, as_completed
+import tempfile
 
-SKIP_DIRS   = {".terraform", ".git"}
-SKIP_EXTS   = {".sample", ".idx", ".rev", ".pack"}
-CONCURRENCY = 10
+SKIP_DIRS = {".terraform", ".git"}
+SKIP_EXTS = {".sample", ".idx", ".rev", ".pack"}
 
 bucket        = os.environ["BUCKET"]
 source_paths  = json.loads(os.environ["SOURCE_PATHS"])  # [[abs_path, s3_prefix], ...]
@@ -70,60 +71,53 @@ def list_files(abs_path):
     return entries
 
 
-# Build upload index in memory - no file copying.
-index   = []
+# Phase 1: Hard-link files into staging directory.
+staging_dir = tempfile.mkdtemp(prefix="kb-staging-")
+staged  = 0
 skipped = 0
 
-for abs_path, prefix in source_paths:
-    for full, rel in list_files(abs_path):
-        _, ext = os.path.splitext(rel)
-        ext = ext.lower()
+try:
+    for abs_path, prefix in source_paths:
+        for full, rel in list_files(abs_path):
+            _, ext = os.path.splitext(rel)
+            ext = ext.lower()
 
-        if ext in SKIP_EXTS:
-            continue
+            if ext in SKIP_EXTS:
+                continue
 
-        key = f"{prefix}/{rel}".lstrip("/")
+            key = f"{prefix}/{rel}".lstrip("/")
 
-        if ext in supported_ext:
-            index.append((full, key, []))
-        elif ext in remap_ext:
-            index.append((full, f"{key}.txt", ["--content-type", "text/plain"]))
-        else:
-            skipped += 1
+            if ext in supported_ext:
+                pass  # key stays as-is
+            elif ext in remap_ext:
+                key = f"{key}.txt"
+            else:
+                skipped += 1
+                continue
 
-print(f"Index: {len(index)} files to upload, {skipped} skipped.")
+            staging_path = os.path.join(staging_dir, key)
+            os.makedirs(os.path.dirname(staging_path), exist_ok=True)
+            try:
+                os.link(full, staging_path)
+            except OSError:
+                shutil.copy2(full, staging_path)
+            staged += 1
 
-# Wipe bucket, then upload from source paths in parallel.
-subprocess.run(["aws", "s3", "rm", f"s3://{bucket}", "--recursive"], check=True)
+    print(f"Staged {staged} files ({skipped} skipped). Syncing to s3://{bucket}/ ...")
 
-
-def upload(item):
-    full, key, extra = item
-    subprocess.run(
-        ["aws", "s3", "cp", full, f"s3://{bucket}/{key}"] + extra,
-        check=True,
-        capture_output=True,
+    # Phase 2: Incremental sync — uploads only changed files, removes orphans.
+    result = subprocess.run(
+        ["aws", "s3", "sync", staging_dir + "/", f"s3://{bucket}/", "--delete"],
+        capture_output=True, text=True,
     )
+    if result.stdout:
+        print(result.stdout)
+    if result.returncode != 0:
+        print(result.stderr, file=sys.stderr)
+        sys.exit(result.returncode)
 
-
-errors   = []
-uploaded = 0
-
-with ThreadPoolExecutor(max_workers=CONCURRENCY) as pool:
-    futures = {pool.submit(upload, item): item for item in index}
-    for future in as_completed(futures):
-        try:
-            future.result()
-            uploaded += 1
-            if uploaded % 10 == 0 or uploaded == len(index):
-                print(f"  {uploaded}/{len(index)} uploaded...")
-        except subprocess.CalledProcessError as exc:
-            errors.append(exc.stderr.decode().strip() if exc.stderr else str(exc))
-
-if errors:
-    for err in errors:
-        print(f"ERROR: {err}", file=sys.stderr)
-    sys.exit(1)
-
-print(f"Upload complete: {uploaded} files.")
+    print("Sync complete.")
+finally:
+    # Phase 3: Cleanup staging directory.
+    subprocess.run(["rm", "-rf", staging_dir])
 PYEOF

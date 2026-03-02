@@ -77,30 +77,81 @@ SEND_CHANNEL_MESSAGE_TOOL = {
     }
 }
 
+READ_CHANNEL_MESSAGES_TOOL = {
+    "toolSpec": {
+        "name": "read_channel_messages",
+        "description": (
+            "Read recent messages from a Discord channel. Use this to understand "
+            "what's being discussed before sending a message. Only whitelisted "
+            "channels are available."
+        ),
+        "inputSchema": {
+            "json": {
+                "type": "object",
+                "properties": {
+                    "channel_name": {
+                        "type": "string",
+                        "description": "Name of the Discord channel to read.",
+                    },
+                    "limit": {
+                        "type": "integer",
+                        "description": "Number of recent messages to fetch (default 20, max 50).",
+                    },
+                },
+                "required": ["channel_name"],
+            }
+        },
+    }
+}
+
 
 def _make_tool_executor(client, loop, allowed_channels):
-    """Return a tool executor that handles send_channel_message and delegates the rest."""
+    """Return a tool executor that handles Discord channel tools and delegates the rest."""
 
     def executor(tool_name, tool_input):
-        if tool_name != "send_channel_message":
+        if tool_name not in ("send_channel_message", "read_channel_messages"):
             return execute_tool(tool_name, tool_input)
 
         channel_name = tool_input.get("channel_name", "")
-        message = tool_input.get("message", "")
 
         if channel_name not in allowed_channels:
             return {"error": f"Channel '{channel_name}' is not in the allowed list. Allowed: {allowed_channels}"}
 
-        channel = discord.utils.get(client.get_all_channels(), name=channel_name)
+        channel = discord.utils.get(
+            (c for c in client.get_all_channels() if isinstance(c, discord.TextChannel)),
+            name=channel_name,
+        )
         if channel is None:
             return {"error": f"Channel '{channel_name}' not found on this server."}
 
+        if tool_name == "send_channel_message":
+            message = tool_input.get("message", "")
+            try:
+                future = asyncio.run_coroutine_threadsafe(channel.send(message), loop)
+                future.result(timeout=10)
+                return {"success": True, "channel": channel_name}
+            except Exception as exc:
+                return {"error": f"Failed to send message to '{channel_name}': {exc}"}
+
+        # read_channel_messages
+        limit = min(tool_input.get("limit", 20), 50)
         try:
-            future = asyncio.run_coroutine_threadsafe(channel.send(message), loop)
-            future.result(timeout=10)
-            return {"success": True, "channel": channel_name}
+            async def _fetch_history():
+                return [msg async for msg in channel.history(limit=limit)]
+
+            future = asyncio.run_coroutine_threadsafe(_fetch_history(), loop)
+            messages = future.result(timeout=15)
+            formatted = [
+                {
+                    "author": msg.author.display_name,
+                    "content": msg.content,
+                    "timestamp": msg.created_at.isoformat(),
+                }
+                for msg in reversed(messages)
+            ]
+            return {"channel": channel_name, "messages": formatted}
         except Exception as exc:
-            return {"error": f"Failed to send message to '{channel_name}': {exc}"}
+            return {"error": f"Failed to read messages from '{channel_name}': {exc}"}
 
     return executor
 
@@ -254,6 +305,7 @@ class ArchbotDiscord:
         tools = []
         tool_executor = None
         if DISCORD_TOOL_CHANNELS:
+            tools.append(READ_CHANNEL_MESSAGES_TOOL)
             tools.append(SEND_CHANNEL_MESSAGE_TOOL)
             loop = asyncio.get_event_loop()
             tool_executor = _make_tool_executor(self.client, loop, DISCORD_TOOL_CHANNELS)
