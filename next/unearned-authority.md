@@ -133,7 +133,7 @@ The inversion is invisible to leaders who lack engineering capability. They see 
 
 *(For a deeper examination of this phenomenon, see [survivorship-bias.md](./survivorship-bias.md))*
 
-The organization has grown through 15+ years of continuous acquisitions, culminating in $2.3B acquisition by GE Healthcare. Leadership consists predominantly of "lifers" - VPs, Directors, and Managers with 10, 15, 20+ years of tenure who have spent careers here.
+The organization has grown through 15+ years of continuous acquisitions, culminating in a multi-billion dollar acquisition by a global healthcare conglomerate. Leadership consists predominantly of "lifers" - VPs, Directors, and Managers with 10, 15, 20+ years of tenure who have spent careers here.
 
 These are the survivors. What is not visible is everyone who left:
 
@@ -201,7 +201,7 @@ The cost of technical incompetence in leadership is measured in:
 
 **Technical debt:** Accumulating faster than it can be addressed. Each compromised architecture creates more maintenance burden. Each inverted principle creates more complexity. Leaders cannot see the debt accumulating because they lack capability to recognize it.
 
-**Competitive disadvantage:** When peer organizations operate at 10-100x higher velocity with higher quality, this organization cannot compete. The gap will widen as scale increases. GE Healthcare acquisition brings 160+ countries. Current patterns that barely work at 127 accounts will collapse entirely at that scale.
+**Competitive disadvantage:** When peer organizations operate at 10-100x higher velocity with higher quality, this organization cannot compete. The gap will widen as scale increases. The parent conglomerate brings 160+ countries. Current patterns that barely work at 127 accounts will collapse entirely at that scale.
 
 **Reputation:** When capable engineers consistently leave within 6-12 months, the organization develops reputation as place where good engineers go to fight bad architecture. Recruiting becomes harder. Retention becomes impossible. The talent spiral accelerates downward.
 
@@ -227,7 +227,7 @@ The solution is not to fire leadership. The solution is for leadership to acknow
 
 ## The Stakes
 
-This organization manages critical healthcare infrastructure for 40+ production tenants across 127 AWS accounts, expanding to 160+ countries through GE Healthcare. The infrastructure is fragile. The systems barely work. The technical debt is compounding. The velocity is 10-100x slower than necessary.
+This organization manages critical healthcare infrastructure for 40+ production tenants across 127 AWS accounts, expanding to 160+ countries through the parent conglomerate. The infrastructure is fragile. The systems barely work. The technical debt is compounding. The velocity is 10-100x slower than necessary.
 
 Leadership has two choices:
 
@@ -235,7 +235,7 @@ Leadership has two choices:
 
 **Option 2: Maintain the narrative.** Continue championing task completion as success. Continue celebrating deployment as achievement. Continue using Scrum velocity as productivity metric. Continue believing internal consensus validates technical correctness. Wait for external reality to force recognition.
 
-External reality is coming. GE Healthcare has enterprise engineering standards. Tenants have reliability requirements. Competitors operate at higher velocity. Security auditors will eventually validate whether controls actually function. The gap between what leadership believes was achieved and what was actually achieved will become visible - either proactively through honest assessment, or reactively through failure.
+External reality is coming. The parent conglomerate has enterprise engineering standards. Tenants have reliability requirements. Competitors operate at higher velocity. Security auditors will eventually validate whether controls actually function. The gap between what leadership believes was achieved and what was actually achieved will become visible - either proactively through honest assessment, or reactively through failure.
 
 The question is whether leadership will acknowledge technical incapability and address it, or whether they will continue believing their vision is sufficient while the systems they championed slowly collapse under their own weight.
 

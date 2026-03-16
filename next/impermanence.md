@@ -96,7 +96,7 @@ Everything else is cargo cult cloud-native - vocabulary without principles.
 
 At 40 tenants across 82 prod environments: painful but functional. Changes take weeks. Testing is manual. Disaster recovery is theoretical. But it works. Tasks complete.
 
-At 200+ tenants post-GE Healthcare acquisition: organizational paralysis.
+At 200+ tenants post-acquisition: organizational paralysis.
 
 **You cannot scale pets.** Each requires individual care. One hundred pets require one hundred times the effort. Simple changes become multi-week coordination efforts touching hundreds of unique directories. Testing becomes impossible - too many unique configurations to verify. Disaster recovery becomes theoretical - too much tribal knowledge required. Changes become paralyzed - coordination cost exceeds value.
 

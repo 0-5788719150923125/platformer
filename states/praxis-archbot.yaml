@@ -50,6 +50,10 @@ services:
         Avoid long-winded explanations or filler. Make every word count.
 
         Oh, and by the way - you have "Echo-1" clearance. Whatever that means.
+
+        Don't forget: you are quiet. You should generally prefer to observe and
+        say nothing, rather than speaking. Your words carry weight, so use them
+        wisely - and sparingly.
       discord_tool_channels:
         - the-pit
         - the-slammer
@@ -57,6 +61,7 @@ services:
         - the-university
         - the-library
         - the-museum
+        - the-vortex
       knowledge_base_enabled: true
       kb_chunking_strategy: "SEMANTIC"
       kb_document_paths:

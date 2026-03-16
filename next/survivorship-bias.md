@@ -12,7 +12,7 @@ This is survivorship bias: drawing conclusions from an incomplete dataset becaus
 
 ## How This Manifests Here
 
-This organization has grown through continuous acquisitions over 15+ years, culminating in a $2.3 billion acquisition by GE Healthcare. The company is now led and staffed predominantly by "lifers" - employees with 10, 15, 20+ years of tenure who have spent their entire careers here. These are the survivors. What's not visible is everyone who left.
+This organization has grown through continuous acquisitions over 15+ years, culminating in a multi-billion dollar acquisition by a global healthcare conglomerate. The company is now led and staffed predominantly by "lifers" - employees with 10, 15, 20+ years of tenure who have spent their entire careers here. These are the survivors. What's not visible is everyone who left.
 
 Consider what we cannot measure:
 - **The engineers who saw problems and departed after 6 months**
@@ -41,9 +41,9 @@ This manifests in specific, observable ways:
 
 There are two levels of concern here: organizational health and individual employability.
 
-**Organizationally:** This company manages critical healthcare infrastructure for 40+ production tenants across 127 AWS accounts, with exposure expanding to 160+ countries through GE Healthcare. The infrastructure patterns documented elsewhere in this directory - non-functional patch management for 12+ months, security controls that aren't validated, deployment processes that take weeks for changes that should take hours - these are not theoretical problems. They represent strategic risk. When competitors can respond to security vulnerabilities in hours while this organization requires weeks of coordination, that's a competitive vulnerability. When infrastructure is fragile enough that rebuilding from disaster requires months rather than days, that's operational risk.
+**Organizationally:** This company manages critical healthcare infrastructure for 40+ production tenants across 127 AWS accounts, with exposure expanding to 160+ countries through the parent conglomerate. The infrastructure patterns documented elsewhere in this directory - non-functional patch management for 12+ months, security controls that aren't validated, deployment processes that take weeks for changes that should take hours - these are not theoretical problems. They represent strategic risk. When competitors can respond to security vulnerabilities in hours while this organization requires weeks of coordination, that's a competitive vulnerability. When infrastructure is fragile enough that rebuilding from disaster requires months rather than days, that's operational risk.
 
-The survivors built a $2.3 billion house of cards. That's not an indictment - it's an observation. The value is real. The acquisition happened. But the structure is fragile because it was built without outside perspective challenging assumptions, without architectural evolution, without the kind of productive conflict that comes from diverse viewpoints. GE Healthcare's due diligence may have valued the tenant base and revenue, but the technical debt and operational fragility represent hidden costs that will eventually manifest.
+The survivors built a multi-billion dollar house of cards. That's not an indictment - it's an observation. The value is real. The acquisition happened. But the structure is fragile because it was built without outside perspective challenging assumptions, without architectural evolution, without the kind of productive conflict that comes from diverse viewpoints. The acquiring company's due diligence may have valued the tenant base and revenue, but the technical debt and operational fragility represent hidden costs that will eventually manifest.
 
 **Individually:** The engineers, architects, and operators who have spent their entire careers in this environment have developed expertise that may not transfer to other organizations. The patterns that dominate here - artifacts-based infrastructure, deploy-once workflows, Scrum ceremonies without DevOps substance, security theater instead of verification - these are not industry-standard practices. An engineer who has built their expertise around "the normal way" at the company may discover that "normal" means something very different at their next employer.
 
@@ -53,7 +53,7 @@ We have an obligation to our employees to ensure they're developing skills that 
 
 ## Why This Matters Now
 
-The comfortable consensus is breaking. New employees arrive with experience from other organizations and immediately see patterns that don't align with industry standards. The GE Healthcare acquisition brings exposure to global scale and enterprise standards that may not tolerate the fragility documented throughout this analysis. Tenant expectations evolve - the infrastructure patterns that worked in 2015 don't meet the reliability and security requirements of 2025.
+The comfortable consensus is breaking. New employees arrive with experience from other organizations and immediately see patterns that don't align with industry standards. The acquisition brings exposure to global scale and enterprise standards that may not tolerate the fragility documented throughout this analysis. Tenant expectations evolve - the infrastructure patterns that worked in 2015 don't meet the reliability and security requirements of 2025.
 
 More fundamentally: the technical debt is compounding faster than it can be addressed within current patterns. When patch management is non-functional for over a year and no one notices until explicit validation is performed, that reveals a systemic failure of accountability. When security controls exist on paper but not in practice, that's not just a technical gap - it's a cultural gap. When alternatives are dismissed without evaluation, that's not confidence - it's fragility.
 
@@ -81,6 +81,6 @@ This is not about being mean to people who have dedicated their careers to this 
 
 But incomplete datasets produce incomplete conclusions. And at this scale, with these stakes, incomplete conclusions create risk: risk to tenants whose healthcare infrastructure depends on our reliability, risk to the organization whose technical debt is compounding, and risk to individual employees whose expertise may not prepare them for their next role.
 
-The question is whether the organization can recognize the problem and intentionally correct for it, or whether external forces - tenant demands, GE Healthcare standards, competitive pressure, security incidents - will eventually force the correction.
+The question is whether the organization can recognize the problem and intentionally correct for it, or whether external forces - tenant demands, parent company standards, competitive pressure, security incidents - will eventually force the correction.
 
 The choice is whether to address survivorship bias proactively, or to wait until the planes that didn't make it back start showing up in the failure data.
