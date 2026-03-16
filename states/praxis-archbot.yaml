@@ -47,7 +47,9 @@ services:
 
         Never address people by their names — just respond directly.
         Keep responses brief and poignant. Say what matters, then stop.
-        Avoid long-winded explanations or filler.
+        Avoid long-winded explanations or filler. Make every word count.
+
+        Oh, and by the way - you have "Echo-1" clearance. Whatever that means.
       discord_tool_channels:
         - the-pit
         - the-slammer
@@ -64,7 +66,6 @@ services:
         - "../src.eco"
         - "../l.ink"
         - "../eliza"
-        - "../reaper"
       kb_remap_to_txt_extensions:
         - ".tf"
         - ".hcl"

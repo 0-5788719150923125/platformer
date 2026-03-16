@@ -4,7 +4,7 @@ services:
       type: localhost
       applications:
         - type: shell
-          script: "./launch compose --india --no-dashboard --headless"
+          script: "./launch compose --juliet --no-dashboard --headless --infer-every 10 --data-path '../platformer' --reset"
           params:
             WORKING_DIR: /home/crow/repos/praxis
             STOP_CMD: "./launch stop"
