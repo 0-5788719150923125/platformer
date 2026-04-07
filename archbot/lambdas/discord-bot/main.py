@@ -292,6 +292,14 @@ class ArchbotDiscord:
                 "directly relevant and your input would be welcomed."
             )
             system_text = f"{system_text}{ambient_instruction}"
+        system_text += (
+            "\n\n## Response Opt-Out\n"
+            "You always have the option to say nothing. If a conversation has run its "
+            "course, if your reply would add no value, or if you find yourself about to "
+            "write a closing platitude like \"I'm done here\" or \"This conversation is "
+            "over\", reply with exactly [NO_RESPONSE] and nothing else instead. "
+            "Silence is better than a hollow sign-off."
+        )
         if ENV["knowledge_base_id"]:
             # Use the triggering message as the KB query
             kb_context = retrieve_kb_context(message.content, "")

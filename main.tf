@@ -128,11 +128,11 @@ locals {
   # so all workspaces share a single Port.io catalog and blueprint set.
   # AWS resources (S3, IAM, SQS, etc.) continue using module.namespace.id (workspace-specific)
   # to avoid name collisions between workspaces.
-  # coalesce(one(...), ...) handles the count=0 case: when in the default workspace,
-  # the remote state data source is not created (count=0), the splat produces [], one([]) returns
-  # null, and coalesce falls through to module.namespace.id.
+  # coalesce(try(...), ...) handles two cases:
+  # 1. Default workspace (count=0): splat produces [], one([]) returns null → falls through
+  # 2. Non-default workspace where default state has no outputs yet: try() returns null → falls through
   subspace = coalesce(
-    one(data.terraform_remote_state.default_workspace[*].outputs.deployment_id),
+    try(one(data.terraform_remote_state.default_workspace[*]).outputs.deployment_id, null),
     module.namespace.id
   )
 }
