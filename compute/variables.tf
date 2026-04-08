@@ -354,6 +354,12 @@ variable "domain_certificate_arn" {
   default     = ""
 }
 
+variable "domain_aliases" {
+  description = "DNS alias map: FQDN -> compute class name (from domains module)"
+  type        = map(string)
+  default     = {}
+}
+
 # Access return-path variables (IAM resources managed by access module)
 variable "access_iam_role_arns" {
   description = "IAM role ARNs from access module (keyed by module-purpose)"

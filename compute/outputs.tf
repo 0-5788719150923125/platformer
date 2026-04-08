@@ -192,6 +192,12 @@ output "http_dns_names" {
   }
 }
 
+# Alias FQDN by class (reverse lookup: class -> alias FQDN)
+output "alias_fqdn_by_class" {
+  description = "Map of compute class name to alias FQDN (first alias per class)"
+  value       = local.alias_fqdn_by_class
+}
+
 # Terraform-Managed NLB DNS Names (dependency inversion return path)
 output "lb_dns_names" {
   description = "NLB DNS names for EKS services (keyed by cluster_class-name)"

@@ -49,6 +49,15 @@ locals {
     }
   ]...)
 
+  # Reverse lookup: compute class name -> alias FQDN (first alias wins if multiple)
+  # Used to override HTTPS_HOSTNAME so the server knows its public identity
+  alias_by_class = {
+    for fqdn, class_name in var.domain_aliases : class_name => fqdn...
+  }
+  alias_fqdn_by_class = {
+    for class_name, fqdns in local.alias_by_class : class_name => fqdns[0]
+  }
+
   # HTTPS classes: classes with at least one protocol = "https" ingress rule
   # Gated on domain_enabled (config-derived, plan-time safe) - not certificate_arn (apply-time)
   https_classes = var.domain_enabled ? {
@@ -217,8 +226,10 @@ locals {
                 DEPLOYMENT_NAMESPACE = var.namespace
                 AWS_REGION           = data.aws_region.current.id
               },
-              # Inject HTTPS hostname for single-mode classes with ALB routing
-              contains(keys(local.https_instances), "${tenant}-${class_name}-0") ? {
+              # Inject HTTPS hostname: prefer alias FQDN, then per-instance ALB FQDN
+              contains(keys(local.alias_fqdn_by_class), class_name) ? {
+                HTTPS_HOSTNAME = local.alias_fqdn_by_class[class_name]
+              } : contains(keys(local.https_instances), "${tenant}-${class_name}-0") ? {
                 HTTPS_HOSTNAME = local.https_instances["${tenant}-${class_name}-0"].fqdn
               } : {}
             ) : null
@@ -340,8 +351,10 @@ locals {
                   CLUSTER_MASTER_IP  = aws_instance.tenant["${tenant}-${class_name}-0"].private_ip
                   CLUSTER_PORT       = tostring(coalesce(class_config.cluster_port, 29500))
                 },
-                # Inject HTTPS hostname when instance has ALB routing
-                contains(keys(local.https_instances), "${tenant}-${class_name}-${idx}") ? {
+                # Inject HTTPS hostname: prefer alias FQDN, then per-instance ALB FQDN
+                contains(keys(local.alias_fqdn_by_class), class_name) ? {
+                  HTTPS_HOSTNAME = local.alias_fqdn_by_class[class_name]
+                } : contains(keys(local.https_instances), "${tenant}-${class_name}-${idx}") ? {
                   HTTPS_HOSTNAME = local.https_instances["${tenant}-${class_name}-${idx}"].fqdn
                 } : {}
               )

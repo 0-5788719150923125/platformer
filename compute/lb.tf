@@ -150,7 +150,8 @@ locals {
         instance_key = instance_key
         port         = https_class.https_rules[0].port
         fqdn         = "${instance_key}.${var.domain_zone_name}"
-        priority     = index(sort([for k, v in local.tenant_instances : k if v.class == class_name]), instance_key) + 1
+        # Start at 100 to leave room for alias rules (priority 1-99)
+        priority     = index(sort([for k, v in local.tenant_instances : k if v.class == class_name]), instance_key) + 100
       }
       if instance_config.class == class_name
     }
@@ -318,6 +319,26 @@ resource "aws_lb_listener_rule" "ec2_https" {
   }
 }
 
+# ── Alias Listener Rules (host-header routing for custom domain aliases) ──
+# Routes alias FQDNs to the same target group as instance-0
+resource "aws_lb_listener_rule" "ec2_alias" {
+  for_each = { for fqdn, r in local.alias_records : fqdn => r if r.is_https }
+
+  listener_arn = aws_lb_listener.ec2_https[each.value.class_name].arn
+  priority     = 1 # Aliases get highest priority
+
+  action {
+    type             = "forward"
+    target_group_arn = aws_lb_target_group.ec2_https[each.value.instance_key].arn
+  }
+
+  condition {
+    host_header {
+      values = [each.value.fqdn]
+    }
+  }
+}
+
 # ── HTTP Listener (80 → redirect to HTTPS) ──────────────────────────
 resource "aws_lb_listener" "ec2_http_redirect" {
   for_each = local.https_classes
@@ -382,4 +403,46 @@ resource "aws_route53_record" "ec2_http" {
   type    = "A"
   ttl     = 300
   records = [aws_instance.tenant[each.key].public_ip]
+}
+
+# ── Custom DNS Aliases ──────────────────────────────────────────────
+# User-defined aliases (services.domains.aliases) that map FQDNs to compute classes.
+# Resolves to the first entitled tenant's instance-0 of the target class.
+# HTTPS classes: ALIAS record to the class ALB.
+# HTTP classes: A record to the EC2 public IP.
+locals {
+  # Resolve each alias to the instance key of instance-0 for the first entitled tenant
+  alias_records = {
+    for fqdn, class_name in var.domain_aliases : fqdn => {
+      fqdn         = fqdn
+      class_name   = class_name
+      instance_key = "${lookup(var.tenants_by_class, class_name, [""])[0]}-${class_name}-0"
+      is_https     = contains(keys(local.https_classes), class_name)
+    }
+    if contains(keys(local.ec2_classes), class_name)
+  }
+}
+
+resource "aws_route53_record" "alias_https" {
+  for_each = { for fqdn, r in local.alias_records : fqdn => r if r.is_https }
+
+  zone_id = var.domain_zone_id
+  name    = each.value.fqdn
+  type    = "A"
+
+  alias {
+    name                   = aws_lb.ec2_https[each.value.class_name].dns_name
+    zone_id                = aws_lb.ec2_https[each.value.class_name].zone_id
+    evaluate_target_health = true
+  }
+}
+
+resource "aws_route53_record" "alias_http" {
+  for_each = { for fqdn, r in local.alias_records : fqdn => r if !r.is_https }
+
+  zone_id = var.domain_zone_id
+  name    = each.value.fqdn
+  type    = "A"
+  ttl     = 300
+  records = [aws_instance.tenant[each.value.instance_key].public_ip]
 }

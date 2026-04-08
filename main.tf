@@ -409,6 +409,7 @@ module "compute" {
   domain_zone_id         = local.domains_enabled ? module.domains[0].zone_id : ""
   domain_zone_name       = local.domains_enabled ? module.domains[0].zone_name : ""
   domain_certificate_arn = local.domains_enabled ? module.domains[0].certificate_arn : ""
+  domain_aliases         = local.domains_enabled ? module.domains[0].aliases : {}
 
   # Access return-path (IAM resources managed by access module)
   access_iam_role_arns          = module.access.iam_role_arns

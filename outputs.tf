@@ -52,8 +52,11 @@ locals {
       for instance_key in module.compute[0].service_instance_keys :
       "ec2-${instance_key}" => {
         url = (
+          # Alias: use alias FQDN with appropriate protocol
+          lookup(module.compute[0].alias_fqdn_by_class, module.compute[0].instances[instance_key].class, "") != ""
+          ? "${contains(keys(module.compute[0].alb_dns_names), instance_key) ? "https" : "http"}://${module.compute[0].alias_fqdn_by_class[module.compute[0].instances[instance_key].class]}"
           # HTTPS instance: use per-instance ALB FQDN
-          contains(keys(module.compute[0].alb_dns_names), instance_key)
+          : contains(keys(module.compute[0].alb_dns_names), instance_key)
           ? "https://${module.compute[0].alb_dns_names[instance_key]}"
           # HTTP instance with domain: use per-instance DNS FQDN
           : contains(keys(module.compute[0].http_dns_names), instance_key)

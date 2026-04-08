@@ -13,10 +13,22 @@ data "aws_route53_zone" "zone" {
   private_zone = false
 }
 
-# Wildcard ACM certificate for *.{zone}
+# ACM certificate: wildcard for *.{zone} + any alias FQDNs not covered by the wildcard
+# Wildcard certs only match one subdomain level and do NOT cover the zone apex,
+# so aliases like "arc.src.eco" (apex) need explicit SANs.
+locals {
+  wildcard_domain = "*.${var.config.zone}"
+  # Aliases not covered by the wildcard (e.g., zone apex, multi-level subdomains)
+  alias_sans = [
+    for fqdn, _ in var.config.aliases : fqdn
+    if fqdn != local.wildcard_domain
+  ]
+}
+
 resource "aws_acm_certificate" "wildcard" {
-  domain_name       = "*.${var.config.zone}"
-  validation_method = "DNS"
+  domain_name               = local.wildcard_domain
+  subject_alternative_names = local.alias_sans
+  validation_method         = "DNS"
 
   tags = {
     Name      = "wildcard.${var.config.zone}"

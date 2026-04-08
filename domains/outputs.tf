@@ -12,3 +12,8 @@ output "certificate_arn" {
   description = "Validated ACM wildcard certificate ARN"
   value       = aws_acm_certificate_validation.wildcard.certificate_arn
 }
+
+output "aliases" {
+  description = "DNS alias map: FQDN -> compute class name"
+  value       = var.config.aliases
+}

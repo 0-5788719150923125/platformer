@@ -712,9 +712,10 @@ This module supports the following arguments:
 | `domain_zone_id` | `string` | No | Route53 hosted zone ID for DNS records (empty = no domain) | [./compute/variables.tf:339](./compute/variables.tf#L339) |
 | `domain_zone_name` | `string` | No | Route53 hosted zone name (e.g., dev-platform.example.com) | [./compute/variables.tf:345](./compute/variables.tf#L345) |
 | `domain_certificate_arn` | `string` | No | ACM certificate ARN for HTTPS listeners (empty = no HTTPS) | [./compute/variables.tf:351](./compute/variables.tf#L351) |
-| `access_iam_role_arns` | `map` | No | IAM role ARNs from access module (keyed by module-purpose) | [./compute/variables.tf:358](./compute/variables.tf#L358) |
-| `access_iam_role_names` | `map` | No | IAM role names from access module (keyed by module-purpose) | [./compute/variables.tf:364](./compute/variables.tf#L364) |
-| `access_instance_profile_names` | `map` | No | Instance profile names from access module (keyed by module-purpose) | [./compute/variables.tf:370](./compute/variables.tf#L370) |
+| `domain_aliases` | `map` | No | DNS alias map: FQDN -> compute class name (from domains module) | [./compute/variables.tf:357](./compute/variables.tf#L357) |
+| `access_iam_role_arns` | `map` | No | IAM role ARNs from access module (keyed by module-purpose) | [./compute/variables.tf:364](./compute/variables.tf#L364) |
+| `access_iam_role_names` | `map` | No | IAM role names from access module (keyed by module-purpose) | [./compute/variables.tf:370](./compute/variables.tf#L370) |
+| `access_instance_profile_names` | `map` | No | Instance profile names from access module (keyed by module-purpose) | [./compute/variables.tf:376](./compute/variables.tf#L376) |
 
 ### Attributes
 
@@ -739,14 +740,15 @@ This module exports the following attributes:
 | `eks_node_role_name` | EKS node group IAM role name (for attaching policies) | [./compute/outputs.tf:172](./compute/outputs.tf#L172) |
 | `alb_dns_names` | Map of instance_key to FQDN for HTTPS ALB instances | [./compute/outputs.tf:178](./compute/outputs.tf#L178) |
 | `http_dns_names` | Map of instance_key to FQDN for HTTP instances with domain | [./compute/outputs.tf:187](./compute/outputs.tf#L187) |
-| `lb_dns_names` | NLB DNS names for EKS services (keyed by cluster_class-name) | [./compute/outputs.tf:196](./compute/outputs.tf#L196) |
-| `helm_releases` | Deployed Helm releases with metadata and access commands | [./compute/outputs.tf:208](./compute/outputs.tf#L208) |
-| `commands` | Mark a cluster as tainted. It will be destroyed and recreated on next terraform apply. | [./compute/outputs.tf:228](./compute/outputs.tf#L228) |
-| `kubeconfig_ready` | Dependency marker indicating kubeconfig contexts are set up | [./compute/outputs.tf:459](./compute/outputs.tf#L459) |
-| `ecs_clusters` | Deployed ECS clusters with metadata | [./compute/outputs.tf:470](./compute/outputs.tf#L470) |
-| `access_requests` | EC2 instance role for compute classes with applications | [./compute/outputs.tf:484](./compute/outputs.tf#L484) |
-| `access_security_groups` | Security groups with rules for the access module (AWS-native format) | [./compute/outputs.tf:504](./compute/outputs.tf#L504) |
-| `ecs_test_commands` | Commands to debug ECS clusters, services, and tasks | [./compute/outputs.tf:510](./compute/outputs.tf#L510) |
+| `alias_fqdn_by_class` | Map of compute class name to alias FQDN (first alias per class) | [./compute/outputs.tf:196](./compute/outputs.tf#L196) |
+| `lb_dns_names` | NLB DNS names for EKS services (keyed by cluster_class-name) | [./compute/outputs.tf:202](./compute/outputs.tf#L202) |
+| `helm_releases` | Deployed Helm releases with metadata and access commands | [./compute/outputs.tf:214](./compute/outputs.tf#L214) |
+| `commands` | Mark a cluster as tainted. It will be destroyed and recreated on next terraform apply. | [./compute/outputs.tf:234](./compute/outputs.tf#L234) |
+| `kubeconfig_ready` | Dependency marker indicating kubeconfig contexts are set up | [./compute/outputs.tf:465](./compute/outputs.tf#L465) |
+| `ecs_clusters` | Deployed ECS clusters with metadata | [./compute/outputs.tf:476](./compute/outputs.tf#L476) |
+| `access_requests` | EC2 instance role for compute classes with applications | [./compute/outputs.tf:490](./compute/outputs.tf#L490) |
+| `access_security_groups` | Security groups with rules for the access module (AWS-native format) | [./compute/outputs.tf:510](./compute/outputs.tf#L510) |
+| `ecs_test_commands` | Commands to debug ECS clusters, services, and tasks | [./compute/outputs.tf:516](./compute/outputs.tf#L516) |
 
 ## Module: config
 
@@ -924,6 +926,7 @@ Route53 zone lookup and ACM wildcard certificate provisioning with DNS validatio
 services:
   domains:
     zone: string  # Route53 hosted zone name (e.g., "dev-platform.example.com")
+    aliases: {}  # map(string) - Additional DNS records: FQDN -> compute class name (e.g., "arc.src.eco" -> "praxis-arc")
 ```
 
 ### Arguments
@@ -933,7 +936,7 @@ This module supports the following arguments:
 | Variable | Type | Required | Description | Ref |
 |----------|------|----------|-------------|-----|
 | `namespace` | `string` | **Yes** | Deployment namespace for resource isolation | [./domains/variables.tf:1](./domains/variables.tf#L1) |
-| `config` | `object` | **Yes** | Domains service configuration from state fragments (services.domains) | [./domains/variables.tf:6](./domains/variables.tf#L6) |
+| `config` | `object` | No | Domains service configuration from state fragments (services.domains) | [./domains/variables.tf:6](./domains/variables.tf#L6) |
 
 ### Attributes
 
@@ -944,6 +947,7 @@ This module exports the following attributes:
 | `zone_id` | Route53 hosted zone ID | [./domains/outputs.tf:1](./domains/outputs.tf#L1) |
 | `zone_name` | Route53 hosted zone name (e.g., dev-platform.example.com) | [./domains/outputs.tf:6](./domains/outputs.tf#L6) |
 | `certificate_arn` | Validated ACM wildcard certificate ARN | [./domains/outputs.tf:11](./domains/outputs.tf#L11) |
+| `aliases` | DNS alias map: FQDN -> compute class name | [./domains/outputs.tf:16](./domains/outputs.tf#L16) |
 
 ## Module: hashing
 
@@ -1259,12 +1263,12 @@ This module exports the following attributes:
 
 | Output | Description | Ref |
 |--------|-------------|-----|
-| `service_urls` | Service URL registry  -  key-to-URL mapping (null entries excluded) | [./outputs.tf:152](./outputs.tf#L152) |
-| `commands` | Single operational commands by category | [./outputs.tf:162](./outputs.tf#L162) |
-| `workflows` | Multi-step operational workflows by category | [./outputs.tf:171](./outputs.tf#L171) |
-| `enabled_services` | List of enabled services in this deployment (includes auto-enabled and explicitly configured) | [./outputs.tf:180](./outputs.tf#L180) |
-| `deployment_id` | Unique deployment identifier (namespace) for this account/region deployment | [./outputs.tf:185](./outputs.tf#L185) |
-| `access_summary` | Access control summary - rule counts by module | [./outputs.tf:190](./outputs.tf#L190) |
+| `service_urls` | Service URL registry  -  key-to-URL mapping (null entries excluded) | [./outputs.tf:155](./outputs.tf#L155) |
+| `commands` | Single operational commands by category | [./outputs.tf:165](./outputs.tf#L165) |
+| `workflows` | Multi-step operational workflows by category | [./outputs.tf:174](./outputs.tf#L174) |
+| `enabled_services` | List of enabled services in this deployment (includes auto-enabled and explicitly configured) | [./outputs.tf:183](./outputs.tf#L183) |
+| `deployment_id` | Unique deployment identifier (namespace) for this account/region deployment | [./outputs.tf:188](./outputs.tf#L188) |
+| `access_summary` | Access control summary - rule counts by module | [./outputs.tf:193](./outputs.tf#L193) |
 
 ## Module: secrets
 
