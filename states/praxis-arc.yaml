@@ -1,0 +1,64 @@
+# Praxis AI Agents Framework - Arc Environment
+# Single-node CPU instance for development/testing
+# Repository: https://github.com/0-5788719150923125/praxis
+# Deploy with: states = ["praxis-arc"]
+
+matrix:
+  tenants:
+    test:
+      entitlements: [compute.*]
+
+services:
+  portal:
+    enabled: false
+
+  domains:
+    zone: arc.src.eco
+
+  secrets:
+    huggingface/hf_token:
+      source_secret_id: "HF_TOKEN"
+      source_provider: "dotenv"
+      description: "HuggingFace API token for authenticated model downloads"
+      access: account
+
+  compute:
+    praxis-arc:
+      type: ec2
+      count: 1
+      build: false
+
+      # CPU Instance Configuration
+      # t4g.large: ARM64 Graviton2, 2 vCPU, 8GB RAM, CPU-only
+      instance_type: t4g.large
+
+      # AWS Deep Learning AMI (Ubuntu 24.04) ARM64 - Docker, PyTorch 2.9 pre-installed
+      ami_filter: "Deep Learning ARM64 AMI OSS Nvidia Driver GPU PyTorch 2.9 (Ubuntu 24.04)*"
+      ami_owner: "amazon"
+
+      # Storage: 100GB root for OS + PyTorch venv + Docker images + model weights
+      volume_size: 100
+      volume_type: gp3
+
+      # Network: Public subnet with public IP (for HTTP access on port 8080)
+      subnet_tier: public
+      associate_public_ip: true
+
+      # Security: HTTPS via ALB on port 8080 from anywhere
+      ingress:
+        - port: 8080
+          cidrs: ["0.0.0.0/0"]
+          protocol: https
+
+      description: "Praxis AI agents framework - single-node CPU instance"
+
+      # Application Installation
+      applications:
+        - type: ansible
+          playbook: praxis
+          params:
+            PRAXIS_REPO_URL: "github.com/0-5788719150923125/praxis"
+            PRAXIS_BRANCH: "main"
+            PRAXIS_INSTALL_DIR: "/opt/praxis"
+            PRAXIS_PORT: "8080"
+            PRAXIS_LAUNCH_ARGS: "compose --beta-cpu --headless --no-dashboard --no-checkpoints --port 8080 --reset"

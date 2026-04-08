@@ -183,6 +183,15 @@ output "alb_dns_names" {
   }
 }
 
+# DNS FQDNs for HTTP EC2 instances (direct A record to public IP)
+output "http_dns_names" {
+  description = "Map of instance_key to FQDN for HTTP instances with domain"
+  value = {
+    for instance_key, instance in local.http_instances_with_domain :
+    instance_key => instance.fqdn
+  }
+}
+
 # Terraform-Managed NLB DNS Names (dependency inversion return path)
 output "lb_dns_names" {
   description = "NLB DNS names for EKS services (keyed by cluster_class-name)"

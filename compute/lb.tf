@@ -352,3 +352,34 @@ resource "aws_route53_record" "ec2_https" {
     evaluate_target_health = true
   }
 }
+
+# ── Per-Instance Route53 A Records (HTTP classes) ────────────────────
+# When a domain is configured but the class uses protocol: http (no ALB),
+# create A records pointing directly at the EC2 public IP.
+locals {
+  http_instances_with_domain = var.domain_enabled ? merge([
+    for class_name, class_config in local.ec2_classes : {
+      for instance_key, instance_config in local.tenant_instances :
+      instance_key => {
+        class_name   = class_name
+        instance_key = instance_key
+        port         = [for rule in coalesce(class_config.ingress, []) : rule.port if rule.protocol == "http"][0]
+        fqdn         = "${instance_key}.${var.domain_zone_name}"
+      }
+      if instance_config.class == class_name
+    }
+    # Only HTTP-only classes (not already handled by HTTPS ALB records)
+    if length([for rule in coalesce(class_config.ingress, []) : rule if rule.protocol == "http"]) > 0
+    && !contains(keys(local.https_classes), class_name)
+  ]...) : {}
+}
+
+resource "aws_route53_record" "ec2_http" {
+  for_each = local.http_instances_with_domain
+
+  zone_id = var.domain_zone_id
+  name    = each.value.fqdn
+  type    = "A"
+  ttl     = 300
+  records = [aws_instance.tenant[each.key].public_ip]
+}

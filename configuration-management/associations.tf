@@ -419,6 +419,7 @@ locals {
         playbook_name = playbook_name
         upload_idx    = idx
         source        = upload.source
+        prefix        = lookup(upload, "prefix", basename(upload.source))
         dest          = upload.dest
         archive_name  = "${playbook_name}-upload-${idx}.tar.gz"
         s3_key        = "ansible-uploads/${playbook_name}/${playbook_name}-upload-${idx}.tar.gz"
@@ -446,9 +447,9 @@ locals {
 # Get git tree hash for each upload source (used as trigger for re-archiving)
 data "external" "upload_source_hash" {
   count   = length(local.ansible_playbook_upload_entries)
-  program = ["bash", "-c", "echo '{\"hash\":\"'$(git rev-parse HEAD:${local.ansible_playbook_upload_entries[count.index].source})'\"}'"]
+  program = ["bash", "-c", "SRC='${local.ansible_playbook_upload_entries[count.index].source}'; if [ \"$SRC\" = '.' ]; then HASH=$(git rev-parse HEAD); else HASH=$(git rev-parse HEAD:$SRC); fi; echo \"{\\\"hash\\\":\\\"$HASH\\\"}\""]
 
-  working_dir = "${path.root}/.."
+  working_dir = path.root
 }
 
 # Create git archives for ansible playbook uploads
@@ -463,8 +464,8 @@ resource "null_resource" "ansible_upload_archives" {
   }
 
   provisioner "local-exec" {
-    command     = "mkdir -p platformer/${path.module}/uploads && git archive --format=tar.gz --prefix=${basename(local.ansible_playbook_upload_entries[count.index].source)}/ -o platformer/${path.module}/uploads/${local.ansible_playbook_upload_entries[count.index].archive_name} HEAD ${local.ansible_playbook_upload_entries[count.index].source}"
-    working_dir = "${path.root}/.."
+    command     = "mkdir -p ${path.module}/uploads && git archive --format=tar.gz --prefix=${local.ansible_playbook_upload_entries[count.index].prefix}/ -o ${path.module}/uploads/${local.ansible_playbook_upload_entries[count.index].archive_name} HEAD ${local.ansible_playbook_upload_entries[count.index].source}"
+    working_dir = path.root
   }
 }
 

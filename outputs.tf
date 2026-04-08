@@ -55,7 +55,10 @@ locals {
           # HTTPS instance: use per-instance ALB FQDN
           contains(keys(module.compute[0].alb_dns_names), instance_key)
           ? "https://${module.compute[0].alb_dns_names[instance_key]}"
-          # HTTP class: use public DNS + port
+          # HTTP instance with domain: use per-instance DNS FQDN
+          : contains(keys(module.compute[0].http_dns_names), instance_key)
+          ? "http://${module.compute[0].http_dns_names[instance_key]}:${module.compute[0].instances[instance_key].ingress_ports[0]}"
+          # HTTP class without domain: use public DNS + port
           : (
             module.compute[0].instances[instance_key].public_dns != "" &&
             length(module.compute[0].instances[instance_key].ingress_ports) > 0

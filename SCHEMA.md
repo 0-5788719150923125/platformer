@@ -738,14 +738,15 @@ This module exports the following attributes:
 | `instance_role_name` | IAM role name for compute instances (for attaching policies) | [./compute/outputs.tf:166](./compute/outputs.tf#L166) |
 | `eks_node_role_name` | EKS node group IAM role name (for attaching policies) | [./compute/outputs.tf:172](./compute/outputs.tf#L172) |
 | `alb_dns_names` | Map of instance_key to FQDN for HTTPS ALB instances | [./compute/outputs.tf:178](./compute/outputs.tf#L178) |
-| `lb_dns_names` | NLB DNS names for EKS services (keyed by cluster_class-name) | [./compute/outputs.tf:187](./compute/outputs.tf#L187) |
-| `helm_releases` | Deployed Helm releases with metadata and access commands | [./compute/outputs.tf:199](./compute/outputs.tf#L199) |
-| `commands` | Mark a cluster as tainted. It will be destroyed and recreated on next terraform apply. | [./compute/outputs.tf:219](./compute/outputs.tf#L219) |
-| `kubeconfig_ready` | Dependency marker indicating kubeconfig contexts are set up | [./compute/outputs.tf:450](./compute/outputs.tf#L450) |
-| `ecs_clusters` | Deployed ECS clusters with metadata | [./compute/outputs.tf:461](./compute/outputs.tf#L461) |
-| `access_requests` | EC2 instance role for compute classes with applications | [./compute/outputs.tf:475](./compute/outputs.tf#L475) |
-| `access_security_groups` | Security groups with rules for the access module (AWS-native format) | [./compute/outputs.tf:495](./compute/outputs.tf#L495) |
-| `ecs_test_commands` | Commands to debug ECS clusters, services, and tasks | [./compute/outputs.tf:501](./compute/outputs.tf#L501) |
+| `http_dns_names` | Map of instance_key to FQDN for HTTP instances with domain | [./compute/outputs.tf:187](./compute/outputs.tf#L187) |
+| `lb_dns_names` | NLB DNS names for EKS services (keyed by cluster_class-name) | [./compute/outputs.tf:196](./compute/outputs.tf#L196) |
+| `helm_releases` | Deployed Helm releases with metadata and access commands | [./compute/outputs.tf:208](./compute/outputs.tf#L208) |
+| `commands` | Mark a cluster as tainted. It will be destroyed and recreated on next terraform apply. | [./compute/outputs.tf:228](./compute/outputs.tf#L228) |
+| `kubeconfig_ready` | Dependency marker indicating kubeconfig contexts are set up | [./compute/outputs.tf:459](./compute/outputs.tf#L459) |
+| `ecs_clusters` | Deployed ECS clusters with metadata | [./compute/outputs.tf:470](./compute/outputs.tf#L470) |
+| `access_requests` | EC2 instance role for compute classes with applications | [./compute/outputs.tf:484](./compute/outputs.tf#L484) |
+| `access_security_groups` | Security groups with rules for the access module (AWS-native format) | [./compute/outputs.tf:504](./compute/outputs.tf#L504) |
+| `ecs_test_commands` | Commands to debug ECS clusters, services, and tasks | [./compute/outputs.tf:510](./compute/outputs.tf#L510) |
 
 ## Module: config
 
@@ -1258,12 +1259,12 @@ This module exports the following attributes:
 
 | Output | Description | Ref |
 |--------|-------------|-----|
-| `service_urls` | Service URL registry  -  key-to-URL mapping (null entries excluded) | [./outputs.tf:149](./outputs.tf#L149) |
-| `commands` | Single operational commands by category | [./outputs.tf:159](./outputs.tf#L159) |
-| `workflows` | Multi-step operational workflows by category | [./outputs.tf:168](./outputs.tf#L168) |
-| `enabled_services` | List of enabled services in this deployment (includes auto-enabled and explicitly configured) | [./outputs.tf:177](./outputs.tf#L177) |
-| `deployment_id` | Unique deployment identifier (namespace) for this account/region deployment | [./outputs.tf:182](./outputs.tf#L182) |
-| `access_summary` | Access control summary - rule counts by module | [./outputs.tf:187](./outputs.tf#L187) |
+| `service_urls` | Service URL registry  -  key-to-URL mapping (null entries excluded) | [./outputs.tf:152](./outputs.tf#L152) |
+| `commands` | Single operational commands by category | [./outputs.tf:162](./outputs.tf#L162) |
+| `workflows` | Multi-step operational workflows by category | [./outputs.tf:171](./outputs.tf#L171) |
+| `enabled_services` | List of enabled services in this deployment (includes auto-enabled and explicitly configured) | [./outputs.tf:180](./outputs.tf#L180) |
+| `deployment_id` | Unique deployment identifier (namespace) for this account/region deployment | [./outputs.tf:185](./outputs.tf#L185) |
+| `access_summary` | Access control summary - rule counts by module | [./outputs.tf:190](./outputs.tf#L190) |
 
 ## Module: secrets
 

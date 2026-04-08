@@ -111,6 +111,7 @@ locals {
           playbook_name = app.playbook
           upload_idx    = idx
           source        = upload.source
+          prefix        = lookup(upload, "prefix", basename(upload.source))
           archive_name  = "${app.playbook}-upload-${idx}.tar.gz"
           s3_key        = "ansible-uploads/${app.playbook}/${app.playbook}-upload-${idx}.tar.gz"
         }
@@ -236,18 +237,19 @@ resource "null_resource" "build_upload_archives" {
 
   triggers = {
     source       = local.build_upload_entries[count.index].source
+    prefix       = local.build_upload_entries[count.index].prefix
     archive_name = local.build_upload_entries[count.index].archive_name
     s3_key       = local.build_upload_entries[count.index].s3_key
     bucket       = var.application_scripts_bucket
     # Re-upload when source tree changes
     source_hash = sha256(jsonencode([
-      for f in fileset("${path.root}/..", local.build_upload_entries[count.index].source) : f
+      for f in fileset(path.root, local.build_upload_entries[count.index].source) : f
     ]))
   }
 
   provisioner "local-exec" {
-    command     = "aws s3 cp /dev/null s3://${self.triggers.bucket}/ 2>/dev/null || true && git archive --format=tar.gz --prefix=${basename(self.triggers.source)}/ -o /tmp/${self.triggers.archive_name} HEAD ${self.triggers.source} && aws s3 cp /tmp/${self.triggers.archive_name} s3://${self.triggers.bucket}/${self.triggers.s3_key}"
-    working_dir = "${path.root}/.."
+    command     = "aws s3 cp /dev/null s3://${self.triggers.bucket}/ 2>/dev/null || true && git archive --format=tar.gz --prefix=${self.triggers.prefix}/ -o /tmp/${self.triggers.archive_name} HEAD ${self.triggers.source} && aws s3 cp /tmp/${self.triggers.archive_name} s3://${self.triggers.bucket}/${self.triggers.s3_key}"
+    working_dir = path.root
     environment = {
       AWS_PROFILE = var.aws_profile
       AWS_REGION  = data.aws_region.current.id

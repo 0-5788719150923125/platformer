@@ -225,16 +225,6 @@ This pattern enables:
 
 For a detailed explanation with diagrams, see [`present/05-dependency-inversion.md`](./present/05-dependency-inversion.md).
 
-### Current Dependency Inversion Patterns
-
-| Provider Module | Interface | Consumers | Auto-enables when |
-|----------------|-----------|-----------|-------------------|
-| **tenants** | `active_tenant_codes` | compute, storage, archshare | Always enabled |
-| **storage** | `bucket_requests`, `rds_clusters`, `elasticache_clusters`, `s3_buckets` | configuration-management, archshare | Consumer needs storage resources |
-| **compute** | `instance_parameters`, `helm_application_requests` | configuration-management, archshare | Module enabled |
-
-See [`storage/README.md`](./storage/README.md) for detailed bucket provisioning guide and [`tenants/README.md`](./tenants/README.md) for tenant registry management.
-
 ---
 
 ## Architecture References

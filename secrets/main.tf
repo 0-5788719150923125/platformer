@@ -12,6 +12,7 @@
 #   source_provider: "infrastructure"  - reads from example-infrastructure-prod (cross-account)
 #   source_provider: "prod"            - reads from example-platform-prod (cross-account)
 #   source_provider: "self"            - reads from the deployment account itself
+#   source_provider: "dotenv"          - reads from .env file in the repo root
 #
 # State fragment example:
 #   services:
@@ -64,12 +65,27 @@ locals {
     if try(v.source_provider, "") == "self"
   }
 
+  dotenv_secrets = {
+    for k, v in var.config : k => v
+    if try(v.source_provider, "") == "dotenv"
+  }
+
+  # Parse .env file from repo root: KEY=VALUE lines, skip comments and blanks
+  dotenv_raw = fileexists("${path.root}/.env") ? file("${path.root}/.env") : ""
+
+  dotenv_entries = {
+    for line in compact(split("\n", local.dotenv_raw)) :
+    trimspace(split("=", line)[0]) => join("=", slice(split("=", line), 1, length(split("=", line))))
+    if !startswith(trimspace(line), "#") && length(trimspace(line)) > 0
+  }
+
   # Unified lookup: merge source secret strings from all providers into a single map
   # keyed by secret config key, so downstream resources don't need per-provider logic
   source_secret_strings = merge(
     { for k, v in data.aws_secretsmanager_secret_version.infrastructure : k => v.secret_string },
     { for k, v in data.aws_secretsmanager_secret_version.prod : k => v.secret_string },
     { for k, v in data.aws_secretsmanager_secret_version.self : k => v.secret_string },
+    { for k, v in local.dotenv_secrets : k => local.dotenv_entries[v.source_secret_id] },
   )
 }
 

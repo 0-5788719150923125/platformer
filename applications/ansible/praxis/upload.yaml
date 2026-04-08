@@ -1,5 +1,6 @@
 # Files to upload to the server during deployment
 # Uses git archive to respect .gitignore
 uploads:
-  - source: "platformer"  # git archive path (relative to repo root)
+  - source: "."       # git archive path (relative to repo root)
+    prefix: "platformer"  # directory name inside the archive (extracts to /opt/platformer)
     dest: "/opt/platformer"
