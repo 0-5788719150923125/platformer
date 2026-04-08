@@ -53,6 +53,23 @@ resource "aws_ssm_patch_baseline" "baseline" {
           values = approval_rule.value.patch_filter.severity
         }
       }
+
+      # Ubuntu-specific filters
+      dynamic "patch_filter" {
+        for_each = length(approval_rule.value.patch_filter.priority) > 0 ? [1] : []
+        content {
+          key    = "PRIORITY"
+          values = approval_rule.value.patch_filter.priority
+        }
+      }
+
+      dynamic "patch_filter" {
+        for_each = length(approval_rule.value.patch_filter.section) > 0 ? [1] : []
+        content {
+          key    = "SECTION"
+          values = approval_rule.value.patch_filter.section
+        }
+      }
     }
   }
 

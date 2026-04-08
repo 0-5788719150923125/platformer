@@ -165,22 +165,7 @@ resource "aws_s3_bucket_policy" "hooks_access" {
     Version = "2012-10-17"
     Statement = [
       {
-        Sid    = "AllowDHMCRoleAccess"
-        Effect = "Allow"
-        Principal = {
-          AWS = "arn:aws:iam::${var.aws_account_id}:role/aws-service-role/ssm.amazonaws.com/AWSServiceRoleForAmazonSSM"
-        }
-        Action = [
-          "s3:ListBucket",
-          "s3:GetObject"
-        ]
-        Resource = [
-          aws_s3_bucket.requested[each.key].arn,
-          "${aws_s3_bucket.requested[each.key].arn}/*"
-        ]
-      },
-      {
-        Sid    = "AllowEC2InstancesWithDHMC"
+        Sid    = "AllowAccountEC2Instances"
         Effect = "Allow"
         Principal = {
           AWS = "*"
@@ -196,9 +181,6 @@ resource "aws_s3_bucket_policy" "hooks_access" {
         Condition = {
           StringEquals = {
             "aws:PrincipalAccount" = var.aws_account_id
-          }
-          StringLike = {
-            "aws:userid" = "AROA*:i-*"
           }
         }
       }

@@ -1,0 +1,35 @@
+# Praxis - Patch Management
+# Dynamic wildcard targeting for Ubuntu instances via SSM inventory
+# Deploy with: states = ["praxis-arc", "praxis-patch-management"]
+
+services:
+  configuration-management:
+    ansible_schedule: "rate(360 minutes)"
+    patch_management:
+      baselines:
+        ubuntu-praxis:
+          operating_system: "UBUNTU"
+          approved_patches_compliance_level: "HIGH"
+          approval_rules:
+            - approve_after_days: 0
+              compliance_level: "HIGH"
+              enable_non_security: false
+              patch_filter:
+                priority: ["Required", "Important", "Standard"]
+                section: ["libs", "kernel"]
+          classes: []  # Dynamic targeting only
+
+      maintenance_windows:
+        ubuntu-praxis-daily:
+          baseline: ubuntu-praxis
+          schedule: "cron(0 11 ? * * *)"  # 5am CST (UTC-6) / 6am CDT (UTC-5) daily
+          duration: 2
+          cutoff: 0
+          enabled: true
+          max_concurrency: "1"
+          max_errors: "1"
+          dynamic_targeting:
+            platform_name: "Ubuntu"
+            platform_version: "24.04"
+            update_schedule: "rate(1 hour)"
+            max_instances: 1

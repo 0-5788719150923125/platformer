@@ -820,8 +820,10 @@ services:
               compliance_level: string
               enable_non_security: bool  # default: false
               patch_filter:  # object
-                classification: []  # list(string)
-                severity: []  # list(string)
+                classification: []  # list(string) - Amazon Linux, RHEL, Rocky, SUSE, etc.
+                severity: []  # list(string) - Amazon Linux, RHEL, Rocky, SUSE, etc.
+                priority: []  # list(string) - Ubuntu (e.g., "Required", "Important", "Standard", "Optional", "Extra")
+                section: []  # list(string) - Ubuntu (e.g., "libs", "kernel", "net", "admin")
           classes: []  # list(string) - Which compute classes use this baseline (empty = wildcard targeting via OS filters)
       maintenance_windows:  # map
         <key>:
@@ -872,20 +874,20 @@ This module supports the following arguments:
 | `aws_profile` | `string` | **Yes** | AWS CLI profile name for output commands | [./configuration-management/variables.tf:17](./configuration-management/variables.tf#L17) |
 | `aws_region` | `string` | **Yes** | AWS region for deployment (passed to Ansible playbooks) | [./configuration-management/variables.tf:22](./configuration-management/variables.tf#L22) |
 | `config` | `object` | No | Configuration management service configuration | [./configuration-management/variables.tf:29](./configuration-management/variables.tf#L29) |
-| `ssm_association_log_bucket` | `string` | No | S3 bucket name for SSM association logs (provided by storage module) | [./configuration-management/variables.tf:420](./configuration-management/variables.tf#L420) |
-| `hooks_bucket` | `string` | No | S3 bucket name for hook scripts (provided by storage module) | [./configuration-management/variables.tf:427](./configuration-management/variables.tf#L427) |
-| `instances_by_class` | `map` | No | Instances grouped by class name  -  map of class_name => { instance_key => instance_id } (provided by compute module) | [./configuration-management/variables.tf:434](./configuration-management/variables.tf#L434) |
-| `application_requests` | `list(object)` | No | All application deployment requests from applications module - filtered internally by type (ssm, ansible, user-data, helm) | [./configuration-management/variables.tf:442](./configuration-management/variables.tf#L442) |
-| `has_application_deployments` | `bool` | No | Whether any application deployments (SSM/Ansible) exist  -  drives application-scripts bucket request | [./configuration-management/variables.tf:498](./configuration-management/variables.tf#L498) |
-| `application_scripts_bucket` | `string` | No | S3 bucket name for application scripts (provided by storage module) | [./configuration-management/variables.tf:505](./configuration-management/variables.tf#L505) |
-| `instances_role_name` | `string` | No | IAM role name for compute instances (for attaching S3 access policy) | [./configuration-management/variables.tf:512](./configuration-management/variables.tf#L512) |
-| `instances_role_arn` | `string` | No | IAM role ARN for compute instances (for S3 bucket policy) | [./configuration-management/variables.tf:518](./configuration-management/variables.tf#L518) |
-| `lambda_requests` | `list(object)` | No | Scheduled Lambda function requests from external modules (dependency inversion) | [./configuration-management/variables.tf:526](./configuration-management/variables.tf#L526) |
-| `event_bus_webhooks` | `map` | No | Event bus webhook URLs from portal module (dependency inversion) | [./configuration-management/variables.tf:545](./configuration-management/variables.tf#L545) |
-| `aws_sso_start_url` | `string` | No | AWS SSO start URL for console link wrapping | [./configuration-management/variables.tf:552](./configuration-management/variables.tf#L552) |
-| `ansible_applications_configured` | `bool` | No | Config-derived flag: are there ansible application requests (used in access_requests to avoid cycle) | [./configuration-management/variables.tf:561](./configuration-management/variables.tf#L561) |
-| `access_iam_role_arns` | `map` | No | IAM role ARNs from access module (keyed by module-purpose) | [./configuration-management/variables.tf:568](./configuration-management/variables.tf#L568) |
-| `access_iam_role_names` | `map` | No | IAM role names from access module (keyed by module-purpose) | [./configuration-management/variables.tf:574](./configuration-management/variables.tf#L574) |
+| `ssm_association_log_bucket` | `string` | No | S3 bucket name for SSM association logs (provided by storage module) | [./configuration-management/variables.tf:422](./configuration-management/variables.tf#L422) |
+| `hooks_bucket` | `string` | No | S3 bucket name for hook scripts (provided by storage module) | [./configuration-management/variables.tf:429](./configuration-management/variables.tf#L429) |
+| `instances_by_class` | `map` | No | Instances grouped by class name  -  map of class_name => { instance_key => instance_id } (provided by compute module) | [./configuration-management/variables.tf:436](./configuration-management/variables.tf#L436) |
+| `application_requests` | `list(object)` | No | All application deployment requests from applications module - filtered internally by type (ssm, ansible, user-data, helm) | [./configuration-management/variables.tf:444](./configuration-management/variables.tf#L444) |
+| `has_application_deployments` | `bool` | No | Whether any application deployments (SSM/Ansible) exist  -  drives application-scripts bucket request | [./configuration-management/variables.tf:500](./configuration-management/variables.tf#L500) |
+| `application_scripts_bucket` | `string` | No | S3 bucket name for application scripts (provided by storage module) | [./configuration-management/variables.tf:507](./configuration-management/variables.tf#L507) |
+| `instances_role_name` | `string` | No | IAM role name for compute instances (for attaching S3 access policy) | [./configuration-management/variables.tf:514](./configuration-management/variables.tf#L514) |
+| `instances_role_arn` | `string` | No | IAM role ARN for compute instances (for S3 bucket policy) | [./configuration-management/variables.tf:520](./configuration-management/variables.tf#L520) |
+| `lambda_requests` | `list(object)` | No | Scheduled Lambda function requests from external modules (dependency inversion) | [./configuration-management/variables.tf:528](./configuration-management/variables.tf#L528) |
+| `event_bus_webhooks` | `map` | No | Event bus webhook URLs from portal module (dependency inversion) | [./configuration-management/variables.tf:547](./configuration-management/variables.tf#L547) |
+| `aws_sso_start_url` | `string` | No | AWS SSO start URL for console link wrapping | [./configuration-management/variables.tf:554](./configuration-management/variables.tf#L554) |
+| `ansible_applications_configured` | `bool` | No | Config-derived flag: are there ansible application requests (used in access_requests to avoid cycle) | [./configuration-management/variables.tf:563](./configuration-management/variables.tf#L563) |
+| `access_iam_role_arns` | `map` | No | IAM role ARNs from access module (keyed by module-purpose) | [./configuration-management/variables.tf:570](./configuration-management/variables.tf#L570) |
+| `access_iam_role_names` | `map` | No | IAM role names from access module (keyed by module-purpose) | [./configuration-management/variables.tf:576](./configuration-management/variables.tf#L576) |
 
 ### Attributes
 

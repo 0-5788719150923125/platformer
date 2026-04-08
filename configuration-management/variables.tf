@@ -80,8 +80,10 @@ variable "config" {
           compliance_level    = string
           enable_non_security = optional(bool, false)
           patch_filter = object({
-            classification = optional(list(string), [])
-            severity       = optional(list(string), [])
+            classification = optional(list(string), []) # Amazon Linux, RHEL, Rocky, SUSE, etc.
+            severity       = optional(list(string), []) # Amazon Linux, RHEL, Rocky, SUSE, etc.
+            priority       = optional(list(string), []) # Ubuntu (e.g., "Required", "Important", "Standard", "Optional", "Extra")
+            section        = optional(list(string), []) # Ubuntu (e.g., "libs", "kernel", "net", "admin")
           })
         })), [])
         classes = optional(list(string), []) # Which compute classes use this baseline (empty = wildcard targeting via OS filters)
