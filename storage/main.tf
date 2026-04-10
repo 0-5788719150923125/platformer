@@ -122,7 +122,8 @@ resource "aws_s3_bucket_server_side_encryption_configuration" "requested" {
     apply_server_side_encryption_by_default {
       sse_algorithm = "AES256" # SSE-S3 (default AWS encryption)
     }
-    bucket_key_enabled = true # Reduce KMS costs if using KMS
+    bucket_key_enabled       = true
+    blocked_encryption_types = ["SSE-C"]
   }
 }
 

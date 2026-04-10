@@ -9,9 +9,6 @@ matrix:
       entitlements: [compute.*]
 
 services:
-  portal:
-    enabled: false
-
   domains:
     zone: arc.src.eco
     aliases:
