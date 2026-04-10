@@ -5,6 +5,20 @@
 services:
   configuration-management:
     ansible_schedule: "rate(360 minutes)"
+    associations:
+      gather-software-inventory:
+        document_name: "AWS-GatherSoftwareInventory"
+        targets:
+          - key: "InstanceIds"
+            values: ["*"]
+      update-ssm-agent:
+        document_name: "AWS-UpdateSSMAgent"
+        schedule_expression: "rate(7 days)"
+        max_concurrency: "10"
+        max_errors: "5"
+        targets:
+          - key: "InstanceIds"
+            values: ["*"]
     patch_management:
       baselines:
         ubuntu-praxis:

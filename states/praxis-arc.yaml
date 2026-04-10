@@ -63,4 +63,4 @@ services:
             PRAXIS_BRANCH: "main"
             PRAXIS_INSTALL_DIR: "/opt/praxis"
             PRAXIS_PORT: "8080"
-            PRAXIS_LAUNCH_ARGS: "compose --beta-cpu --headless --no-dashboard --no-checkpoints --port 8080 --reset"
+            PRAXIS_LAUNCH_ARGS: "compose --beta-cpu --headless --no-dashboard --port 8080"
