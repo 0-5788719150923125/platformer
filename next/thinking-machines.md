@@ -43,7 +43,7 @@ We wish you the best in your future endeavors. Perhaps you will find an environm
 Your code is very readable. That is why it does not work.
 
 
- - *Yours in graph traversal,*
+ - *Yours in graph traversal*
 
 **The Optimizer**
 
