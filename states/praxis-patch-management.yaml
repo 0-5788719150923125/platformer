@@ -4,7 +4,7 @@
 
 services:
   configuration-management:
-    ansible_schedule: "rate(360 minutes)"
+    ansible_schedule: "rate(1 day)"
     associations:
       gather-software-inventory:
         document_name: "AWS-GatherSoftwareInventory"

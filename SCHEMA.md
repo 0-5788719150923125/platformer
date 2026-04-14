@@ -648,6 +648,7 @@ services:
           cidrs: []  # list(string) - CIDR blocks to allow ingress from
           protocol: string  # "http" (direct SG rule) or "https" (ALB with TLS termination) (default: http)
       build: bool  # Build golden AMI via ImageBuilder before launching instances (default: false)
+      swap_size: number  # Swap file size in GB (0 = no swap). Useful for memory-constrained instances. (default: 0)
       mode: string  # Cluster topology: "single" (default) or "1-master" (1 master + N-1 workers)
       cluster_port: number  # Intra-cluster port (creates self-referencing SG rule; required for 1-master mode)
       version: string  # Kubernetes version (e.g., "1.34") (default: 1.34)
@@ -701,21 +702,21 @@ This module supports the following arguments:
 | `networks` | `map` | No | Map of network name to network module outputs (for multi-VPC support) | [./compute/variables.tf:31](./compute/variables.tf#L31) |
 | `tenants_by_class` | `map` | No | Map of class name to entitled tenant list (from tenants module) | [./compute/variables.tf:38](./compute/variables.tf#L38) |
 | `config` | `map(object)` | No | Compute service configuration - map of class name to class definition | [./compute/variables.tf:45](./compute/variables.tf#L45) |
-| `instance_parameters` | `list(object)` | No | Parameter Store definitions for each instance (compute module creates resources) | [./compute/variables.tf:227](./compute/variables.tf#L227) |
-| `application_requests` | `list(object)` | No | All application deployment requests from applications module - filtered internally by type | [./compute/variables.tf:241](./compute/variables.tf#L241) |
-| `pod_identity_requests` | `list(object)` | No | Pod Identity association requests from upstream modules (e.g., observability) | [./compute/variables.tf:277](./compute/variables.tf#L277) |
-| `lb_requests` | `list(object)` | No | NLB requests for EKS services (observability, etc.) - Terraform-managed infrastructure | [./compute/variables.tf:292](./compute/variables.tf#L292) |
-| `built_amis` | `map` | No | Map of class name to golden AMI ID (from build module) | [./compute/variables.tf:307](./compute/variables.tf#L307) |
-| `standalone_applications` | `any` | No | Standalone application definitions (services.applications) for ImageBuilder inclusion | [./compute/variables.tf:316](./compute/variables.tf#L316) |
-| `patch_groups_by_class` | `map` | No | Map of class names to their namespaced patch group names (provided by configuration-management module) | [./compute/variables.tf:324](./compute/variables.tf#L324) |
-| `domain_enabled` | `bool` | No | Whether domains module is active (plan-time safe, from config) | [./compute/variables.tf:333](./compute/variables.tf#L333) |
-| `domain_zone_id` | `string` | No | Route53 hosted zone ID for DNS records (empty = no domain) | [./compute/variables.tf:339](./compute/variables.tf#L339) |
-| `domain_zone_name` | `string` | No | Route53 hosted zone name (e.g., dev-platform.example.com) | [./compute/variables.tf:345](./compute/variables.tf#L345) |
-| `domain_certificate_arn` | `string` | No | ACM certificate ARN for HTTPS listeners (empty = no HTTPS) | [./compute/variables.tf:351](./compute/variables.tf#L351) |
-| `domain_aliases` | `map` | No | DNS alias map: FQDN -> compute class name (from domains module) | [./compute/variables.tf:357](./compute/variables.tf#L357) |
-| `access_iam_role_arns` | `map` | No | IAM role ARNs from access module (keyed by module-purpose) | [./compute/variables.tf:364](./compute/variables.tf#L364) |
-| `access_iam_role_names` | `map` | No | IAM role names from access module (keyed by module-purpose) | [./compute/variables.tf:370](./compute/variables.tf#L370) |
-| `access_instance_profile_names` | `map` | No | Instance profile names from access module (keyed by module-purpose) | [./compute/variables.tf:376](./compute/variables.tf#L376) |
+| `instance_parameters` | `list(object)` | No | Parameter Store definitions for each instance (compute module creates resources) | [./compute/variables.tf:228](./compute/variables.tf#L228) |
+| `application_requests` | `list(object)` | No | All application deployment requests from applications module - filtered internally by type | [./compute/variables.tf:242](./compute/variables.tf#L242) |
+| `pod_identity_requests` | `list(object)` | No | Pod Identity association requests from upstream modules (e.g., observability) | [./compute/variables.tf:278](./compute/variables.tf#L278) |
+| `lb_requests` | `list(object)` | No | NLB requests for EKS services (observability, etc.) - Terraform-managed infrastructure | [./compute/variables.tf:293](./compute/variables.tf#L293) |
+| `built_amis` | `map` | No | Map of class name to golden AMI ID (from build module) | [./compute/variables.tf:308](./compute/variables.tf#L308) |
+| `standalone_applications` | `any` | No | Standalone application definitions (services.applications) for ImageBuilder inclusion | [./compute/variables.tf:317](./compute/variables.tf#L317) |
+| `patch_groups_by_class` | `map` | No | Map of class names to their namespaced patch group names (provided by configuration-management module) | [./compute/variables.tf:325](./compute/variables.tf#L325) |
+| `domain_enabled` | `bool` | No | Whether domains module is active (plan-time safe, from config) | [./compute/variables.tf:334](./compute/variables.tf#L334) |
+| `domain_zone_id` | `string` | No | Route53 hosted zone ID for DNS records (empty = no domain) | [./compute/variables.tf:340](./compute/variables.tf#L340) |
+| `domain_zone_name` | `string` | No | Route53 hosted zone name (e.g., dev-platform.example.com) | [./compute/variables.tf:346](./compute/variables.tf#L346) |
+| `domain_certificate_arn` | `string` | No | ACM certificate ARN for HTTPS listeners (empty = no HTTPS) | [./compute/variables.tf:352](./compute/variables.tf#L352) |
+| `domain_aliases` | `map` | No | DNS alias map: FQDN -> compute class name (from domains module) | [./compute/variables.tf:358](./compute/variables.tf#L358) |
+| `access_iam_role_arns` | `map` | No | IAM role ARNs from access module (keyed by module-purpose) | [./compute/variables.tf:365](./compute/variables.tf#L365) |
+| `access_iam_role_names` | `map` | No | IAM role names from access module (keyed by module-purpose) | [./compute/variables.tf:371](./compute/variables.tf#L371) |
+| `access_instance_profile_names` | `map` | No | Instance profile names from access module (keyed by module-purpose) | [./compute/variables.tf:377](./compute/variables.tf#L377) |
 
 ### Attributes
 

@@ -68,6 +68,7 @@ variable "config" {
       protocol = optional(string, "http")              # "http" (direct SG rule) or "https" (ALB with TLS termination)
     })))
     build        = optional(bool, false)      # Build golden AMI via ImageBuilder before launching instances
+    swap_size    = optional(number, 0)        # Swap file size in GB (0 = no swap). Useful for memory-constrained instances.
     mode         = optional(string, "single") # Cluster topology: "single" (default) or "1-master" (1 master + N-1 workers)
     cluster_port = optional(number)           # Intra-cluster port (creates self-referencing SG rule; required for 1-master mode)
 

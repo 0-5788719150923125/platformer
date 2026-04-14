@@ -28,8 +28,9 @@ services:
       build: false
 
       # CPU Instance Configuration
-      # t4g.large: ARM64 Graviton2, 2 vCPU, 8GB RAM, CPU-only
-      instance_type: t4g.large
+      # t4g.medium: ARM64 Graviton2, 2 vCPU, 4GB RAM, CPU-only
+      instance_type: t4g.medium
+      swap_size: 4
 
       # AWS Deep Learning AMI (Ubuntu 24.04) ARM64 - Docker, PyTorch 2.9 pre-installed
       ami_filter: "Deep Learning ARM64 AMI OSS Nvidia Driver GPU PyTorch 2.9 (Ubuntu 24.04)*"

@@ -7,6 +7,9 @@
 # Note: Using AWS Deep Learning AMI which includes Python, Docker, and NVIDIA drivers pre-installed
 # We only need to install git and configure Praxis
 
+# Step 0: Configure swap (no-op when SWAP_SIZE_GB is 0 or unset)
+- import_playbook: ../swap/playbook.yml
+
 # Step 1: Install Claude Code CLI (includes Python dependencies)
 - import_playbook: ../claude-code/playbook.yml
 

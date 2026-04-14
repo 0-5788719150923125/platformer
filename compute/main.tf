@@ -231,6 +231,10 @@ locals {
                 HTTPS_HOSTNAME = local.alias_fqdn_by_class[class_name]
               } : contains(keys(local.https_instances), "${tenant}-${class_name}-0") ? {
                 HTTPS_HOSTNAME = local.https_instances["${tenant}-${class_name}-0"].fqdn
+              } : {},
+              # Inject swap size when configured on the class
+              class_config.swap_size > 0 ? {
+                SWAP_SIZE_GB = tostring(class_config.swap_size)
               } : {}
             ) : null
 
@@ -324,7 +328,11 @@ locals {
               TENANT               = tenant
               DEPLOYMENT_NAMESPACE = var.namespace
               AWS_REGION           = data.aws_region.current.id
-            }
+            },
+            # Inject swap size when configured on the class
+            class_config.swap_size > 0 ? {
+              SWAP_SIZE_GB = tostring(class_config.swap_size)
+            } : {}
           )
 
           # Tag-based targeting is bypassed - cluster uses host-list targeting

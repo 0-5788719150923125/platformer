@@ -1,0 +1,55 @@
+---
+# Configure swap file on Linux instances
+# Param: SWAP_SIZE_GB - size in GB (default: 0 = skip)
+# Idempotent: skips creation if swapfile already exists at the correct size
+
+- name: Configure swap
+  hosts: linux
+  become: yes
+  vars:
+    swap_size_gb: "{{ SWAP_SIZE_GB | default('0', true) | int }}"
+    swap_path: /swapfile
+
+  tasks:
+    - name: Skip swap configuration when size is 0
+      ansible.builtin.meta: end_play
+      when: swap_size_gb | int == 0
+
+    - name: Check if swapfile exists
+      ansible.builtin.stat:
+        path: "{{ swap_path }}"
+      register: swap_stat
+
+    - name: Check existing swapfile size
+      ansible.builtin.set_fact:
+        swap_exists_correct_size: "{{ swap_stat.stat.exists and swap_stat.stat.size == (swap_size_gb | int * 1073741824) }}"
+
+    - name: Disable existing swap if resizing
+      ansible.builtin.command: swapoff {{ swap_path }}
+      when: swap_stat.stat.exists and not (swap_exists_correct_size | bool)
+      failed_when: false
+
+    - name: Create swapfile
+      ansible.builtin.command: fallocate -l {{ swap_size_gb }}G {{ swap_path }}
+      when: not (swap_exists_correct_size | bool)
+
+    - name: Set swapfile permissions
+      ansible.builtin.file:
+        path: "{{ swap_path }}"
+        mode: '0600'
+        owner: root
+        group: root
+
+    - name: Format swapfile
+      ansible.builtin.command: mkswap {{ swap_path }}
+      when: not (swap_exists_correct_size | bool)
+
+    - name: Enable swapfile
+      ansible.builtin.command: swapon {{ swap_path }}
+      when: not (swap_exists_correct_size | bool)
+
+    - name: Persist swap in fstab
+      ansible.builtin.lineinfile:
+        path: /etc/fstab
+        line: "{{ swap_path }} none swap sw 0 0"
+        state: present

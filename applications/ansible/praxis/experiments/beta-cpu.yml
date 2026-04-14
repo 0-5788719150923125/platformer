@@ -5,8 +5,8 @@ debug: false
 depth: 4
 device: cpu
 dropout: 0.0
-embed_size: 192
-hidden_size: 256
+embed_size: 96
+hidden_size: 128
 num_heads: 8
 num_layers: 4
 phi: false
