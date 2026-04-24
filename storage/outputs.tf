@@ -62,6 +62,8 @@ output "config" {
     cache_purposes        = keys(local.elasticache_clusters)
     total_repositories    = length(aws_codecommit_repository.requested)
     repository_purposes   = keys(local.repositories)
+    total_volumes         = length(aws_ebs_volume.requested)
+    volume_purposes       = keys(local.volumes)
     access_logging        = local.needs_log_bucket
     region                = data.aws_region.current.id
   }
@@ -246,6 +248,15 @@ output "inventory" {
       description  = local.repositories[k].description
       url          = "https://${data.aws_region.current.id}.console.aws.amazon.com/codesuite/codecommit/repositories/${repo.repository_name}/browse?region=${data.aws_region.current.id}"
     }],
+    # EBS volumes
+    [for k, v in aws_ebs_volume.requested : {
+      purpose      = k
+      storage_type = "ebs"
+      name         = v.tags["Name"]
+      engine       = null
+      description  = local.volumes[k].description
+      url          = "https://${data.aws_region.current.id}.console.aws.amazon.com/ec2/home?region=${data.aws_region.current.id}#VolumeDetails:volumeId=${v.id}"
+    }],
   )
 }
 
@@ -259,6 +270,21 @@ output "access_security_groups" {
 output "access_resource_policies" {
   description = "S3 bucket policies for the access module (AWS-native format)"
   value       = local.access_resource_policies
+}
+
+# EBS volumes (keyed by purpose)
+output "volumes" {
+  description = "EBS volumes created from volume_requests (keyed by purpose)"
+  value = {
+    for k, v in aws_ebs_volume.requested : k => {
+      id                = v.id
+      availability_zone = v.availability_zone
+      size              = v.size
+      type              = v.type
+      device_name       = aws_volume_attachment.requested[k].device_name
+      instance_id       = aws_volume_attachment.requested[k].instance_id
+    }
+  }
 }
 
 # Repository names map (for easy lookup)

@@ -485,6 +485,14 @@ output "ecs_clusters" {
   }
 }
 
+# Volume requests (dependency inversion interface for storage module)
+# One entry per (instance × declared volume). Storage owns the EBS volume
+# and the attachment; compute is just the declarer.
+output "volume_requests" {
+  description = "EBS volume + attachment requests for the storage module"
+  value       = local.volume_requests
+}
+
 # Access requests (dependency inversion interface for access module)
 # Access module creates IAM resources from these requests and returns ARNs/names
 output "access_requests" {
@@ -500,8 +508,20 @@ output "access_requests" {
       trust_actions       = ["sts:AssumeRole"]
       trust_conditions    = "{}"
       managed_policy_arns = ["arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore"]
-      inline_policies     = {}
-      instance_profile    = true
+      inline_policies = local.has_volumes ? {
+        # Lets the storage-mount ansible playbook discover its own attached
+        # EBS volumes (and their MountPath/FsType tags) via aws ec2 describe-volumes.
+        # Read-only; scoped via condition that the volume is attached to the caller.
+        storage-volume-discovery = jsonencode({
+          Version = "2012-10-17"
+          Statement = [{
+            Effect   = "Allow"
+            Action   = ["ec2:DescribeVolumes", "ec2:DescribeTags"]
+            Resource = "*"
+          }]
+        })
+      } : {}
+      instance_profile = true
     }
   ] : []
 }

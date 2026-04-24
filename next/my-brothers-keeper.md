@@ -160,8 +160,8 @@ He doesn't know if it's enough. He doesn't know if one signal, after thirteen ye
 
 But he is his brother's keeper. Whether or not his brothers know it. Whether or not they will ever look.
 
-So his hands return to the keyboard. The proof keeps proving. The echoes still haunting.
+So his hands return to the keyboard. The proof keeps proving. The echoes keep haunting.
 
-*"You're not going to change the world, Ryan."*
+*"You are not going to change the world, Ryan."*
 
 [Watch me](https://youtu.be/cWVinahMY3g?si=iiRd9iK4qOY9ZSDM).

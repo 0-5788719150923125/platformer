@@ -651,6 +651,15 @@ services:
       swap_size: number  # Swap file size in GB (0 = no swap). Useful for memory-constrained instances. (default: 0)
       mode: string  # Cluster topology: "single" (default) or "1-master" (1 master + N-1 workers)
       cluster_port: number  # Intra-cluster port (creates self-referencing SG rule; required for 1-master mode)
+      volumes:  # list
+        - name: string  # Unique within the class; used in resource keys and tags
+          size: number  # Volume size in GB
+          mount_path: string  # Filesystem mount path inside the instance (e.g. "/opt/praxis/build")
+          type: string  # EBS volume type (default: gp3)
+          iops: number  # Provisioned IOPS (gp3 default 3000)
+          throughput: number  # Throughput in MiB/s (gp3 only)
+          fs_type: string  # Filesystem to format with on first attach (default: ext4)
+          device: string  # AWS device name override; auto-assigned /dev/sd[f-p] if null
       version: string  # Kubernetes version (e.g., "1.34") (default: 1.34)
       support_type: string  # EKS support type: "STANDARD" or "EXTENDED" (default: "STANDARD")
       vpc_id: string  # VPC ID (optional - will create VPC if omitted)
@@ -702,21 +711,21 @@ This module supports the following arguments:
 | `networks` | `map` | No | Map of network name to network module outputs (for multi-VPC support) | [./compute/variables.tf:31](./compute/variables.tf#L31) |
 | `tenants_by_class` | `map` | No | Map of class name to entitled tenant list (from tenants module) | [./compute/variables.tf:38](./compute/variables.tf#L38) |
 | `config` | `map(object)` | No | Compute service configuration - map of class name to class definition | [./compute/variables.tf:45](./compute/variables.tf#L45) |
-| `instance_parameters` | `list(object)` | No | Parameter Store definitions for each instance (compute module creates resources) | [./compute/variables.tf:228](./compute/variables.tf#L228) |
-| `application_requests` | `list(object)` | No | All application deployment requests from applications module - filtered internally by type | [./compute/variables.tf:242](./compute/variables.tf#L242) |
-| `pod_identity_requests` | `list(object)` | No | Pod Identity association requests from upstream modules (e.g., observability) | [./compute/variables.tf:278](./compute/variables.tf#L278) |
-| `lb_requests` | `list(object)` | No | NLB requests for EKS services (observability, etc.) - Terraform-managed infrastructure | [./compute/variables.tf:293](./compute/variables.tf#L293) |
-| `built_amis` | `map` | No | Map of class name to golden AMI ID (from build module) | [./compute/variables.tf:308](./compute/variables.tf#L308) |
-| `standalone_applications` | `any` | No | Standalone application definitions (services.applications) for ImageBuilder inclusion | [./compute/variables.tf:317](./compute/variables.tf#L317) |
-| `patch_groups_by_class` | `map` | No | Map of class names to their namespaced patch group names (provided by configuration-management module) | [./compute/variables.tf:325](./compute/variables.tf#L325) |
-| `domain_enabled` | `bool` | No | Whether domains module is active (plan-time safe, from config) | [./compute/variables.tf:334](./compute/variables.tf#L334) |
-| `domain_zone_id` | `string` | No | Route53 hosted zone ID for DNS records (empty = no domain) | [./compute/variables.tf:340](./compute/variables.tf#L340) |
-| `domain_zone_name` | `string` | No | Route53 hosted zone name (e.g., dev-platform.example.com) | [./compute/variables.tf:346](./compute/variables.tf#L346) |
-| `domain_certificate_arn` | `string` | No | ACM certificate ARN for HTTPS listeners (empty = no HTTPS) | [./compute/variables.tf:352](./compute/variables.tf#L352) |
-| `domain_aliases` | `map` | No | DNS alias map: FQDN -> compute class name (from domains module) | [./compute/variables.tf:358](./compute/variables.tf#L358) |
-| `access_iam_role_arns` | `map` | No | IAM role ARNs from access module (keyed by module-purpose) | [./compute/variables.tf:365](./compute/variables.tf#L365) |
-| `access_iam_role_names` | `map` | No | IAM role names from access module (keyed by module-purpose) | [./compute/variables.tf:371](./compute/variables.tf#L371) |
-| `access_instance_profile_names` | `map` | No | Instance profile names from access module (keyed by module-purpose) | [./compute/variables.tf:377](./compute/variables.tf#L377) |
+| `instance_parameters` | `list(object)` | No | Parameter Store definitions for each instance (compute module creates resources) | [./compute/variables.tf:264](./compute/variables.tf#L264) |
+| `application_requests` | `list(object)` | No | All application deployment requests from applications module - filtered internally by type | [./compute/variables.tf:278](./compute/variables.tf#L278) |
+| `pod_identity_requests` | `list(object)` | No | Pod Identity association requests from upstream modules (e.g., observability) | [./compute/variables.tf:314](./compute/variables.tf#L314) |
+| `lb_requests` | `list(object)` | No | NLB requests for EKS services (observability, etc.) - Terraform-managed infrastructure | [./compute/variables.tf:329](./compute/variables.tf#L329) |
+| `built_amis` | `map` | No | Map of class name to golden AMI ID (from build module) | [./compute/variables.tf:344](./compute/variables.tf#L344) |
+| `standalone_applications` | `any` | No | Standalone application definitions (services.applications) for ImageBuilder inclusion | [./compute/variables.tf:353](./compute/variables.tf#L353) |
+| `patch_groups_by_class` | `map` | No | Map of class names to their namespaced patch group names (provided by configuration-management module) | [./compute/variables.tf:361](./compute/variables.tf#L361) |
+| `domain_enabled` | `bool` | No | Whether domains module is active (plan-time safe, from config) | [./compute/variables.tf:370](./compute/variables.tf#L370) |
+| `domain_zone_id` | `string` | No | Route53 hosted zone ID for DNS records (empty = no domain) | [./compute/variables.tf:376](./compute/variables.tf#L376) |
+| `domain_zone_name` | `string` | No | Route53 hosted zone name (e.g., dev-platform.example.com) | [./compute/variables.tf:382](./compute/variables.tf#L382) |
+| `domain_certificate_arn` | `string` | No | ACM certificate ARN for HTTPS listeners (empty = no HTTPS) | [./compute/variables.tf:388](./compute/variables.tf#L388) |
+| `domain_aliases` | `map` | No | DNS alias map: FQDN -> compute class name (from domains module) | [./compute/variables.tf:394](./compute/variables.tf#L394) |
+| `access_iam_role_arns` | `map` | No | IAM role ARNs from access module (keyed by module-purpose) | [./compute/variables.tf:401](./compute/variables.tf#L401) |
+| `access_iam_role_names` | `map` | No | IAM role names from access module (keyed by module-purpose) | [./compute/variables.tf:407](./compute/variables.tf#L407) |
+| `access_instance_profile_names` | `map` | No | Instance profile names from access module (keyed by module-purpose) | [./compute/variables.tf:413](./compute/variables.tf#L413) |
 
 ### Attributes
 
@@ -747,9 +756,10 @@ This module exports the following attributes:
 | `commands` | Mark a cluster as tainted. It will be destroyed and recreated on next terraform apply. | [./compute/outputs.tf:234](./compute/outputs.tf#L234) |
 | `kubeconfig_ready` | Dependency marker indicating kubeconfig contexts are set up | [./compute/outputs.tf:465](./compute/outputs.tf#L465) |
 | `ecs_clusters` | Deployed ECS clusters with metadata | [./compute/outputs.tf:476](./compute/outputs.tf#L476) |
-| `access_requests` | EC2 instance role for compute classes with applications | [./compute/outputs.tf:490](./compute/outputs.tf#L490) |
-| `access_security_groups` | Security groups with rules for the access module (AWS-native format) | [./compute/outputs.tf:510](./compute/outputs.tf#L510) |
-| `ecs_test_commands` | Commands to debug ECS clusters, services, and tasks | [./compute/outputs.tf:516](./compute/outputs.tf#L516) |
+| `volume_requests` | EBS volume + attachment requests for the storage module | [./compute/outputs.tf:491](./compute/outputs.tf#L491) |
+| `access_requests` | EC2 instance role for compute classes with applications | [./compute/outputs.tf:498](./compute/outputs.tf#L498) |
+| `access_security_groups` | Security groups with rules for the access module (AWS-native format) | [./compute/outputs.tf:530](./compute/outputs.tf#L530) |
+| `ecs_test_commands` | Commands to debug ECS clusters, services, and tasks | [./compute/outputs.tf:536](./compute/outputs.tf#L536) |
 
 ## Module: config
 
@@ -765,7 +775,7 @@ This module supports the following arguments:
 |----------|------|----------|-------------|-----|
 | `states` | `list` | No |  | [./config/variables.tf:1](./config/variables.tf#L1) |
 | `states_dirs` | `list` | No | Directories to search for state fragment YAML files (first match wins) | [./config/variables.tf:22](./config/variables.tf#L22) |
-| `aws_region` | `string` | **Yes** | Current AWS region for deployment (used in validation error messages) | [./config/variables.tf:28](./config/variables.tf#L28) |
+| `aws_region` | `string` | No | Current AWS region for deployment (used in validation error messages) | [./config/variables.tf:28](./config/variables.tf#L28) |
 
 ### Attributes
 
@@ -1316,9 +1326,10 @@ This module supports the following arguments:
 | `bucket_requests` | `list(object)` | No | Bucket definitions from other modules (storage module creates resources) | [./storage/variables.tf:18](./storage/variables.tf#L18) |
 | `rds_cluster_requests` | `list(object)` | No | RDS cluster/instance requests from other modules (storage module creates resources based on type) | [./storage/variables.tf:51](./storage/variables.tf#L51) |
 | `elasticache_cluster_requests` | `list(object)` | No | ElastiCache cluster requests from other modules (storage module creates resources) | [./storage/variables.tf:98](./storage/variables.tf#L98) |
-| `repository_requests` | `list(object)` | No | CodeCommit repository requests from other modules (storage module creates resources) | [./storage/variables.tf:122](./storage/variables.tf#L122) |
-| `aws_profile` | `string` | No | AWS CLI profile for post-creation commands | [./storage/variables.tf:147](./storage/variables.tf#L147) |
-| `aws_region` | `string` | No | AWS region for post-creation commands | [./storage/variables.tf:153](./storage/variables.tf#L153) |
+| `volume_requests` | `list(object)` | No | EBS volume + attachment requests from other modules (storage owns both resources) | [./storage/variables.tf:127](./storage/variables.tf#L127) |
+| `repository_requests` | `list(object)` | No | CodeCommit repository requests from other modules (storage module creates resources) | [./storage/variables.tf:154](./storage/variables.tf#L154) |
+| `aws_profile` | `string` | No | AWS CLI profile for post-creation commands | [./storage/variables.tf:179](./storage/variables.tf#L179) |
+| `aws_region` | `string` | No | AWS region for post-creation commands | [./storage/variables.tf:185](./storage/variables.tf#L185) |
 
 ### Attributes
 
@@ -1332,19 +1343,20 @@ This module exports the following attributes:
 | `bucket_arns` | Map of purpose => bucket ARN | [./storage/outputs.tf:34](./storage/outputs.tf#L34) |
 | `access_logs_bucket` | Centralized access logs bucket (if any bucket requested access_logging) | [./storage/outputs.tf:43](./storage/outputs.tf#L43) |
 | `config` | Storage service configuration summary | [./storage/outputs.tf:52](./storage/outputs.tf#L52) |
-| `rds_clusters` | RDS Aurora clusters created from rds_cluster_requests (keyed by purpose) | [./storage/outputs.tf:71](./storage/outputs.tf#L71) |
-| `rds_instances` | RDS standalone instances created from rds_instance_requests (keyed by purpose) | [./storage/outputs.tf:88](./storage/outputs.tf#L88) |
-| `rds_instance_security_group_ids` | RDS instance security group IDs (map: purpose => sg_id) | [./storage/outputs.tf:105](./storage/outputs.tf#L105) |
-| `elasticache_clusters` | ElastiCache clusters created from elasticache_cluster_requests (keyed by purpose) | [./storage/outputs.tf:114](./storage/outputs.tf#L114) |
-| `rds_security_group_id` | RDS security group ID (for adding ingress rules) | [./storage/outputs.tf:139](./storage/outputs.tf#L139) |
-| `elasticache_security_group_id` | ElastiCache security group ID (for adding ingress rules) | [./storage/outputs.tf:144](./storage/outputs.tf#L144) |
-| `repositories` | CodeCommit repositories created from repository_requests (keyed by purpose) | [./storage/outputs.tf:150](./storage/outputs.tf#L150) |
-| `commands` | Force Terraform to destroy and recreate this S3 bucket on next apply | [./storage/outputs.tf:165](./storage/outputs.tf#L165) |
-| `inventory` |  | [./storage/outputs.tf:191](./storage/outputs.tf#L191) |
-| `access_security_groups` | Security groups with rules for the access module (AWS-native format) | [./storage/outputs.tf:253](./storage/outputs.tf#L253) |
-| `access_resource_policies` | S3 bucket policies for the access module (AWS-native format) | [./storage/outputs.tf:259](./storage/outputs.tf#L259) |
-| `repository_names` | Map of purpose => repository name | [./storage/outputs.tf:265](./storage/outputs.tf#L265) |
-| `clone_urls` | Map of purpose => HTTPS clone URL | [./storage/outputs.tf:274](./storage/outputs.tf#L274) |
+| `rds_clusters` | RDS Aurora clusters created from rds_cluster_requests (keyed by purpose) | [./storage/outputs.tf:73](./storage/outputs.tf#L73) |
+| `rds_instances` | RDS standalone instances created from rds_instance_requests (keyed by purpose) | [./storage/outputs.tf:90](./storage/outputs.tf#L90) |
+| `rds_instance_security_group_ids` | RDS instance security group IDs (map: purpose => sg_id) | [./storage/outputs.tf:107](./storage/outputs.tf#L107) |
+| `elasticache_clusters` | ElastiCache clusters created from elasticache_cluster_requests (keyed by purpose) | [./storage/outputs.tf:116](./storage/outputs.tf#L116) |
+| `rds_security_group_id` | RDS security group ID (for adding ingress rules) | [./storage/outputs.tf:141](./storage/outputs.tf#L141) |
+| `elasticache_security_group_id` | ElastiCache security group ID (for adding ingress rules) | [./storage/outputs.tf:146](./storage/outputs.tf#L146) |
+| `repositories` | CodeCommit repositories created from repository_requests (keyed by purpose) | [./storage/outputs.tf:152](./storage/outputs.tf#L152) |
+| `commands` | Force Terraform to destroy and recreate this S3 bucket on next apply | [./storage/outputs.tf:167](./storage/outputs.tf#L167) |
+| `inventory` |  | [./storage/outputs.tf:193](./storage/outputs.tf#L193) |
+| `access_security_groups` | Security groups with rules for the access module (AWS-native format) | [./storage/outputs.tf:264](./storage/outputs.tf#L264) |
+| `access_resource_policies` | S3 bucket policies for the access module (AWS-native format) | [./storage/outputs.tf:270](./storage/outputs.tf#L270) |
+| `volumes` | EBS volumes created from volume_requests (keyed by purpose) | [./storage/outputs.tf:276](./storage/outputs.tf#L276) |
+| `repository_names` | Map of purpose => repository name | [./storage/outputs.tf:291](./storage/outputs.tf#L291) |
+| `clone_urls` | Map of purpose => HTTPS clone URL | [./storage/outputs.tf:300](./storage/outputs.tf#L300) |
 
 ## Module: tenants
 

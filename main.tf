@@ -364,6 +364,14 @@ module "storage" {
     module.archivist.repository_requests
     # Future modules can add repository requests here
   )
+
+  # Collect EBS volume request definitions from all modules (dependency inversion pattern)
+  # Compute emits one request per (instance × declared volume); storage owns
+  # both the aws_ebs_volume and the aws_volume_attachment.
+  volume_requests = concat(
+    local.compute_enabled ? module.compute[0].volume_requests : []
+    # Future modules can add volume requests here
+  )
 }
 
 # Build Module

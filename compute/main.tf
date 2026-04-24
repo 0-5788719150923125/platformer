@@ -161,6 +161,61 @@ locals {
     )
   }
 
+  # ── Storage volumes (dependency inversion to storage module) ──────────
+  # Per-class device name allocation: AWS reserves /dev/sda1 for root, so
+  # additional EBS volumes start at /dev/sdf. Allocate by index within the
+  # class's volumes list (or honor explicit `device` if set).
+  volume_devices_per_class = {
+    for class_name, class_config in local.ec2_classes :
+    class_name => [
+      for idx, v in coalesce(class_config.volumes, []) :
+      coalesce(v.device, format("/dev/sd%s", substr("fghijklmnop", idx, 1)))
+    ]
+  }
+
+  # One request per (instance × declared volume). Storage uses the unique
+  # `purpose` to key both the EBS volume and its attachment.
+  volume_requests = flatten([
+    for instance_key, instance_config in local.tenant_instances : [
+      for idx, v in coalesce(local.ec2_classes[instance_config.class].volumes, []) : {
+        purpose           = "${instance_key}-${v.name}"
+        instance_id       = aws_instance.tenant[instance_key].id
+        availability_zone = aws_instance.tenant[instance_key].availability_zone
+        device_name       = local.volume_devices_per_class[instance_config.class][idx]
+        size              = v.size
+        type              = v.type
+        iops              = v.iops
+        throughput        = v.throughput
+        encrypted         = true
+        kms_key_id        = null
+        description       = "Persistent storage for ${instance_key} mounted at ${v.mount_path}"
+        # Tags travel with the volume; the storage-mount ansible playbook reads
+        # MountPath/FsType from the volume on the instance to know where to mount.
+        tags = {
+          MountPath = v.mount_path
+          FsType    = v.fs_type
+          Class     = instance_config.class
+          Tenant    = instance_config.tenant
+        }
+      }
+    ]
+  ])
+
+  # JSON-encoded volume manifest injected as STORAGE_VOLUMES into ansible runs.
+  # Class-level (same for every instance of the class). The storage-mount playbook
+  # reads this to know which mount paths to expect; per-instance device resolution
+  # happens at run time via the MountPath tag on the attached volume.
+  storage_volumes_by_class = {
+    for class_name, class_config in local.ec2_classes :
+    class_name => jsonencode([
+      for v in coalesce(class_config.volumes, []) : {
+        mount_path = v.mount_path
+        fs_type    = v.fs_type
+      }
+    ])
+    if length(coalesce(class_config.volumes, [])) > 0
+  }
+
   # Flatten instances × parameters into parameter resources (dependency inversion pattern)
   # For each instance, create parameters defined by other modules via instance_parameters variable
   instance_parameters = merge([
@@ -235,6 +290,11 @@ locals {
               # Inject swap size when configured on the class
               class_config.swap_size > 0 ? {
                 SWAP_SIZE_GB = tostring(class_config.swap_size)
+              } : {},
+              # Inject storage volumes manifest when the class declares persistent volumes.
+              # JSON-encoded list of {mount_path, fs_type} for the storage-mount playbook.
+              contains(keys(local.storage_volumes_by_class), class_name) ? {
+                STORAGE_VOLUMES = local.storage_volumes_by_class[class_name]
               } : {}
             ) : null
 
@@ -332,6 +392,10 @@ locals {
             # Inject swap size when configured on the class
             class_config.swap_size > 0 ? {
               SWAP_SIZE_GB = tostring(class_config.swap_size)
+            } : {},
+            # Inject storage volumes manifest when the class declares persistent volumes.
+            contains(keys(local.storage_volumes_by_class), class_name) ? {
+              STORAGE_VOLUMES = local.storage_volumes_by_class[class_name]
             } : {}
           )
 

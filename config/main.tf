@@ -3,15 +3,22 @@
 # Uses deepmerge provider for native type preservation and plan-time validation
 
 locals {
+  # Resolve each states_dirs entry: absolute paths are used verbatim,
+  # relative paths are prefixed with path.module for backward compatibility
+  # with Platformer's own usage (which passes e.g. "../states" to mean
+  # "up one level from the config module").
+  resolved_dirs = [
+    for dir in var.states_dirs :
+    startswith(dir, "/") ? dir : "${path.module}/${dir}"
+  ]
+
   # Resolve each state name to the first directory that contains it
   state_paths = {
     for state in var.states :
-    state => "${path.module}/${
-      coalesce([
-        for dir in var.states_dirs :
-        dir if fileexists("${path.module}/${dir}/${state}.yaml")
-      ]...)
-    }/${state}.yaml"
+    state => coalesce([
+      for dir in local.resolved_dirs :
+      "${dir}/${state}.yaml" if fileexists("${dir}/${state}.yaml")
+    ]...)
   }
 
   # Load all state files

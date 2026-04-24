@@ -72,6 +72,20 @@ variable "config" {
     mode         = optional(string, "single") # Cluster topology: "single" (default) or "1-master" (1 master + N-1 workers)
     cluster_port = optional(number)           # Intra-cluster port (creates self-referencing SG rule; required for 1-master mode)
 
+    # Persistent storage volumes (dependency inversion - storage module owns the EBS resources)
+    # Each entry produces one EBS volume per instance, attached at device_name and mounted
+    # at mount_path by the storage-mount ansible playbook. Survives instance replacement.
+    volumes = optional(list(object({
+      name       = string                            # Unique within the class; used in resource keys and tags
+      size       = number                            # Volume size in GB
+      mount_path = string                            # Filesystem mount path inside the instance (e.g. "/opt/praxis/build")
+      type       = optional(string, "gp3")           # EBS volume type
+      iops       = optional(number)                  # Provisioned IOPS (gp3 default 3000)
+      throughput = optional(number)                  # Throughput in MiB/s (gp3 only)
+      fs_type    = optional(string, "ext4")          # Filesystem to format with on first attach
+      device     = optional(string)                  # AWS device name override; auto-assigned /dev/sd[f-p] if null
+    })), [])
+
     # EKS-specific fields (when type = "eks")
     version      = optional(string)             # Kubernetes version (e.g., "1.34")
     support_type = optional(string, "STANDARD") # EKS support type: "STANDARD" or "EXTENDED" (default: "STANDARD")
@@ -208,6 +222,28 @@ variable "config" {
       length(class_config.description) <= 128
     ])
     error_message = "Class description must be 128 characters or less"
+  }
+
+  # Validation: per-class volumes must have unique names and valid mount paths
+  validation {
+    condition = alltrue([
+      for class_name, class_config in var.config :
+      length(coalesce(class_config.volumes, [])) == length(distinct([
+        for v in coalesce(class_config.volumes, []) : v.name
+      ]))
+    ])
+    error_message = "EC2 class volumes must have unique 'name' values within a class"
+  }
+
+  # Validation: volumes must use absolute mount paths
+  validation {
+    condition = alltrue(flatten([
+      for class_name, class_config in var.config : [
+        for v in coalesce(class_config.volumes, []) :
+        startswith(v.mount_path, "/")
+      ]
+    ]))
+    error_message = "EC2 class volume mount_path must be an absolute path"
   }
 
   # Validation: ingress protocol must be "http" or "https"

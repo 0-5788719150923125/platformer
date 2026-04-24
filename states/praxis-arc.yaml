@@ -40,6 +40,18 @@ services:
       volume_size: 100
       volume_type: gp3
 
+      # Persistent storage: durable EBS volume mounted at /opt/praxis so the
+      # repository, .env, and most importantly the build/ checkpoint directory
+      # all survive instance replacement (e.g. AMI drift recreating the box).
+      # The storage-mount ansible playbook (imported by praxis/playbook.yml)
+      # formats and mounts on first boot; subsequent boots reattach the same
+      # volume and the existing .git is preserved (git pull instead of clone).
+      volumes:
+        - name: build
+          size: 50
+          mount_path: /opt/praxis
+          fs_type: ext4
+
       # Network: Public subnet with public IP (for HTTP access on port 8080)
       subnet_tier: public
       associate_public_ip: true

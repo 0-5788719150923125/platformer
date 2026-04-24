@@ -10,10 +10,16 @@
 # Step 0: Configure swap (no-op when SWAP_SIZE_GB is 0 or unset)
 - import_playbook: ../swap/playbook.yml
 
-# Step 1: Install Claude Code CLI (includes Python dependencies)
+# Step 1: Mount persistent EBS volumes before any install steps run.
+# When the class declares volumes (e.g. /opt/praxis on EBS), this mounts them
+# so the subsequent git clone lands directly on the durable filesystem.
+# No-op when STORAGE_VOLUMES is empty (class declared no volumes).
+- import_playbook: ../storage-mount/playbook.yml
+
+# Step 2: Install Claude Code CLI (includes Python dependencies)
 - import_playbook: ../claude-code/playbook.yml
 
-# Step 2: Install and configure Praxis
+# Step 3: Install and configure Praxis
 - name: Install and configure Praxis
   hosts: linux
   become: yes

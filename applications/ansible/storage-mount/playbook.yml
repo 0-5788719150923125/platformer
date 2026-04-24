@@ -1,0 +1,155 @@
+---
+# Mount EBS volumes provisioned via the storage volume_requests interface.
+#
+# Param: STORAGE_VOLUMES - JSON-encoded list of {mount_path, fs_type} entries
+#                          (compute injects this when class.volumes is non-empty;
+#                          unset/empty means no-op for classes without volumes)
+#
+# Volume identification: each volume carries a `MountPath` tag set by
+# storage/ebs.tf. We resolve the on-disk device by listing volumes attached to
+# this instance via AWS API and matching tag -> volume_id -> NVMe by-id symlink.
+# This avoids needing per-instance ansible inventory: the same playbook runs
+# unchanged across every instance of the class.
+#
+# Idempotent: skips format if a filesystem already exists; skips mount if
+# already mounted at the requested path.
+
+- name: Mount persistent EBS volumes
+  hosts: linux
+  become: yes
+  vars:
+    storage_volumes_raw: "{{ STORAGE_VOLUMES | default('[]', true) }}"
+    storage_volumes: "{{ storage_volumes_raw | from_json }}"
+
+  tasks:
+    - name: Skip when no volumes are declared
+      ansible.builtin.meta: end_play
+      when: storage_volumes | length == 0
+
+    - name: Get IMDSv2 token
+      ansible.builtin.uri:
+        url: http://169.254.169.254/latest/api/token
+        method: PUT
+        headers:
+          X-aws-ec2-metadata-token-ttl-seconds: "21600"
+        return_content: yes
+      register: imds_token
+
+    - name: Get instance ID
+      ansible.builtin.uri:
+        url: http://169.254.169.254/latest/meta-data/instance-id
+        headers:
+          X-aws-ec2-metadata-token: "{{ imds_token.content }}"
+        return_content: yes
+      register: instance_id_result
+
+    - name: Get instance region
+      ansible.builtin.uri:
+        url: http://169.254.169.254/latest/meta-data/placement/region
+        headers:
+          X-aws-ec2-metadata-token: "{{ imds_token.content }}"
+        return_content: yes
+      register: region_result
+
+    - name: Set AWS facts
+      ansible.builtin.set_fact:
+        instance_id: "{{ instance_id_result.content }}"
+        aws_region: "{{ region_result.content }}"
+
+    # Query each requested mount path; the volume must exist with the matching
+    # MountPath tag attached to this instance. We retry to cover the small
+    # window between aws_volume_attachment creation and EBS reporting attached.
+    - name: Resolve each volume by MountPath tag
+      ansible.builtin.command:
+        cmd: >
+          aws ec2 describe-volumes
+          --region {{ aws_region }}
+          --filters
+            Name=attachment.instance-id,Values={{ instance_id }}
+            Name=tag:MountPath,Values={{ item.mount_path }}
+          --query 'Volumes[0].VolumeId'
+          --output text
+      register: volume_lookups
+      retries: 30
+      delay: 5
+      until: volume_lookups.stdout != "" and volume_lookups.stdout != "None"
+      loop: "{{ storage_volumes }}"
+      changed_when: false
+
+    - name: Resolve device path and mount config per volume
+      # NVMe device naming on AWS Nitro: /dev/disk/by-id/nvme-Amazon_Elastic_Block_Store_<volid>
+      # where <volid> is the volume ID with the hyphen stripped (vol-abc123 -> volabc123).
+      # This symlink is stable across reboots and immune to NVMe enumeration order.
+      ansible.builtin.set_fact:
+        resolved_volumes: >-
+          {{ resolved_volumes | default([]) + [{
+            'volume_id': item.0.stdout,
+            'device_path': '/dev/disk/by-id/nvme-Amazon_Elastic_Block_Store_' ~ (item.0.stdout | replace('-', '')),
+            'mount_path': item.1.mount_path,
+            'fs_type': item.1.fs_type
+          }] }}
+      loop: "{{ volume_lookups.results | zip(storage_volumes) | list }}"
+
+    - name: Wait for block device to appear
+      ansible.builtin.wait_for:
+        path: "{{ item.device_path }}"
+        timeout: 120
+      loop: "{{ resolved_volumes }}"
+
+    - name: Detect existing filesystem on device
+      ansible.builtin.command:
+        cmd: "blkid -o value -s TYPE {{ item.device_path }}"
+      register: blkid_results
+      loop: "{{ resolved_volumes }}"
+      failed_when: false
+      changed_when: false
+
+    - name: Format empty volumes
+      community.general.filesystem:
+        fstype: "{{ item.0.fs_type }}"
+        dev: "{{ item.0.device_path }}"
+      loop: "{{ resolved_volumes | zip(blkid_results.results) | list }}"
+      when: item.1.stdout | trim == ""
+      loop_control:
+        label: "{{ item.0.device_path }} -> {{ item.0.fs_type }}"
+
+    - name: Create mount points
+      ansible.builtin.file:
+        path: "{{ item.mount_path }}"
+        state: directory
+        mode: '0755'
+      loop: "{{ resolved_volumes }}"
+
+    - name: Mount volumes and persist in fstab
+      ansible.posix.mount:
+        path: "{{ item.mount_path }}"
+        src: "{{ item.device_path }}"
+        fstype: "{{ item.fs_type }}"
+        # nofail: tolerate boot without the device (e.g. mid-replacement);
+        # x-systemd.device-timeout: don't block boot for >30s waiting on EBS.
+        opts: "defaults,nofail,x-systemd.device-timeout=30"
+        state: mounted
+      loop: "{{ resolved_volumes }}"
+
+    # ext4 creates a lost+found directory at format time. On a freshly mounted
+    # volume that's the only entry, it makes the mount point appear non-empty
+    # to tools like `git clone` (which refuses non-empty destinations). Remove
+    # it only when it is the sole entry - meaning the volume has not yet been
+    # written to. fsck recreates lost+found on demand if recovery ever needs it.
+    - name: List mount point contents to detect fresh ext4 volumes
+      ansible.builtin.command:
+        cmd: "ls -A {{ item.mount_path }}"
+      register: mount_contents
+      loop: "{{ resolved_volumes }}"
+      changed_when: false
+
+    - name: Remove lost+found from freshly formatted ext4 mounts
+      ansible.builtin.file:
+        path: "{{ item.0.mount_path }}/lost+found"
+        state: absent
+      loop: "{{ resolved_volumes | zip(mount_contents.results) | list }}"
+      when:
+        - item.0.fs_type == "ext4"
+        - item.1.stdout_lines == ["lost+found"]
+      loop_control:
+        label: "{{ item.0.mount_path }}"

@@ -118,6 +118,38 @@ variable "elasticache_cluster_requests" {
   }
 }
 
+# volume_requests interface (dependency inversion)
+# Compute (or any module that owns instances) emits one request per
+# (instance × declared volume). Storage creates the EBS volume in the
+# instance's AZ and attaches it at the requested device name.
+# Volumes survive instance replacement (skip_destroy on the attachment),
+# so root-volume churn from AMI updates does not destroy persisted data.
+variable "volume_requests" {
+  description = "EBS volume + attachment requests from other modules (storage owns both resources)"
+  type = list(object({
+    purpose           = string         # Globally unique key (e.g. "{instance_key}-{volume_name}")
+    instance_id       = string         # EC2 instance to attach to
+    availability_zone = string         # AZ of the instance (volume must match)
+    device_name       = string         # AWS block device name (e.g. "/dev/sdf")
+    size              = number         # Size in GB
+    type              = optional(string, "gp3")
+    iops              = optional(number)
+    throughput        = optional(number)
+    encrypted         = optional(bool, true)
+    kms_key_id        = optional(string)
+    description       = optional(string, "")
+    tags              = optional(map(string), {})
+  }))
+  default = []
+
+  validation {
+    condition = length(var.volume_requests) == length(distinct([
+      for req in var.volume_requests : req.purpose
+    ]))
+    error_message = "volume_requests must have unique 'purpose' values"
+  }
+}
+
 # repository_requests interface (dependency inversion)
 variable "repository_requests" {
   description = "CodeCommit repository requests from other modules (storage module creates resources)"

@@ -28,4 +28,5 @@ variable "states_dirs" {
 variable "aws_region" {
   description = "Current AWS region for deployment (used in validation error messages)"
   type        = string
+  default     = "us-east-2"
 }
