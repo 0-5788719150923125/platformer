@@ -49,9 +49,11 @@ resource "aws_volume_attachment" "requested" {
   volume_id   = aws_ebs_volume.requested[each.key].id
   instance_id = each.value.instance_id
 
-  # Don't try to detach on destroy. The instance termination already detaches
-  # the volume - making Terraform also detach causes "VolumeInUse" races on
-  # instance replacement. With skip_destroy the attachment resource is dropped
-  # from state cleanly; the volume itself persists (no delete_on_termination).
-  skip_destroy = true
+  # force_detach lets the detach succeed even if it races with instance
+  # termination on replacement. Without it (and with skip_destroy=true as a
+  # workaround) `terraform destroy` would drop the attachment from state
+  # without detaching, then fail on DeleteVolume with VolumeInUse because the
+  # storage module destroys before compute (data flow is compute -> storage,
+  # so destroy order is the reverse).
+  force_detach = true
 }
