@@ -16,6 +16,7 @@ locals {
           service_role_arn  = var.access_iam_role_arns["configuration-management-maintenance-window"]
           target_tags       = local.maintenance_windows[window_name].target_tags
           dynamic_targeting = local.maintenance_windows[window_name].dynamic_targeting
+          hybrid_targeting  = local.maintenance_windows[window_name].hybrid_targeting
           max_concurrency   = local.maintenance_windows[window_name].max_concurrency
           max_errors        = local.maintenance_windows[window_name].max_errors
           # Resource group key (for dynamic targeting)
@@ -44,9 +45,12 @@ resource "aws_ssm_maintenance_window_target" "patch" {
   name        = "${each.key}-targets-${var.namespace}"
   description = "Patch targets for ${each.key} baseline: ${each.value.baseline_name}"
   # Resource type depends on targeting method:
-  # - RESOURCE_GROUP for dynamic targeting (Lambda + Resource Groups)
+  # - RESOURCE_GROUP for dynamic targeting (EC2 Lambda + Resource Group) or hybrid targeting (managed-instance Resource Group)
   # - INSTANCE for tag-based targeting (Patch Group tags or arbitrary tags)
-  resource_type = local.patch_target_map[each.key].dynamic_targeting != null ? "RESOURCE_GROUP" : "INSTANCE"
+  resource_type = (
+    local.patch_target_map[each.key].dynamic_targeting != null ||
+    local.patch_target_map[each.key].hybrid_targeting != null
+  ) ? "RESOURCE_GROUP" : "INSTANCE"
 
   # Dynamic targeting: Resource Group (Lambda tags instances, Resource Group auto-populates)
   # Lambda queries SSM inventory and applies tags based on PlatformName/PlatformVersion
@@ -60,10 +64,21 @@ resource "aws_ssm_maintenance_window_target" "patch" {
     }
   }
 
+  # Hybrid targeting: Resource Group querying AWS::SSM::ManagedInstance by SSM resource tag.
+  # Use for non-AWS hosts (Oracle Cloud, Azure, on-prem) registered via SSM hybrid activation.
+  # The Resource Group is created in hybrid-patch-targeting.tf.
+  dynamic "targets" {
+    for_each = local.patch_target_map[each.key].hybrid_targeting != null ? [1] : []
+    content {
+      key    = "resource-groups:Name"
+      values = [aws_resourcegroups_group.hybrid_patch[each.key].name]
+    }
+  }
+
   # Tag-based targeting: Patch Group (namespaced)
   # Used when classes are specified (traditional approach)
   dynamic "targets" {
-    for_each = local.patch_target_map[each.key].dynamic_targeting == null && length(each.value.target_classes) > 0 ? each.value.target_classes : []
+    for_each = local.patch_target_map[each.key].dynamic_targeting == null && local.patch_target_map[each.key].hybrid_targeting == null && length(each.value.target_classes) > 0 ? each.value.target_classes : []
     content {
       key    = "tag:Patch Group"
       values = ["${targets.value}-${var.namespace}"]
@@ -73,7 +88,7 @@ resource "aws_ssm_maintenance_window_target" "patch" {
   # Tag-based targeting: Arbitrary organizational tags (fallback)
   # Used for wildcard targeting when dynamic_targeting is not available
   dynamic "targets" {
-    for_each = local.patch_target_map[each.key].dynamic_targeting == null && local.patch_target_map[each.key].target_tags != null ? local.patch_target_map[each.key].target_tags : {}
+    for_each = local.patch_target_map[each.key].dynamic_targeting == null && local.patch_target_map[each.key].hybrid_targeting == null && local.patch_target_map[each.key].target_tags != null ? local.patch_target_map[each.key].target_tags : {}
     content {
       key    = "tag:${targets.key}"
       values = targets.value

@@ -161,22 +161,10 @@ output "patch_groups_by_class" {
 }
 
 # Hybrid Activation Outputs
-# Credentials for registering non-AWS machines with SSM
-
-# Hybrid activation credentials
-output "hybrid_activations" {
-  description = "Hybrid activation credentials for registering non-AWS machines"
-  value = {
-    for key, activation in aws_ssm_activation.activation : key => {
-      activation_id   = activation.id
-      activation_code = activation.activation_code
-      iam_role        = activation.iam_role
-      region          = data.aws_region.current.id
-      # Pre-formatted registration command for convenience
-      registration_command = "sudo /tmp/ssm/ssm-setup-cli -register -activation-code '${activation.activation_code}' -activation-id '${activation.id}' -region '${data.aws_region.current.id}'"
-    }
-  }
-}
+# Registration is surfaced via the "hybrid-register-<activation>" workflow
+# (see commands output below + root workflows aggregator). The raw activation
+# resources are still available for in-module consumers via
+# aws_ssm_activation.activation if a future caller needs structured access.
 
 # Command Registry
 # Standardized operational commands for terminal output and portal self-service actions
@@ -235,6 +223,34 @@ output "commands" {
           association_id = assoc.association_id
           tenant         = local.ssm_application_requests[idx].tenant
           region         = data.aws_region.current.id
+        }
+      }
+    ],
+    # Hybrid activation: full bootstrap workflow per activation.
+    # Lands under root `workflows` since it's a multi-step sequence.
+    # Default to linux_amd64; comment notes the ARM swap.
+    [
+      for key, activation in aws_ssm_activation.activation : {
+        title       = "Register hybrid host - ${key}"
+        description = "Download ssm-setup-cli and register a non-AWS host against the ${key} activation"
+        commands = [
+          "# Step 1: Bootstrap ssm-setup-cli (x86_64; swap linux_amd64 -> linux_arm64 for ARM hosts)",
+          "mkdir -p /tmp/ssm",
+          "curl https://amazon-ssm-${data.aws_region.current.id}.s3.${data.aws_region.current.id}.amazonaws.com/latest/linux_amd64/ssm-setup-cli -o /tmp/ssm/ssm-setup-cli",
+          "chmod +x /tmp/ssm/ssm-setup-cli",
+          "# Step 2: Register the host (tags auto-included when a maintenance window targets this activation)",
+          local.activation_register_command[key],
+        ]
+        service     = "configuration-management"
+        category    = "hybrid-register-${key}"
+        target_type = "activation"
+        target      = key
+        execution   = "remote"
+        action_config = {
+          type            = "hybrid_register"
+          activation_id   = activation.id
+          activation_code = activation.activation_code
+          region          = data.aws_region.current.id
         }
       }
     ],

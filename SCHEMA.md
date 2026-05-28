@@ -854,6 +854,9 @@ services:
               exclude_patterns: []  # list(string)
               include_patterns: []  # list(string)
           target_tags: {}  # map
+          hybrid_targeting:  # object
+            tag_key: string
+            tag_value: string
     hybrid_activations:  # map
       <key>:
         description: string
@@ -885,20 +888,20 @@ This module supports the following arguments:
 | `aws_profile` | `string` | **Yes** | AWS CLI profile name for output commands | [./configuration-management/variables.tf:17](./configuration-management/variables.tf#L17) |
 | `aws_region` | `string` | **Yes** | AWS region for deployment (passed to Ansible playbooks) | [./configuration-management/variables.tf:22](./configuration-management/variables.tf#L22) |
 | `config` | `object` | No | Configuration management service configuration | [./configuration-management/variables.tf:29](./configuration-management/variables.tf#L29) |
-| `ssm_association_log_bucket` | `string` | No | S3 bucket name for SSM association logs (provided by storage module) | [./configuration-management/variables.tf:422](./configuration-management/variables.tf#L422) |
-| `hooks_bucket` | `string` | No | S3 bucket name for hook scripts (provided by storage module) | [./configuration-management/variables.tf:429](./configuration-management/variables.tf#L429) |
-| `instances_by_class` | `map` | No | Instances grouped by class name  -  map of class_name => { instance_key => instance_id } (provided by compute module) | [./configuration-management/variables.tf:436](./configuration-management/variables.tf#L436) |
-| `application_requests` | `list(object)` | No | All application deployment requests from applications module - filtered internally by type (ssm, ansible, user-data, helm) | [./configuration-management/variables.tf:444](./configuration-management/variables.tf#L444) |
-| `has_application_deployments` | `bool` | No | Whether any application deployments (SSM/Ansible) exist  -  drives application-scripts bucket request | [./configuration-management/variables.tf:500](./configuration-management/variables.tf#L500) |
-| `application_scripts_bucket` | `string` | No | S3 bucket name for application scripts (provided by storage module) | [./configuration-management/variables.tf:507](./configuration-management/variables.tf#L507) |
-| `instances_role_name` | `string` | No | IAM role name for compute instances (for attaching S3 access policy) | [./configuration-management/variables.tf:514](./configuration-management/variables.tf#L514) |
-| `instances_role_arn` | `string` | No | IAM role ARN for compute instances (for S3 bucket policy) | [./configuration-management/variables.tf:520](./configuration-management/variables.tf#L520) |
-| `lambda_requests` | `list(object)` | No | Scheduled Lambda function requests from external modules (dependency inversion) | [./configuration-management/variables.tf:528](./configuration-management/variables.tf#L528) |
-| `event_bus_webhooks` | `map` | No | Event bus webhook URLs from portal module (dependency inversion) | [./configuration-management/variables.tf:547](./configuration-management/variables.tf#L547) |
-| `aws_sso_start_url` | `string` | No | AWS SSO start URL for console link wrapping | [./configuration-management/variables.tf:554](./configuration-management/variables.tf#L554) |
-| `ansible_applications_configured` | `bool` | No | Config-derived flag: are there ansible application requests (used in access_requests to avoid cycle) | [./configuration-management/variables.tf:563](./configuration-management/variables.tf#L563) |
-| `access_iam_role_arns` | `map` | No | IAM role ARNs from access module (keyed by module-purpose) | [./configuration-management/variables.tf:570](./configuration-management/variables.tf#L570) |
-| `access_iam_role_names` | `map` | No | IAM role names from access module (keyed by module-purpose) | [./configuration-management/variables.tf:576](./configuration-management/variables.tf#L576) |
+| `ssm_association_log_bucket` | `string` | No | S3 bucket name for SSM association logs (provided by storage module) | [./configuration-management/variables.tf:433](./configuration-management/variables.tf#L433) |
+| `hooks_bucket` | `string` | No | S3 bucket name for hook scripts (provided by storage module) | [./configuration-management/variables.tf:440](./configuration-management/variables.tf#L440) |
+| `instances_by_class` | `map` | No | Instances grouped by class name  -  map of class_name => { instance_key => instance_id } (provided by compute module) | [./configuration-management/variables.tf:447](./configuration-management/variables.tf#L447) |
+| `application_requests` | `list(object)` | No | All application deployment requests from applications module - filtered internally by type (ssm, ansible, user-data, helm) | [./configuration-management/variables.tf:455](./configuration-management/variables.tf#L455) |
+| `has_application_deployments` | `bool` | No | Whether any application deployments (SSM/Ansible) exist  -  drives application-scripts bucket request | [./configuration-management/variables.tf:511](./configuration-management/variables.tf#L511) |
+| `application_scripts_bucket` | `string` | No | S3 bucket name for application scripts (provided by storage module) | [./configuration-management/variables.tf:518](./configuration-management/variables.tf#L518) |
+| `instances_role_name` | `string` | No | IAM role name for compute instances (for attaching S3 access policy) | [./configuration-management/variables.tf:525](./configuration-management/variables.tf#L525) |
+| `instances_role_arn` | `string` | No | IAM role ARN for compute instances (for S3 bucket policy) | [./configuration-management/variables.tf:531](./configuration-management/variables.tf#L531) |
+| `lambda_requests` | `list(object)` | No | Scheduled Lambda function requests from external modules (dependency inversion) | [./configuration-management/variables.tf:539](./configuration-management/variables.tf#L539) |
+| `event_bus_webhooks` | `map` | No | Event bus webhook URLs from portal module (dependency inversion) | [./configuration-management/variables.tf:558](./configuration-management/variables.tf#L558) |
+| `aws_sso_start_url` | `string` | No | AWS SSO start URL for console link wrapping | [./configuration-management/variables.tf:565](./configuration-management/variables.tf#L565) |
+| `ansible_applications_configured` | `bool` | No | Config-derived flag: are there ansible application requests (used in access_requests to avoid cycle) | [./configuration-management/variables.tf:574](./configuration-management/variables.tf#L574) |
+| `access_iam_role_arns` | `map` | No | IAM role ARNs from access module (keyed by module-purpose) | [./configuration-management/variables.tf:581](./configuration-management/variables.tf#L581) |
+| `access_iam_role_names` | `map` | No | IAM role names from access module (keyed by module-purpose) | [./configuration-management/variables.tf:587](./configuration-management/variables.tf#L587) |
 
 ### Attributes
 
@@ -921,11 +924,10 @@ This module exports the following attributes:
 | `patch_management_by_class` | Per-class patch management configuration for portal scorecard | [./configuration-management/outputs.tf:124](./configuration-management/outputs.tf#L124) |
 | `baselines` | Patch baselines with their class mappings | [./configuration-management/outputs.tf:142](./configuration-management/outputs.tf#L142) |
 | `patch_groups_by_class` | Map of class names to their namespaced patch group names for instance tagging | [./configuration-management/outputs.tf:155](./configuration-management/outputs.tf#L155) |
-| `hybrid_activations` | Hybrid activation credentials for registering non-AWS machines | [./configuration-management/outputs.tf:167](./configuration-management/outputs.tf#L167) |
-| `commands` | Trigger the Ansible controller CodeBuild project to run all playbooks | [./configuration-management/outputs.tf:184](./configuration-management/outputs.tf#L184) |
-| `docker_test_commands` | Single command to test hybrid activation in Docker (run from terraform/ directory) | [./configuration-management/outputs.tf:270](./configuration-management/outputs.tf#L270) |
-| `access_requests` | IAM access requests for the access module (access creates resources, returns ARNs) | [./configuration-management/outputs.tf:285](./configuration-management/outputs.tf#L285) |
-| `event_bus_requests` | CodeBuild lifecycle events (Ansible controller) | [./configuration-management/outputs.tf:292](./configuration-management/outputs.tf#L292) |
+| `commands` | Trigger the Ansible controller CodeBuild project to run all playbooks | [./configuration-management/outputs.tf:172](./configuration-management/outputs.tf#L172) |
+| `docker_test_commands` | Single command to test hybrid activation in Docker (run from terraform/ directory) | [./configuration-management/outputs.tf:286](./configuration-management/outputs.tf#L286) |
+| `access_requests` | IAM access requests for the access module (access creates resources, returns ARNs) | [./configuration-management/outputs.tf:301](./configuration-management/outputs.tf#L301) |
+| `event_bus_requests` | CodeBuild lifecycle events (Ansible controller) | [./configuration-management/outputs.tf:308](./configuration-management/outputs.tf#L308) |
 
 ## Module: domains
 

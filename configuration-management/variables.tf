@@ -118,6 +118,16 @@ variable "config" {
         }))
         # Legacy: Tag-based targeting (optional fallback)
         target_tags = optional(map(list(string)))
+
+        # Hybrid managed-instance targeting (non-AWS hosts registered via SSM activation).
+        # Creates a Resource Group querying AWS::SSM::ManagedInstance by SSM resource tag,
+        # so maintenance windows can patch mi-* instances (EC2 tag filters do not match them).
+        # Apply the tag at registration: `ssm-setup-cli -register ... -tags 'Key=<tag_key>,Value=<tag_value>'`
+        # or post-registration via `aws ssm add-tags-to-resource --resource-type ManagedInstance ...`.
+        hybrid_targeting = optional(object({
+          tag_key   = string
+          tag_value = string
+        }))
       })), {})
       }), {
       baselines           = {}
@@ -343,15 +353,16 @@ variable "config" {
     error_message = "Hybrid activation expiration_days must be greater than 0 and less than 30 days (AWS limit)"
   }
 
-  # Wildcard targeting validation: if classes is empty, must have dynamic_targeting or target_tags
+  # Wildcard targeting validation: if classes is empty, must have dynamic_targeting, target_tags, or hybrid_targeting
   validation {
     condition = alltrue([
       for window in var.config.patch_management.maintenance_windows :
       length(var.config.patch_management.baselines[window.baseline].classes) > 0 ||
       window.dynamic_targeting != null ||
-      window.target_tags != null
+      window.target_tags != null ||
+      window.hybrid_targeting != null
     ])
-    error_message = "Maintenance windows with wildcard targeting (empty classes list) must specify either dynamic_targeting (recommended - no tags required) or target_tags for instance filtering"
+    error_message = "Maintenance windows with wildcard targeting (empty classes list) must specify dynamic_targeting (EC2 - no tags required), hybrid_targeting (non-AWS managed instances), or target_tags (EC2 fallback)"
   }
 
   # Application filters validation: if specified, must have at least one pattern

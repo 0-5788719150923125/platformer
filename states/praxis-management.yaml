@@ -1,0 +1,96 @@
+# Management workspace
+# External (non-AWS) servers brought into SSM via hybrid activations, with a
+# weekly patch window per OS. Currently scopes Oracle Cloud Infrastructure
+# hosts: Ubuntu and Oracle Linux.
+#
+# Deploy with: states = ["management"]   (see terraform.tfvars.management)
+#
+# Registration: pull the code/id and region from `terraform output hybrid_activations`,
+# then run on each OCI host:
+#   curl https://amazon-ssm-<region>.s3.<region>.amazonaws.com/latest/linux_amd64/ssm-setup-cli -o /tmp/ssm/ssm-setup-cli
+#   chmod +x /tmp/ssm/ssm-setup-cli
+#   sudo /tmp/ssm/ssm-setup-cli \
+#     -register \
+#     -activation-code '<code>' \
+#     -activation-id '<id>' \
+#     -region '<region>' \
+#     -tags 'Key=PatchGroup,Value=oci-ubuntu'         # or oci-oracle-linux
+#
+# The PatchGroup tag is what the maintenance window's Resource Group selects on.
+
+services:
+  configuration-management:
+    # Fleet-wide SSM hygiene (AWS-GatherSoftwareInventory, AWS-UpdateSSMAgent)
+    # is owned by praxis-patch-management. Both target InstanceIds=["*"], so
+    # OCI hybrid hosts inherit them automatically once registered - no need
+    # to redeclare here, and AWS rejects duplicate apply-all associations
+    # against the same document in the same account.
+
+    # SSM hybrid activations - one per OS so registration_command output makes
+    # it obvious which activation an operator is registering against.
+    hybrid_activations:
+      oci-ubuntu:
+        description: "Oracle Cloud Ubuntu servers (hybrid-activated)"
+        registration_limit: 25
+        expiration_days: 14
+      oci-oracle-linux:
+        description: "Oracle Cloud Oracle Linux servers (hybrid-activated)"
+        registration_limit: 25
+        expiration_days: 14
+
+    patch_management:
+      baselines:
+        # Ubuntu: approve after 7 days; install Required/Important/Standard
+        # priority items in libs/kernel/admin sections (mirrors praxis baseline
+        # but with the 7-day stability soak).
+        oci-ubuntu:
+          operating_system: "UBUNTU"
+          approved_patches_compliance_level: "HIGH"
+          approval_rules:
+            - approve_after_days: 7
+              compliance_level: "HIGH"
+              enable_non_security: false
+              patch_filter:
+                priority: ["Required", "Important", "Standard"]
+                section: ["libs", "kernel", "admin"]
+          classes: []  # Hybrid only - no EC2 patch-group tagging
+
+        # Oracle Linux: approve Security + Bugfix after 7 days, Critical/Important severity.
+        oci-oracle-linux:
+          operating_system: "ORACLE_LINUX"
+          approved_patches_compliance_level: "HIGH"
+          approval_rules:
+            - approve_after_days: 7
+              compliance_level: "HIGH"
+              enable_non_security: false
+              patch_filter:
+                classification: ["Security", "Bugfix"]
+                severity: ["Critical", "Important"]
+          classes: []
+
+      maintenance_windows:
+        # Weekly, Sunday 05:00 CST / 06:00 CDT (11:00 UTC). 4-hour duration,
+        # stop accepting new tasks 1 hour before end. Slow rollout: 25% / 10%.
+        oci-ubuntu-weekly:
+          baseline: oci-ubuntu
+          schedule: "cron(0 11 ? * SUN *)"
+          duration: 4
+          cutoff: 1
+          enabled: true
+          max_concurrency: "25%"
+          max_errors: "10%"
+          hybrid_targeting:
+            tag_key: "PatchGroup"
+            tag_value: "oci-ubuntu"
+
+        oci-oracle-linux-weekly:
+          baseline: oci-oracle-linux
+          schedule: "cron(0 11 ? * SUN *)"
+          duration: 4
+          cutoff: 1
+          enabled: true
+          max_concurrency: "25%"
+          max_errors: "10%"
+          hybrid_targeting:
+            tag_key: "PatchGroup"
+            tag_value: "oci-oracle-linux"

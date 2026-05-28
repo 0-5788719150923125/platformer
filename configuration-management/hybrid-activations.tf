@@ -6,6 +6,34 @@ locals {
   # Extract hybrid activation config from state fragment
   hybrid_activations_enabled = length(var.config.hybrid_activations) > 0
   hybrid_activations         = var.config.hybrid_activations
+
+  # For each activation, collect SSM resource tags that should be applied at
+  # registration time by matching maintenance window hybrid_targeting.tag_value
+  # to the activation key. Convention: name the activation the same as the
+  # window's tag_value (e.g. activation "oci-ubuntu" <-> tag_value "oci-ubuntu").
+  hybrid_tags_by_activation = {
+    for activation_key in keys(local.hybrid_activations) :
+    activation_key => distinct([
+      for window in values(local.maintenance_windows) :
+      "Key=${window.hybrid_targeting.tag_key},Value=${window.hybrid_targeting.tag_value}"
+      if window.hybrid_targeting != null && window.hybrid_targeting.tag_value == activation_key
+    ])
+  }
+
+  # Final register command per activation, including -tags when a maintenance
+  # window's hybrid_targeting points at this activation.
+  activation_register_command = {
+    for key, activation in aws_ssm_activation.activation :
+    key => format(
+      "sudo /tmp/ssm/ssm-setup-cli -register -activation-code '%s' -activation-id '%s' -region '%s'%s",
+      activation.activation_code,
+      activation.id,
+      data.aws_region.current.id,
+      length(local.hybrid_tags_by_activation[key]) > 0
+      ? " -tags '${join(",", local.hybrid_tags_by_activation[key])}'"
+      : ""
+    )
+  }
 }
 
 # Hybrid Activation Resource
@@ -38,3 +66,14 @@ resource "aws_ssm_activation" "activation" {
     ignore_changes = [expiration_date]
   }
 }
+
+# Resource Group capturing every hybrid-activated managed instance (mi-*) in
+# this account/region. Used as a targeting handle for SSM associations that
+# want to scope to hybrid hosts only - e.g. AWS-GatherSoftwareInventory, which
+# AWS limits to one apply-all (InstanceIds=["*"]) per account but allows
+# unlimited targeted (e.g. Resource Group) associations.
+#
+# Type-filter-only: catches every managed instance, including ones registered
+# by sibling deployments. That's intentional - the inventory document is
+# idempotent and benefits from broader coverage. Add a TagFilter here if you
+# need stricter scoping.
