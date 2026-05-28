@@ -181,22 +181,83 @@ def _make_tool_executor(client, loop, allowed_channels):
                 return {"error": f"Failed to send message to '{channel_name}': {exc}"}
 
         # read_channel_messages
+        # Capped well below Bedrock's per-request 20-image total to leave
+        # headroom for images already in the triggering conversation history.
+        TOOL_MAX_IMAGES = 5
         limit = min(tool_input.get("limit", 20), 50)
         try:
-            async def _fetch_history():
-                return [msg async for msg in channel.history(limit=limit)]
+            async def _fetch_history_and_images():
+                msgs = [m async for m in channel.history(limit=limit)]
+                chronological = list(reversed(msgs))
+                # Walk newest-first so the most recent images win under the cap.
+                fetched = {}  # msg.id -> [(filename, fmt, bytes)]
+                count = 0
+                for m in reversed(chronological):
+                    if count >= TOOL_MAX_IMAGES:
+                        break
+                    for attachment in m.attachments:
+                        if count >= TOOL_MAX_IMAGES:
+                            break
+                        if not _looks_like_image(attachment):
+                            continue
+                        if attachment.size > MAX_IMAGE_BYTES:
+                            continue
+                        try:
+                            data = await attachment.read()
+                        except Exception as exc:
+                            logger.warning(
+                                "Channel-tool image read failed for %s: %s",
+                                attachment.filename, exc,
+                            )
+                            continue
+                        fmt = _sniff_image_format(data)
+                        if fmt is None:
+                            continue
+                        fetched.setdefault(m.id, []).append(
+                            (attachment.filename, fmt, data)
+                        )
+                        count += 1
+                return chronological, fetched
 
-            future = asyncio.run_coroutine_threadsafe(_fetch_history(), loop)
-            messages = future.result(timeout=15)
-            formatted = [
-                {
-                    "author": msg.author.display_name,
-                    "content": msg.content,
-                    "timestamp": msg.created_at.isoformat(),
+            future = asyncio.run_coroutine_threadsafe(_fetch_history_and_images(), loop)
+            chronological, fetched = future.result(timeout=20)
+
+            total_attachments = sum(len(m.attachments) for m in chronological)
+            total_images = sum(len(v) for v in fetched.values())
+            logger.info(
+                "Channel-tool '%s': %d messages, %d total attachments, %d images sniffed",
+                channel_name, len(chronological), total_attachments, total_images,
+            )
+
+            formatted = []
+            for m in chronological:
+                entry = {
+                    "author": m.author.display_name,
+                    "content": m.content,
+                    "timestamp": m.created_at.isoformat(),
                 }
-                for msg in reversed(messages)
-            ]
-            return {"channel": channel_name, "messages": formatted}
+                if m.id in fetched:
+                    entry["image_attachments"] = [name for name, _, _ in fetched[m.id]]
+                formatted.append(entry)
+
+            # Return a content-blocks list so the loop in bedrock_converse forwards
+            # text + image blocks to Bedrock instead of JSON-wrapping the dict.
+            blocks = [{"text": json.dumps(
+                {"channel": channel_name, "messages": formatted}, indent=2,
+            )}]
+            for m in chronological:
+                for filename, fmt, data in fetched.get(m.id, []):
+                    blocks.append({"text": (
+                        f"\nImage attachment '{filename}' from "
+                        f"{m.author.display_name} at {m.created_at.isoformat()}:"
+                    )})
+                    blocks.append({"image": {"format": fmt, "source": {"bytes": data}}})
+            logger.info(
+                "Channel-tool '%s' returning %d content blocks (%d image blocks)",
+                channel_name, len(blocks),
+                sum(1 for b in blocks if "image" in b),
+            )
+            return blocks
         except Exception as exc:
             return {"error": f"Failed to read messages from '{channel_name}': {exc}"}
 

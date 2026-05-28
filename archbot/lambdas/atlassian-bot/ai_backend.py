@@ -173,7 +173,10 @@ FETCH_URL_ALLOWED_CONTENT_TYPES = frozenset({
 class _HTMLTextExtractor(HTMLParser):
     """Extract human-readable text from HTML, stripping scripts/styles/etc."""
 
-    _SKIP_TAGS = frozenset({"script", "style", "noscript", "head", "meta", "link"})
+    # Only paired tags here. Void elements like <meta>/<link> never emit an end
+    # tag, so including them would imbalance the depth counter and silently
+    # swallow the rest of the document. They're covered transitively by <head>.
+    _SKIP_TAGS = frozenset({"script", "style", "noscript", "head"})
     _BLOCK_TAGS = frozenset({
         "p", "div", "br", "li", "h1", "h2", "h3", "h4", "h5", "h6",
         "tr", "blockquote", "pre", "article", "section",
@@ -445,10 +448,17 @@ def bedrock_converse(messages, context_id, system_text="", model_id=None,
             tool_input = tool_use.get("input", {})
             logger.info("Tool call [%s]: %s(%s)", context_id, tool_name, tool_input)
             result = tool_executor(tool_name, tool_input)
+            # Executors may return either a plain dict (wrapped here as a single
+            # JSON text block) or a pre-built list of Bedrock toolResult content
+            # blocks (text/image/json) for richer multi-modal responses.
+            if isinstance(result, list):
+                tool_result_content = result
+            else:
+                tool_result_content = [{"text": json.dumps(result, indent=2)}]
             tool_results.append({
                 "toolResult": {
                     "toolUseId": tool_use["toolUseId"],
-                    "content": [{"text": json.dumps(result, indent=2)}],
+                    "content": tool_result_content,
                 }
             })
         if tool_results:

@@ -56,17 +56,17 @@ provider "aws" {
 }
 
 provider "aws" {
-  alias   = "prod"
-  profile = try(var.cross_account_providers["prod"].profile, null)
-  region  = try(var.cross_account_providers["prod"].region, "us-east-2")
+  alias                       = "prod"
+  profile                     = try(var.cross_account_providers["prod"].profile, null)
+  region                      = try(var.cross_account_providers["prod"].region, "us-east-2")
   skip_credentials_validation = !contains(keys(var.cross_account_providers), "prod")
   skip_requesting_account_id  = !contains(keys(var.cross_account_providers), "prod")
 }
 
 provider "aws" {
-  alias   = "infrastructure"
-  profile = try(var.cross_account_providers["infrastructure"].profile, null)
-  region  = try(var.cross_account_providers["infrastructure"].region, "us-east-2")
+  alias                       = "infrastructure"
+  profile                     = try(var.cross_account_providers["infrastructure"].profile, null)
+  region                      = try(var.cross_account_providers["infrastructure"].region, "us-east-2")
   skip_credentials_validation = !contains(keys(var.cross_account_providers), "infrastructure")
   skip_requesting_account_id  = !contains(keys(var.cross_account_providers), "infrastructure")
 }

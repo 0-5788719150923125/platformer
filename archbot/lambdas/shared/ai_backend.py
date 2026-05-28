@@ -448,10 +448,17 @@ def bedrock_converse(messages, context_id, system_text="", model_id=None,
             tool_input = tool_use.get("input", {})
             logger.info("Tool call [%s]: %s(%s)", context_id, tool_name, tool_input)
             result = tool_executor(tool_name, tool_input)
+            # Executors may return either a plain dict (wrapped here as a single
+            # JSON text block) or a pre-built list of Bedrock toolResult content
+            # blocks (text/image/json) for richer multi-modal responses.
+            if isinstance(result, list):
+                tool_result_content = result
+            else:
+                tool_result_content = [{"text": json.dumps(result, indent=2)}]
             tool_results.append({
                 "toolResult": {
                     "toolUseId": tool_use["toolUseId"],
-                    "content": [{"text": json.dumps(result, indent=2)}],
+                    "content": tool_result_content,
                 }
             })
         if tool_results:
