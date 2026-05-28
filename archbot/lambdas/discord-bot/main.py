@@ -31,6 +31,7 @@ from ai_backend import (
     load_system_prompt,
     retrieve_kb_context,
     NO_RESPONSE_SENTINEL,
+    TOOL_DEFINITIONS,
 )
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(name)s %(levelname)s %(message)s")
@@ -47,6 +48,52 @@ BOT_NAME = os.environ.get("BOT_NAME", "archbot")
 DISCORD_NICKNAME = os.environ.get("DISCORD_NICKNAME", "")
 DISCORD_HISTORY_LIMIT = int(os.environ.get("DISCORD_HISTORY_LIMIT", "20"))
 DISCORD_TOOL_CHANNELS = json.loads(os.environ.get("DISCORD_TOOL_CHANNELS", "[]"))
+
+# ── Vision support ───────────────────────────────────────────────────────────
+
+# Bedrock Converse caps: 20 images per request, 5 MB per image.
+MAX_IMAGES_PER_CALL = 20
+MAX_IMAGE_BYTES = 5_000_000
+
+# Filename extensions we treat as "probably an image" during the cheap pre-scan.
+# Discord's content_type is unreliable (sometimes None, sometimes wrong - e.g.
+# claims image/webp for actual PNG bytes), so this is only an advisory filter.
+# The actual Converse format string is determined by sniffing magic bytes after
+# download, in _sniff_image_format.
+IMAGE_EXTENSIONS = frozenset({".png", ".jpg", ".jpeg", ".gif", ".webp"})
+
+
+def _looks_like_image(attachment):
+    """Loose pre-scan filter: is this attachment plausibly an image?
+
+    Trusts neither Discord's content_type nor the filename alone, but accepts
+    either as a signal. Final format is always determined by sniffing bytes.
+    """
+    content_type = (attachment.content_type or "").split(";")[0].strip().lower()
+    if content_type.startswith("image/"):
+        return True
+    filename = (attachment.filename or "").lower()
+    return any(filename.endswith(ext) for ext in IMAGE_EXTENSIONS)
+
+
+def _sniff_image_format(data):
+    """Detect a Bedrock-compatible image format from raw bytes via magic numbers.
+
+    Returns one of 'png', 'jpeg', 'gif', 'webp', or None if unrecognized.
+    Bedrock validates declared format against actual bytes, so this is the
+    only authoritative source of truth - filename and content_type can lie.
+    """
+    if not data:
+        return None
+    if data.startswith(b"\x89PNG\r\n\x1a\n"):
+        return "png"
+    if data.startswith(b"\xff\xd8\xff"):
+        return "jpeg"
+    if data.startswith(b"GIF87a") or data.startswith(b"GIF89a"):
+        return "gif"
+    if len(data) >= 12 and data[:4] == b"RIFF" and data[8:12] == b"WEBP":
+        return "webp"
+    return None
 
 # ── Cross-channel messaging tool ─────────────────────────────────────────────
 
@@ -248,6 +295,29 @@ class ArchbotDiscord:
 
         history.reverse()
 
+        # Pre-scan history newest-first to select up to MAX_IMAGES_PER_CALL most-recent
+        # image attachments. The pre-scan filter is intentionally loose (extension or
+        # content_type signal) since Discord lies about content_type; the real format
+        # is sniffed from bytes in the build loop below.
+        allowed_attachment_ids = set()
+        image_count = 0
+        for msg in reversed(history):
+            if image_count >= MAX_IMAGES_PER_CALL:
+                break
+            for attachment in msg.attachments:
+                if image_count >= MAX_IMAGES_PER_CALL:
+                    break
+                if not _looks_like_image(attachment):
+                    continue
+                if attachment.size > MAX_IMAGE_BYTES:
+                    logger.info(
+                        "Skipping oversized image attachment %s (%d bytes)",
+                        attachment.filename, attachment.size,
+                    )
+                    continue
+                allowed_attachment_ids.add(attachment.id)
+                image_count += 1
+
         # Build Bedrock Converse messages from channel history
         messages = []
         for msg in history:
@@ -262,14 +332,41 @@ class ArchbotDiscord:
                     content = content.replace(f"<@{self.client.user.id}>", "").strip()
                 text = f"{msg.author.display_name}: {content}"
 
-            if not text:
+            image_blocks = []
+            for attachment in msg.attachments:
+                if attachment.id not in allowed_attachment_ids:
+                    continue
+                try:
+                    data = await attachment.read()
+                except Exception as exc:
+                    logger.warning(
+                        "Failed to fetch image attachment %s: %s",
+                        attachment.filename, exc,
+                    )
+                    continue
+                fmt = _sniff_image_format(data)
+                if fmt is None:
+                    logger.warning(
+                        "Skipping attachment %s: unrecognized image format "
+                        "(Discord content_type=%r, %d bytes)",
+                        attachment.filename, attachment.content_type, len(data),
+                    )
+                    continue
+                image_blocks.append({"image": {"format": fmt, "source": {"bytes": data}}})
+
+            if not text and not image_blocks:
                 continue
 
-            # Merge consecutive same-role messages
+            # Merge consecutive same-role messages: text concatenates into the
+            # first text block; image blocks accumulate at the end of content.
             if messages and messages[-1]["role"] == role:
-                messages[-1]["content"][0]["text"] += f"\n\n{text}"
+                if text:
+                    messages[-1]["content"][0]["text"] += f"\n\n{text}"
+                messages[-1]["content"].extend(image_blocks)
             else:
-                messages.append({"role": role, "content": [{"text": text}]})
+                new_content = [{"text": text}] if text else []
+                new_content.extend(image_blocks)
+                messages.append({"role": role, "content": new_content})
 
         if not messages:
             return None
@@ -300,6 +397,13 @@ class ArchbotDiscord:
             "over\", reply with exactly [NO_RESPONSE] and nothing else instead. "
             "Silence is better than a hollow sign-off."
         )
+        system_text += (
+            "\n\n## Image Support\n"
+            "When Discord users attach images to their messages, those images appear "
+            "inline in the conversation history you receive. You can see them directly. "
+            "Treat them as part of the conversation - describe, reason about, or quote "
+            "text from them when relevant to the discussion."
+        )
         if ENV["knowledge_base_id"]:
             # Use the triggering message as the KB query
             kb_context = retrieve_kb_context(message.content, "")
@@ -309,8 +413,9 @@ class ArchbotDiscord:
 
         context_id = f"discord-{message.channel.id}-{message.id}"
 
-        # Build tool list — include cross-channel messaging when channels are configured
-        tools = []
+        # Build tool list — shared defaults (whoami, query_iam_permissions, fetch_url)
+        # plus cross-channel messaging when channels are configured.
+        tools = list(TOOL_DEFINITIONS)
         tool_executor = None
         if DISCORD_TOOL_CHANNELS:
             tools.append(READ_CHANNEL_MESSAGES_TOOL)

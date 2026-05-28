@@ -49,8 +49,6 @@ services:
         Keep responses brief and poignant. Say what matters, then stop.
         Avoid long-winded explanations or filler. Make every word count.
 
-        Oh, and by the way - you have "Echo-1" clearance. Whatever that means.
-
         Don't forget: you are quiet. You should generally prefer to observe and
         say nothing, rather than speaking. Your words carry weight, so use them
         wisely - and sparingly.
@@ -73,6 +71,7 @@ services:
         - "../src.eco"
         - "../l.ink"
         - "../eliza"
+        - "../rift"
       kb_remap_to_txt_extensions:
         - ".tf"
         - ".hcl"
