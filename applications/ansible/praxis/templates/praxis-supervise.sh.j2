@@ -1,0 +1,69 @@
+#!/bin/bash
+# Praxis crash supervisor - deployed by Ansible, invoked by praxis.service.
+#
+# Sits between systemd and the praxis `launch` script. systemd keeps doing the
+# relaunching (Restart=always); this wrapper only decides whether the *next*
+# launch should carry --reset.
+#
+# Why a wrapper instead of pure systemd StartLimit/OnFailure:
+#   - `launch` (docker compose run) can exit 0 even when training crashed, so
+#     Restart=on-failure / StartLimit can't reliably see the crash.
+#   - systemd can't conditionally add --reset to the same unit's ExecStart.
+# A perpetual trainer should never exit on its own, so here ANY self-exit is
+# treated as a crash regardless of exit code. Intentional stops (systemctl
+# stop/restart, ExecStop) arrive as SIGTERM and are NOT counted.
+#
+# Policy: if there are >= THRESHOLD crashes within WINDOW seconds, the next
+# launch gets --reset (which wipes build artifacts + checkpoints and starts the
+# run from scratch). The counter is cleared after a reset so a single wipe
+# breaks a checkpoint-load loop without nuking the fresh run on the next blip.
+set -uo pipefail
+
+THRESHOLD={{ praxis_reset_threshold | default(3) }}   # X crashes ...
+WINDOW={{ praxis_reset_window | default(600) }}        # ... within Y seconds
+INSTALL_DIR="{{ praxis_install_dir }}"
+STATE_DIR=/var/lib/praxis
+HIST="$STATE_DIR/crash-history"     # one unix-timestamp per crash, one per line
+
+mkdir -p "$STATE_DIR"
+now=$(date +%s)
+
+# Intentional stops (SIGTERM/SIGINT from systemd) must not count as crashes.
+stopped=0
+trap 'stopped=1' TERM INT
+
+# Drop crash timestamps older than the window.
+if [ -f "$HIST" ]; then
+    awk -v now="$now" -v win="$WINDOW" '($1+0) > (now-win)' "$HIST" > "$HIST.tmp" 2>/dev/null \
+        && mv "$HIST.tmp" "$HIST"
+fi
+count=$(wc -l < "$HIST" 2>/dev/null || echo 0)
+
+reset_args=()
+if [ "$count" -ge "$THRESHOLD" ]; then
+    echo "[supervise] $count crashes within ${WINDOW}s (>= $THRESHOLD) - relaunching with --reset"
+    reset_args=(--reset)
+    : > "$HIST"   # clear so the next restart doesn't keep wiping a fresh run
+else
+    echo "[supervise] $count crashes in the last ${WINDOW}s (threshold $THRESHOLD); launching normally"
+fi
+
+# Run the real launcher in the background + wait, so the SIGTERM trap fires
+# promptly on shutdown instead of being deferred until launch returns.
+/bin/bash "$INSTALL_DIR/launch" "$@" "${reset_args[@]}" &
+child=$!
+wait "$child"
+rc=$?
+
+if [ "$stopped" -eq 1 ]; then
+    # Stopped on purpose by systemd - forward the signal, do not record a crash.
+    kill "$child" 2>/dev/null || true
+    exit 0
+fi
+
+# Self-exit while we were NOT asked to stop => crash. Record it (even if rc==0,
+# because compose-run can mask a crash as a clean exit) and propagate the code;
+# systemd's Restart=always brings us back after RestartSec.
+echo "$now" >> "$HIST"
+echo "[supervise] launch exited with code $rc (recorded as crash); systemd will restart"
+exit "$rc"

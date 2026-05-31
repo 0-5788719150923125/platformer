@@ -62,6 +62,7 @@ services:
         - the-vortex
         - the-theater
         - the-lab
+        - the-mirror
       knowledge_base_enabled: true
       kb_chunking_strategy: "SEMANTIC"
       kb_document_paths:
