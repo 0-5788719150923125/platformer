@@ -218,11 +218,20 @@ resource "aws_scheduler_schedule" "ansible_controller" {
 # carries a per-apply value, so the build fires on EVERY apply (expect a standing
 # plan diff on this resource); a "<nonce>" string fires only when it changes; off
 # (false/unset) means this resource doesn't exist and normal applies never build.
-# Mirrors the manual command surfaced in outputs.tf ("Run Ansible Controller").
+#
+# Ordering + readiness: the provisioner references var.instances_by_class (the real,
+# known-after-apply instance IDs), which forces this resource AFTER instance
+# creation/replacement - so the build can't race ahead of an in-flight rebuild (e.g.
+# a `taint`). It then waits for each target instance to register Online with SSM
+# before calling start-build, so the ansible-controller actually finds its targets
+# rather than firing against a box that hasn't joined SSM yet. The scheduled run
+# remains the backstop. Mirrors the manual command in outputs.tf ("Run Ansible Controller").
 resource "null_resource" "trigger_ansible_controller" {
   count = local.ansible_controller_enabled && length(var.redeploy_triggers) > 0 ? 1 : 0
 
   # Any change to the set of class nonces (add/remove/bump) forces one new run.
+  # Instance IDs are deliberately NOT in triggers - they gate ordering/readiness via
+  # the provisioner below, but the redeploy switch alone decides WHEN to fire.
   triggers = {
     nonces = jsonencode(var.redeploy_triggers)
   }
@@ -233,12 +242,39 @@ resource "null_resource" "trigger_ansible_controller" {
   ]
 
   provisioner "local-exec" {
-    # AWS_PROFILE only when set, so role-based auth (CI) isn't clobbered by an empty value.
-    command = join(" ", compact([
-      "AWS_REGION=${data.aws_region.current.id}",
-      var.aws_profile != "" ? "AWS_PROFILE=${var.aws_profile}" : "",
-      "aws codebuild start-build --project-name ${aws_codebuild_project.ansible_controller[0].name}",
-    ]))
+    # Referencing instance IDs here is what creates the dependency on the instances
+    # (their IDs are known only after apply, so this provisioner is ordered after any
+    # replacement). AWS_PROFILE is only set when non-empty so CI role auth isn't clobbered.
+    environment = merge(
+      {
+        READY_INSTANCE_IDS = join(" ", flatten([for class_name, instances in var.instances_by_class : values(instances)]))
+        AWS_REGION         = data.aws_region.current.id
+        PROJECT_NAME       = aws_codebuild_project.ansible_controller[0].name
+      },
+      var.aws_profile != "" ? { AWS_PROFILE = var.aws_profile } : {}
+    )
+
+    # Wait (bounded) for each target instance to be Online in SSM, then start the build.
+    command = <<-EOT
+      set -u
+      if [ -n "$READY_INSTANCE_IDS" ]; then
+        for id in $READY_INSTANCE_IDS; do
+          for attempt in $(seq 1 30); do
+            status=$(aws ssm describe-instance-information --region "$AWS_REGION" \
+              --filters "Key=InstanceIds,Values=$id" \
+              --query 'InstanceInformationList[0].PingStatus' --output text 2>/dev/null || true)
+            if [ "$status" = "Online" ]; then
+              echo "[redeploy] $id is Online in SSM"
+              break
+            fi
+            echo "[redeploy] waiting for $id to register with SSM (attempt $attempt/30, status=$${status:-none})"
+            sleep 10
+          done
+        done
+      fi
+      echo "[redeploy] starting ansible-controller build"
+      aws codebuild start-build --region "$AWS_REGION" --project-name "$PROJECT_NAME"
+    EOT
   }
 }
 

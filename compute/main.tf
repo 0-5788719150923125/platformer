@@ -22,6 +22,31 @@ locals {
     if class_config.type == "ec2" && length(lookup(var.tenants_by_class, class_name, [])) > 0
   }
 
+  # Per-apply nonce, used only by forced-ON ("true") taints so their token changes
+  # every apply (and thus replaces every apply). Harmless unless referenced.
+  taint_apply_nonce = timestamp()
+
+  # Per-class taint token (see terraform_data.taint and the `taint` keyword in the
+  # state file). Mirrors the root `redeploy` normalization so the two switches behave
+  # identically:
+  #   taint: true       -> forced ON: a per-apply nonce, so the instance is REPLACED on
+  #                        every apply (expect a standing plan diff). Flip to false once
+  #                        the box is rebuilt, or use a "<token>" string for a one-shot.
+  #   taint: false/unset -> "" (stable) - never replaces.
+  #   taint: "<token>"   -> one-shot: replaces only when the token value changes.
+  # Note on first-introduction: replace_triggered_by does NOT fire when the sentinel is
+  # first created, so a *string* token only takes effect once the sentinel already
+  # exists (bump it on a later apply). `true` sidesteps this because the nonce changes
+  # every apply regardless.
+  taint_tokens = {
+    for class_name, class_config in local.ec2_classes :
+    class_name => (
+      lower(trimspace(try(tostring(class_config.taint), ""))) == "true" ? local.taint_apply_nonce :
+      contains(["", "false"], lower(trimspace(try(tostring(class_config.taint), "")))) ? "" :
+      trimspace(tostring(class_config.taint))
+    )
+  }
+
   # EKS classes (type: eks) - Kubernetes clusters
   eks_classes = {
     for class_name, class_config in var.config : class_name => class_config
@@ -284,7 +309,7 @@ locals {
               # Inject HTTPS hostname: prefer alias FQDN, then per-instance ALB FQDN
               contains(keys(local.alias_fqdn_by_class), class_name) ? {
                 HTTPS_HOSTNAME = local.alias_fqdn_by_class[class_name]
-              } : contains(keys(local.https_instances), "${tenant}-${class_name}-0") ? {
+                } : contains(keys(local.https_instances), "${tenant}-${class_name}-0") ? {
                 HTTPS_HOSTNAME = local.https_instances["${tenant}-${class_name}-0"].fqdn
               } : {},
               # Inject swap size when configured on the class
@@ -426,7 +451,7 @@ locals {
                 # Inject HTTPS hostname: prefer alias FQDN, then per-instance ALB FQDN
                 contains(keys(local.alias_fqdn_by_class), class_name) ? {
                   HTTPS_HOSTNAME = local.alias_fqdn_by_class[class_name]
-                } : contains(keys(local.https_instances), "${tenant}-${class_name}-${idx}") ? {
+                  } : contains(keys(local.https_instances), "${tenant}-${class_name}-${idx}") ? {
                   HTTPS_HOSTNAME = local.https_instances["${tenant}-${class_name}-${idx}"].fqdn
                 } : {}
               )
@@ -493,6 +518,19 @@ module "preflight" {
 # EC2 Resources (type: ec2)
 # ============================================================================
 
+# Taint sentinel: one per instance, carrying that instance's CLASS taint token, so
+# bumping `taint:` on a class replaces every instance of the class together. Keyed by
+# instance key (not class) because replace_triggered_by only permits each.key - the
+# instance below references terraform_data.taint[each.key]. The token feeds
+# triggers_replace; untainted classes carry "" (stable), so they never replace, while
+# `taint: true` carries a per-apply nonce and replaces every apply. Same
+# terraform_data-sentinel idiom used in archbot/storage, generalized to a keyword.
+resource "terraform_data" "taint" {
+  for_each = local.tenant_instances
+
+  triggers_replace = local.taint_tokens[each.value.class]
+}
+
 # EC2 instances for tenants
 # DHMC (Default Host Management Configuration) automatically registers instances with SSM
 # IAM instance profile is conditionally attached when instances need S3 access (e.g., for application scripts)
@@ -551,6 +589,10 @@ resource "aws_instance" "tenant" {
   )
 
   lifecycle {
+    # Taint: replace this instance when its class's `taint` token changes (see
+    # terraform_data.taint). One-shot - bump the token again to taint again.
+    replace_triggered_by = [terraform_data.taint[each.key]]
+
     # Ignore external changes to Patch Group tag
     # Lambda-based dynamic targeting may apply this tag outside of Terraform
     ignore_changes = [

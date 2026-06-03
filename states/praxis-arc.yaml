@@ -33,6 +33,11 @@ services:
       #            when the value changes, e.g. redeploy: "2026-06-02-a".
       redeploy: true
 
+      # Taint: true REPLACES the instance on EVERY apply (destroys + recreates the box;
+      # the persistent /opt/praxis EBS volume survives). Flip back to false once it has
+      # rebuilt, or use a "<token>" string (e.g. "v1") for a one-shot replace-when-changed.
+      taint: false
+
       # CPU Instance Configuration
       # t4g.medium: ARM64 Graviton2, 2 vCPU, 4GB RAM, CPU-only
       instance_type: t4g.medium

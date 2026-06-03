@@ -69,6 +69,7 @@ variable "config" {
     })))
     build        = optional(bool, false)      # Build golden AMI via ImageBuilder before launching instances
     redeploy     = optional(any)              # On-demand redeploy: true = fire ansible-controller every apply, false/unset = off, or a "<nonce>" string that fires when changed. Consumed at the root (-> configuration-management), not by this module.
+    taint        = optional(any)              # Taint: true = REPLACE this class's instances on every apply (flip back to false when done), false/unset = no taint, or a "<token>" string for a one-shot replace that fires only when the value changes. Consumed by this module via terraform_data.taint.
     swap_size    = optional(number, 0)        # Swap file size in GB (0 = no swap). Useful for memory-constrained instances.
     mode         = optional(string, "single") # Cluster topology: "single" (default) or "1-master" (1 master + N-1 workers)
     cluster_port = optional(number)           # Intra-cluster port (creates self-referencing SG rule; required for 1-master mode)
