@@ -68,6 +68,7 @@ variable "config" {
       protocol = optional(string, "http")              # "http" (direct SG rule) or "https" (ALB with TLS termination)
     })))
     build        = optional(bool, false)      # Build golden AMI via ImageBuilder before launching instances
+    redeploy     = optional(any)              # On-demand redeploy: true = fire ansible-controller every apply, false/unset = off, or a "<nonce>" string that fires when changed. Consumed at the root (-> configuration-management), not by this module.
     swap_size    = optional(number, 0)        # Swap file size in GB (0 = no swap). Useful for memory-constrained instances.
     mode         = optional(string, "single") # Cluster topology: "single" (default) or "1-master" (1 master + N-1 workers)
     cluster_port = optional(number)           # Intra-cluster port (creates self-referencing SG rule; required for 1-master mode)
@@ -76,14 +77,14 @@ variable "config" {
     # Each entry produces one EBS volume per instance, attached at device_name and mounted
     # at mount_path by the storage-mount ansible playbook. Survives instance replacement.
     volumes = optional(list(object({
-      name       = string                            # Unique within the class; used in resource keys and tags
-      size       = number                            # Volume size in GB
-      mount_path = string                            # Filesystem mount path inside the instance (e.g. "/opt/praxis/build")
-      type       = optional(string, "gp3")           # EBS volume type
-      iops       = optional(number)                  # Provisioned IOPS (gp3 default 3000)
-      throughput = optional(number)                  # Throughput in MiB/s (gp3 only)
-      fs_type    = optional(string, "ext4")          # Filesystem to format with on first attach
-      device     = optional(string)                  # AWS device name override; auto-assigned /dev/sd[f-p] if null
+      name       = string                   # Unique within the class; used in resource keys and tags
+      size       = number                   # Volume size in GB
+      mount_path = string                   # Filesystem mount path inside the instance (e.g. "/opt/praxis/build")
+      type       = optional(string, "gp3")  # EBS volume type
+      iops       = optional(number)         # Provisioned IOPS (gp3 default 3000)
+      throughput = optional(number)         # Throughput in MiB/s (gp3 only)
+      fs_type    = optional(string, "ext4") # Filesystem to format with on first attach
+      device     = optional(string)         # AWS device name override; auto-assigned /dev/sd[f-p] if null
     })), [])
 
     # EKS-specific fields (when type = "eks")

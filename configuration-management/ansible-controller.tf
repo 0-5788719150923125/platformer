@@ -208,6 +208,40 @@ resource "aws_scheduler_schedule" "ansible_controller" {
   }
 }
 
+# ========================================
+# On-demand trigger (state-file `redeploy` switch)
+# ========================================
+# A compute class's `redeploy` switch (true / false / "<nonce>") flows in via
+# var.redeploy_triggers. A change to that map replaces this resource and runs
+# `start-build` immediately - so a deploy converges now instead of waiting for
+# aws_scheduler_schedule.ansible_controller to fire on its interval. `redeploy: true`
+# carries a per-apply value, so the build fires on EVERY apply (expect a standing
+# plan diff on this resource); a "<nonce>" string fires only when it changes; off
+# (false/unset) means this resource doesn't exist and normal applies never build.
+# Mirrors the manual command surfaced in outputs.tf ("Run Ansible Controller").
+resource "null_resource" "trigger_ansible_controller" {
+  count = local.ansible_controller_enabled && length(var.redeploy_triggers) > 0 ? 1 : 0
+
+  # Any change to the set of class nonces (add/remove/bump) forces one new run.
+  triggers = {
+    nonces = jsonencode(var.redeploy_triggers)
+  }
+
+  depends_on = [
+    aws_codebuild_project.ansible_controller,
+    aws_scheduler_schedule.ansible_controller,
+  ]
+
+  provisioner "local-exec" {
+    # AWS_PROFILE only when set, so role-based auth (CI) isn't clobbered by an empty value.
+    command = join(" ", compact([
+      "AWS_REGION=${data.aws_region.current.id}",
+      var.aws_profile != "" ? "AWS_PROFILE=${var.aws_profile}" : "",
+      "aws codebuild start-build --project-name ${aws_codebuild_project.ansible_controller[0].name}",
+    ]))
+  }
+}
+
 # Scheduler role created by access; policy stays local (references module-internal codebuild project ARN)
 resource "aws_iam_role_policy" "ansible_controller_scheduler" {
   count = local.ansible_controller_enabled ? 1 : 0

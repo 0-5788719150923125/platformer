@@ -40,6 +40,31 @@ locals {
     local.observability_enabled ? module.observability[0].compute_class_requests : {}
   )
 
+  # Per-compute-class redeploy switch, read from each class's state file:
+  #   redeploy: true      -> forced ON  - fires the ansible-controller on EVERY apply
+  #   redeploy: false      -> forced OFF - same as omitting it
+  #   redeploy: "<nonce>"  -> fires only when the string value changes (power-user mode)
+  # Normalize whatever was written (bool or string) to a lowercased string; classes
+  # that are off ("" / "false") are dropped below.
+  redeploy_raw = {
+    for class_name, class_config in local.effective_compute_config :
+    class_name => lower(trimspace(try(tostring(class_config.redeploy), "")))
+  }
+
+  # Per-apply nonce: only used for forced-ON ("true") classes, so the trigger value
+  # changes every apply and the controller re-fires. Evaluating it here is harmless;
+  # it only produces a perpetual diff when actually referenced by a "true" class.
+  apply_nonce = timestamp()
+
+  # Final map (class -> trigger value) handed to the configuration-management module.
+  # A change to this map fires the single namespace controller. "true" -> per-apply
+  # nonce (always fires); any other non-empty value -> that literal nonce.
+  redeploy_triggers = {
+    for class_name, value in local.redeploy_raw :
+    class_name => value == "true" ? local.apply_nonce : value
+    if value != "" && value != "false"
+  }
+
   # Expand archpacs deployment entitlements to individual compute class names
   # Archpacs has multiple compute classes per deployment (e.g., depot, database)
   # Entitlement "archpacs.ec2-poc" maps to tenants_by_class["ec2-poc"]
@@ -591,6 +616,10 @@ module "configuration_management" {
   # Access return-path (IAM resources created by access module)
   access_iam_role_arns  = module.access.iam_role_arns
   access_iam_role_names = module.access.iam_role_names
+
+  # Per-class redeploy nonces (see local.redeploy_triggers). A change to this map
+  # forces an immediate ansible-controller run via the module's local-exec trigger.
+  redeploy_triggers = local.redeploy_triggers
 }
 
 # Applications Module

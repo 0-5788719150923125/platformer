@@ -4,6 +4,19 @@ variable "namespace" {
   type        = string
 }
 
+# On-demand redeploy: map of compute class name to a trigger value (from the state
+# file's `redeploy` switch, normalized at the root). A change to this map replaces
+# null_resource.trigger_ansible_controller, which runs `aws codebuild start-build`
+# immediately so the deployment converges now instead of waiting for the scheduled
+# ansible-controller run. Forced-ON ("true") classes carry a per-apply value so they
+# fire every apply; nonce classes carry the literal string and fire when it changes.
+# Empty (the default) means scheduler-only, no forced run.
+variable "redeploy_triggers" {
+  description = "Map of compute class name to redeploy trigger value; a change forces an immediate ansible-controller CodeBuild run on apply."
+  type        = map(string)
+  default     = {}
+}
+
 variable "aws_account_id" {
   description = "AWS account ID for IAM policy resources"
   type        = string

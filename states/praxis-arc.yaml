@@ -27,6 +27,12 @@ services:
       count: 1
       build: false
 
+      # On-demand redeploy switch (consumed by configuration-management):
+      #   true  -> fire the ansible-controller CodeBuild on every apply (converge now)
+      #   false -> off (scheduler-only). A "<nonce>" string also works: it fires only
+      #            when the value changes, e.g. redeploy: "2026-06-02-a".
+      redeploy: true
+
       # CPU Instance Configuration
       # t4g.medium: ARM64 Graviton2, 2 vCPU, 4GB RAM, CPU-only
       instance_type: t4g.medium

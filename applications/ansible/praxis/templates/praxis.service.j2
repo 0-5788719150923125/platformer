@@ -21,7 +21,16 @@ ExecStartPre=-/bin/bash -c 'docker compose {{ compose_files }} down --remove-orp
 # Launch through the crash supervisor, which decides whether to add --reset.
 # Args are passed through verbatim to {{ praxis_install_dir }}/launch.
 ExecStart=/bin/bash {{ praxis_install_dir }}/praxis-supervise.sh {{ praxis_launch_args }}
+# Crash counting: ExecStop runs ONLY on an intentional stop/restart (systemctl
+# stop, or Ansible's restart), never when launch exits on its own. So we drop a
+# marker here first; ExecStopPost then counts the exit as a crash ONLY when the
+# marker is absent (i.e. launch self-exited). This is how we tell a real crash
+# from an Ansible/admin restart without trusting launch's exit code.
+ExecStop=/bin/bash -c 'mkdir -p /run/praxis && : > /run/praxis/intentional-stop'
 ExecStop=/bin/bash -c 'docker compose {{ compose_files }} down --remove-orphans --timeout 10 2>/dev/null; docker ps -q --filter "ancestor=praxis-agent" | xargs -r docker rm -f'
+# Runs after the main process exits for ANY reason. No marker => crash => record
+# a timestamp the supervisor reads next start to decide on --reset.
+ExecStopPost=/bin/bash -c 'if [ -e /run/praxis/intentional-stop ]; then rm -f /run/praxis/intentional-stop; else mkdir -p /var/lib/praxis && date +%s >> /var/lib/praxis/crash-history; fi'
 TimeoutStopSec=30
 Restart=always
 RestartSec=10
