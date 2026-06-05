@@ -5,7 +5,11 @@ services:
       ai_backend: bedrock
       discord_nickname: "Ryan"
       bedrock_model_id: "us.anthropic.claude-haiku-4-5-20251001-v1:0"
-      bedrock_max_tokens: 1024
+      # Generous output budget so the model can finish tool-chained replies
+      # (e.g. explore a page, then post via send_channel_message) without the
+      # turn getting cut off mid-thought. Discord's 2000-char limit is handled
+      # downstream by splitting long replies into multiple messages.
+      bedrock_max_tokens: 8192
       bedrock_temperature: 0.4
       discord_history_limits: 23
       response_rate: 1.0

@@ -173,10 +173,16 @@ def _make_tool_executor(client, loop, allowed_channels):
 
         if tool_name == "send_channel_message":
             message = tool_input.get("message", "")
+            # Discord rejects messages over 2000 chars; with a large output
+            # budget the model can exceed that, so split into ordered chunks.
+            chunks = [message[i:i + 2000] for i in range(0, len(message), 2000)] or [""]
             try:
-                future = asyncio.run_coroutine_threadsafe(channel.send(message), loop)
-                future.result(timeout=10)
-                return {"success": True, "channel": channel_name}
+                async def _send_all():
+                    for chunk in chunks:
+                        await channel.send(chunk)
+                future = asyncio.run_coroutine_threadsafe(_send_all(), loop)
+                future.result(timeout=30)
+                return {"success": True, "channel": channel_name, "parts": len(chunks)}
             except Exception as exc:
                 return {"error": f"Failed to send message to '{channel_name}': {exc}"}
 
