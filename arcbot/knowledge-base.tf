@@ -1,4 +1,4 @@
-# Knowledge Base (RAG) infrastructure for archbot.
+# Knowledge Base (RAG) infrastructure for arcbot.
 # Provisions an S3 document store, S3 Vectors index, Bedrock Knowledge Base
 # with data source, and an ingestion pipeline triggered at apply-time.
 #
@@ -13,7 +13,7 @@ data "aws_caller_identity" "current" {}
 locals {
   aws_region = data.aws_region.current.id
   account_id = data.aws_caller_identity.current.account_id
-  kb_prefix  = "archbot-kb-${var.namespace}"
+  kb_prefix  = "arcbot-kb-${var.namespace}"
 
   # Absolute paths for each configured document source directory (merged across all KB bots).
   kb_document_abs_paths = [
@@ -109,7 +109,7 @@ resource "aws_s3vectors_index" "kb" {
 resource "aws_iam_role_policy" "bedrock_kb_s3vectors" {
   count = local.kb_enabled ? 1 : 0
   name  = "s3vectors-access"
-  role  = var.access_iam_role_names["archbot-bedrock-kb"]
+  role  = var.access_iam_role_names["arcbot-bedrock-kb"]
 
   policy = jsonencode({
     Version = "2012-10-17"
@@ -128,11 +128,11 @@ resource "aws_iam_role_policy" "bedrock_kb_s3vectors" {
 
 # -- Bedrock Knowledge Base ---------------------------------------------------
 
-resource "aws_bedrockagent_knowledge_base" "archbot" {
+resource "aws_bedrockagent_knowledge_base" "arcbot" {
   count = local.kb_enabled ? 1 : 0
   name  = local.kb_prefix
 
-  role_arn = var.access_iam_role_arns["archbot-bedrock-kb"]
+  role_arn = var.access_iam_role_arns["arcbot-bedrock-kb"]
 
   knowledge_base_configuration {
     type = "VECTOR"
@@ -161,7 +161,7 @@ resource "aws_bedrockagent_knowledge_base" "archbot" {
 resource "aws_bedrockagent_data_source" "s3" {
   count             = local.kb_enabled ? 1 : 0
   name              = "${local.kb_prefix}-s3"
-  knowledge_base_id = aws_bedrockagent_knowledge_base.archbot[0].id
+  knowledge_base_id = aws_bedrockagent_knowledge_base.arcbot[0].id
 
   data_source_configuration {
     type = "S3"
@@ -197,7 +197,7 @@ resource "aws_bedrockagent_data_source" "s3" {
   data_deletion_policy = "RETAIN"
 
   lifecycle {
-    replace_triggered_by = [aws_bedrockagent_knowledge_base.archbot[0].id]
+    replace_triggered_by = [aws_bedrockagent_knowledge_base.arcbot[0].id]
   }
 }
 
@@ -220,7 +220,7 @@ data "archive_file" "kb_ingestion_reporter" {
 resource "aws_iam_role_policy" "kb_ingestion_reporter" {
   count = local.kb_enabled ? 1 : 0
   name  = "kb-ingestion-reporter"
-  role  = var.access_iam_role_names["archbot-kb-ingestion-reporter"]
+  role  = var.access_iam_role_names["arcbot-kb-ingestion-reporter"]
 
   policy = jsonencode({
     Version = "2012-10-17"
@@ -240,7 +240,7 @@ resource "aws_iam_role_policy" "kb_ingestion_reporter" {
           "bedrock:StartIngestionJob",
           "bedrock:GetIngestionJob"
         ]
-        Resource = aws_bedrockagent_knowledge_base.archbot[0].arn
+        Resource = aws_bedrockagent_knowledge_base.arcbot[0].arn
       }
     ]
   })
@@ -251,7 +251,7 @@ resource "aws_lambda_function" "kb_ingestion_reporter" {
 
   function_name = "kb-ingestion-reporter-${var.namespace}"
   description   = "Start KB ingestion, poll to completion, report to Port event bus"
-  role          = var.access_iam_role_arns["archbot-kb-ingestion-reporter"]
+  role          = var.access_iam_role_arns["arcbot-kb-ingestion-reporter"]
   handler       = "main.handler"
   runtime       = "python3.12"
   timeout       = 900
@@ -292,7 +292,7 @@ resource "null_resource" "kb_ingestion" {
       AWS_REGION    = local.aws_region
       FUNCTION_NAME = aws_lambda_function.kb_ingestion_reporter[0].function_name
       PAYLOAD = jsonencode({
-        knowledge_base_id = aws_bedrockagent_knowledge_base.archbot[0].id
+        knowledge_base_id = aws_bedrockagent_knowledge_base.arcbot[0].id
         data_source_id    = aws_bedrockagent_data_source.s3[0].data_source_id
       })
     }
@@ -310,7 +310,7 @@ resource "null_resource" "kb_ingestion" {
 resource "aws_iam_role_policy" "lambda_kb_retrieve" {
   count = local.kb_enabled && local.has_atlassian_bots ? 1 : 0
   name  = "bedrock-kb-retrieve"
-  role  = var.access_iam_role_names["archbot-lambda"]
+  role  = var.access_iam_role_names["arcbot-lambda"]
 
   policy = jsonencode({
     Version = "2012-10-17"
@@ -318,7 +318,7 @@ resource "aws_iam_role_policy" "lambda_kb_retrieve" {
       {
         Effect   = "Allow"
         Action   = "bedrock:Retrieve"
-        Resource = aws_bedrockagent_knowledge_base.archbot[0].arn
+        Resource = aws_bedrockagent_knowledge_base.arcbot[0].arn
       }
     ]
   })

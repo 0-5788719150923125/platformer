@@ -47,7 +47,7 @@ output "bucket_requests" {
       access_logging     = false
       # Upload is handled at the root level (not here) to avoid a validation-phase cycle:
       # bucket_requests.upload_trigger = local_file.access_report.id
-      # -> access_requests -> archbot policies -> storage.bucket_arns -> bucket_requests
+      # -> access_requests -> arcbot policies -> storage.bucket_arns -> bucket_requests
     }
   ]
 }

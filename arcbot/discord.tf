@@ -26,12 +26,14 @@ resource "local_file" "discord_compose" {
     bedrock_model_id      = each.value.bedrock_model_id
     bedrock_max_tokens    = tostring(each.value.bedrock_max_tokens)
     bedrock_temperature   = tostring(each.value.bedrock_temperature)
+    image_model_id        = each.value.image_model_id
+    image_model_region    = each.value.image_model_region
     debug                 = tostring(each.value.debug)
     system_prompt_param   = aws_ssm_parameter.system_prompt[each.key].name
     deny_list             = jsonencode(each.value.deny_list)
     response_rate         = tostring(each.value.response_rate)
     discord_history_limit = tostring(each.value.discord_history_limit)
-    knowledge_base_id     = each.value.knowledge_base_enabled && local.kb_enabled ? aws_bedrockagent_knowledge_base.archbot[0].id : ""
+    knowledge_base_id     = each.value.knowledge_base_enabled && local.kb_enabled ? aws_bedrockagent_knowledge_base.arcbot[0].id : ""
     kb_max_results        = tostring(each.value.kb_max_results)
     discord_tool_channels = jsonencode(each.value.discord_tool_channels)
     aws_region            = local.aws_region

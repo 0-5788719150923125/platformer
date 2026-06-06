@@ -17,6 +17,12 @@ variable "config" {
     bedrock_temperature = optional(number, 0.3)
     deny_list           = optional(list(string), [])
 
+    # Image generation (generate_image tool). Separate region knob because the
+    # active text-to-image models (Stability core/ultra/sd3.5) live in us-west-2
+    # only; Amazon's Nova Canvas / Titan Image are Legacy (provider-locked).
+    image_model_id     = optional(string, "stability.stable-image-core-v1:1")
+    image_model_region = optional(string, "us-west-2")
+
     # Atlassian-specific (when target = "atlassian")
     atlassian_base_url       = optional(string)
     atlassian_email          = optional(string)

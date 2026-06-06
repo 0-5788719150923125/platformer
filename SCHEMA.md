@@ -8,7 +8,7 @@ This document shows the YAML structure for state fragments in `states/` director
 
 - [access](#module-access)
 - [applications](#module-applications)
-- [archbot](#module-archbot)
+- [arcbot](#module-arcbot)
 - [archivist](#module-archivist)
 - [archorchestrator](#module-archorchestrator)
 - [archpacs](#module-archpacs)
@@ -117,9 +117,9 @@ This module exports the following attributes:
 |--------|-------------|-----|
 | `requests` | All enriched application requests - consumer modules filter by type field | [./applications/outputs.tf:3](./applications/outputs.tf#L3) |
 
-## Module: archbot
+## Module: arcbot
 
-Path: [`./archbot`](./archbot)
+Path: [`./arcbot`](./arcbot)
 
 Multi-target AI bot module. Routes config by target type:
 
@@ -127,7 +127,7 @@ Multi-target AI bot module. Routes config by target type:
 
 ```yaml
 services:
-  archbot:
+  arcbot:
     <key>:
       target: string  # "atlassian" or "discord"
       ai_backend: string  # default: bedrock
@@ -138,6 +138,8 @@ services:
       bedrock_max_tokens: number  # default: 512
       bedrock_temperature: number  # default: 0
       deny_list: []  # list(string)
+      image_model_id: string  # default: stability.stable-image-core-v1:1
+      image_model_region: string  # default: us-west-2
       atlassian_base_url: string
       atlassian_email: string
       project_keys: []  # list(string)
@@ -164,17 +166,17 @@ This module supports the following arguments:
 
 | Variable | Type | Required | Description | Ref |
 |----------|------|----------|-------------|-----|
-| `namespace` | `string` | **Yes** | Unique deployment identifier for resource naming and tagging | [./archbot/variables.tf:1](./archbot/variables.tf#L1) |
-| `config` | `map(object)` | No | Map of bot configurations keyed by bot name, with target type discriminator | [./archbot/variables.tf:6](./archbot/variables.tf#L6) |
-| `atlassian_secret_arn` | `string` | **Yes** | ARN of the replicated Atlassian PAT in Secrets Manager (from secrets module) | [./archbot/variables.tf:68](./archbot/variables.tf#L68) |
-| `devin_secret_arn` | `string` | **Yes** | ARN of the replicated Devin API key in Secrets Manager (from secrets module) | [./archbot/variables.tf:73](./archbot/variables.tf#L73) |
-| `aws_profile` | `string` | No | AWS CLI profile name for provisioner scripts (KB index creation, ingestion jobs) | [./archbot/variables.tf:78](./archbot/variables.tf#L78) |
-| `kb_documents_bucket_trigger` | `string` | No | Replacement sentinel from storage module - changes when the KB documents bucket is recreated | [./archbot/variables.tf:84](./archbot/variables.tf#L84) |
-| `kb_documents_bucket_name` | `string` | No | KB documents S3 bucket name from storage module (dependency inversion) | [./archbot/variables.tf:90](./archbot/variables.tf#L90) |
-| `kb_documents_bucket_arn` | `string` | No | KB documents S3 bucket ARN from storage module (dependency inversion) | [./archbot/variables.tf:96](./archbot/variables.tf#L96) |
-| `event_bus_webhooks` | `map` | No | Event bus webhook URLs from portal module | [./archbot/variables.tf:102](./archbot/variables.tf#L102) |
-| `access_iam_role_arns` | `map` | No | IAM role ARNs from access module (keyed by module-purpose) | [./archbot/variables.tf:109](./archbot/variables.tf#L109) |
-| `access_iam_role_names` | `map` | No | IAM role names from access module (keyed by module-purpose) | [./archbot/variables.tf:115](./archbot/variables.tf#L115) |
+| `namespace` | `string` | **Yes** | Unique deployment identifier for resource naming and tagging | [./arcbot/variables.tf:1](./arcbot/variables.tf#L1) |
+| `config` | `map(object)` | No | Map of bot configurations keyed by bot name, with target type discriminator | [./arcbot/variables.tf:6](./arcbot/variables.tf#L6) |
+| `atlassian_secret_arn` | `string` | **Yes** | ARN of the replicated Atlassian PAT in Secrets Manager (from secrets module) | [./arcbot/variables.tf:74](./arcbot/variables.tf#L74) |
+| `devin_secret_arn` | `string` | **Yes** | ARN of the replicated Devin API key in Secrets Manager (from secrets module) | [./arcbot/variables.tf:79](./arcbot/variables.tf#L79) |
+| `aws_profile` | `string` | No | AWS CLI profile name for provisioner scripts (KB index creation, ingestion jobs) | [./arcbot/variables.tf:84](./arcbot/variables.tf#L84) |
+| `kb_documents_bucket_trigger` | `string` | No | Replacement sentinel from storage module - changes when the KB documents bucket is recreated | [./arcbot/variables.tf:90](./arcbot/variables.tf#L90) |
+| `kb_documents_bucket_name` | `string` | No | KB documents S3 bucket name from storage module (dependency inversion) | [./arcbot/variables.tf:96](./arcbot/variables.tf#L96) |
+| `kb_documents_bucket_arn` | `string` | No | KB documents S3 bucket ARN from storage module (dependency inversion) | [./arcbot/variables.tf:102](./arcbot/variables.tf#L102) |
+| `event_bus_webhooks` | `map` | No | Event bus webhook URLs from portal module | [./arcbot/variables.tf:108](./arcbot/variables.tf#L108) |
+| `access_iam_role_arns` | `map` | No | IAM role ARNs from access module (keyed by module-purpose) | [./arcbot/variables.tf:115](./arcbot/variables.tf#L115) |
+| `access_iam_role_names` | `map` | No | IAM role names from access module (keyed by module-purpose) | [./arcbot/variables.tf:121](./arcbot/variables.tf#L121) |
 
 ### Attributes
 
@@ -182,19 +184,19 @@ This module exports the following attributes:
 
 | Output | Description | Ref |
 |--------|-------------|-----|
-| `webhook_urls` | HTTPS endpoints receiving Atlassian webhook events (keyed by bot name) | [./archbot/outputs.tf:1](./archbot/outputs.tf#L1) |
-| `queue_urls` | SQS queue URLs receiving Atlassian events (keyed by bot name) | [./archbot/outputs.tf:6](./archbot/outputs.tf#L6) |
-| `dlq_urls` | Dead letter queue URLs for failed event processing (keyed by bot name) | [./archbot/outputs.tf:11](./archbot/outputs.tf#L11) |
-| `lambda_function_names` | Lambda function names for log tailing and manual invocation (keyed by bot name) | [./archbot/outputs.tf:16](./archbot/outputs.tf#L16) |
-| `knowledge_base_id` | Bedrock Knowledge Base ID (null when KB is disabled) | [./archbot/outputs.tf:21](./archbot/outputs.tf#L21) |
-| `bucket_requests` | Bedrock Knowledge Base document store for archbot RAG | [./archbot/outputs.tf:26](./archbot/outputs.tf#L26) |
-| `kb_documents_bucket` | S3 bucket name for KB documents (null when KB is disabled) | [./archbot/outputs.tf:39](./archbot/outputs.tf#L39) |
-| `event_bus_requests` | KB ingestion lifecycle events (archbot) | [./archbot/outputs.tf:44](./archbot/outputs.tf#L44) |
-| `commands` | Trigger KB document re-indexing for archbot RAG | [./archbot/outputs.tf:56](./archbot/outputs.tf#L56) |
-| `access_requests` | IAM access requests for the access module (access creates resources, returns ARNs) | [./archbot/outputs.tf:80](./archbot/outputs.tf#L80) |
-| `access_resource_policies` | Resource-level policies for the access module (SQS queue policy) | [./archbot/outputs.tf:86](./archbot/outputs.tf#L86) |
-| `service_url_entries` | Structured service URL entries for the portal service registry | [./archbot/outputs.tf:91](./archbot/outputs.tf#L91) |
-| `discord_bots` | Discord bot container info (keyed by bot name) | [./archbot/outputs.tf:112](./archbot/outputs.tf#L112) |
+| `webhook_urls` | HTTPS endpoints receiving Atlassian webhook events (keyed by bot name) | [./arcbot/outputs.tf:1](./arcbot/outputs.tf#L1) |
+| `queue_urls` | SQS queue URLs receiving Atlassian events (keyed by bot name) | [./arcbot/outputs.tf:6](./arcbot/outputs.tf#L6) |
+| `dlq_urls` | Dead letter queue URLs for failed event processing (keyed by bot name) | [./arcbot/outputs.tf:11](./arcbot/outputs.tf#L11) |
+| `lambda_function_names` | Lambda function names for log tailing and manual invocation (keyed by bot name) | [./arcbot/outputs.tf:16](./arcbot/outputs.tf#L16) |
+| `knowledge_base_id` | Bedrock Knowledge Base ID (null when KB is disabled) | [./arcbot/outputs.tf:21](./arcbot/outputs.tf#L21) |
+| `bucket_requests` | Bedrock Knowledge Base document store for arcbot RAG | [./arcbot/outputs.tf:26](./arcbot/outputs.tf#L26) |
+| `kb_documents_bucket` | S3 bucket name for KB documents (null when KB is disabled) | [./arcbot/outputs.tf:39](./arcbot/outputs.tf#L39) |
+| `event_bus_requests` | KB ingestion lifecycle events (arcbot) | [./arcbot/outputs.tf:44](./arcbot/outputs.tf#L44) |
+| `commands` | Trigger KB document re-indexing for arcbot RAG | [./arcbot/outputs.tf:56](./arcbot/outputs.tf#L56) |
+| `access_requests` | IAM access requests for the access module (access creates resources, returns ARNs) | [./arcbot/outputs.tf:80](./arcbot/outputs.tf#L80) |
+| `access_resource_policies` | Resource-level policies for the access module (SQS queue policy) | [./arcbot/outputs.tf:86](./arcbot/outputs.tf#L86) |
+| `service_url_entries` | Structured service URL entries for the portal service registry | [./arcbot/outputs.tf:91](./arcbot/outputs.tf#L91) |
+| `discord_bots` | Discord bot container info (keyed by bot name) | [./arcbot/outputs.tf:112](./arcbot/outputs.tf#L112) |
 
 ## Module: archivist
 
@@ -1253,7 +1255,7 @@ This module exports the following attributes:
 | `archorchestrator` | Enable archorchestrator module (explicitly configured) | [./resolver/outputs.tf:56](./resolver/outputs.tf#L56) |
 | `portal` | Enable portal module (explicit opt-in required) | [./resolver/outputs.tf:61](./resolver/outputs.tf#L61) |
 | `observability` | Enable observability module (explicitly configured) | [./resolver/outputs.tf:66](./resolver/outputs.tf#L66) |
-| `archbot` | Enable archbot module (explicitly configured) | [./resolver/outputs.tf:71](./resolver/outputs.tf#L71) |
+| `arcbot` | Enable arcbot module (explicitly configured) | [./resolver/outputs.tf:71](./resolver/outputs.tf#L71) |
 
 ## Module: root
 

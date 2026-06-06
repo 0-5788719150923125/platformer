@@ -31,7 +31,7 @@ services:
       #   true  -> fire the ansible-controller CodeBuild on every apply (converge now)
       #   false -> off (scheduler-only). A "<nonce>" string also works: it fires only
       #            when the value changes, e.g. redeploy: "2026-06-02-a".
-      redeploy: false
+      redeploy: true
 
       # Force reboot: true HARD stop/starts the instance on EVERY apply (clears OOM
       # memory pressure; uses stop-instances --force, so a hung box cannot ignore it).

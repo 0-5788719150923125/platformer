@@ -1,4 +1,4 @@
-"""archbot Discord Bot - Standalone container process.
+"""arcbot Discord Bot - Standalone container process.
 
 Connects to Discord via discord.py, responds to mentions/replies/DMs using
 the shared Bedrock Converse backend (ai_backend.py). Adapted from the praxis
@@ -23,19 +23,25 @@ async def _noop_context():
     """No-op async context manager — replaces typing indicator for ambient messages."""
     yield
 
+import io
+import time
+
 from ai_backend import (
     bedrock_converse,
     compose_system_prompt,
     execute_tool,
+    generate_image,
+    merge_text_into_content,
     load_env,
     load_system_prompt,
     retrieve_kb_context,
+    IMAGE_ORIENTATIONS,
     NO_RESPONSE_SENTINEL,
     TOOL_DEFINITIONS,
 )
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(name)s %(levelname)s %(message)s")
-logger = logging.getLogger("archbot.discord")
+logger = logging.getLogger("arcbot.discord")
 
 # ── Environment ──────────────────────────────────────────────────────────────
 
@@ -44,7 +50,7 @@ SYSTEM_PROMPT = load_system_prompt()
 EFFECTIVE_SYSTEM_PROMPT = compose_system_prompt(SYSTEM_PROMPT, ENV["deny_list"])
 
 DISCORD_TOKEN = os.environ["DISCORD_TOKEN"]
-BOT_NAME = os.environ.get("BOT_NAME", "archbot")
+BOT_NAME = os.environ.get("BOT_NAME", "arcbot")
 DISCORD_NICKNAME = os.environ.get("DISCORD_NICKNAME", "")
 DISCORD_HISTORY_LIMIT = int(os.environ.get("DISCORD_HISTORY_LIMIT", "20"))
 DISCORD_TOOL_CHANNELS = json.loads(os.environ.get("DISCORD_TOOL_CHANNELS", "[]"))
@@ -152,10 +158,82 @@ READ_CHANNEL_MESSAGES_TOOL = {
 }
 
 
-def _make_tool_executor(client, loop, allowed_channels):
-    """Return a tool executor that handles Discord channel tools and delegates the rest."""
+GENERATE_IMAGE_TOOL = {
+    "toolSpec": {
+        "name": "generate_image",
+        "description": (
+            "Generate an image from a text prompt and post it to a Discord "
+            "channel as an attachment - by default the current channel, or a "
+            "whitelisted channel named via channel_name. Use this when a user "
+            "asks you to draw, create, render, imagine, or visualize something. "
+            "The generated image is also returned to you so you can see what was "
+            "produced and describe or caption it in your reply. Write prompts as "
+            "rich visual descriptions (subject, style, lighting, composition) "
+            "rather than conversational requests."
+        ),
+        "inputSchema": {
+            "json": {
+                "type": "object",
+                "properties": {
+                    "prompt": {
+                        "type": "string",
+                        "description": (
+                            "Visual description of the image to generate "
+                            "(max ~1000 chars)."
+                        ),
+                    },
+                    "negative_prompt": {
+                        "type": "string",
+                        "description": (
+                            "Optional: things to avoid in the image, as a plain "
+                            "description (e.g. 'text, watermarks, blurry')."
+                        ),
+                    },
+                    "orientation": {
+                        "type": "string",
+                        "enum": sorted(IMAGE_ORIENTATIONS),
+                        "description": "Image shape (default: square).",
+                    },
+                    "channel_name": {
+                        "type": "string",
+                        "description": (
+                            "Optional: name of a whitelisted Discord channel to "
+                            "post the image to. Omit to post to the current "
+                            "channel/DM."
+                        ),
+                    },
+                },
+                "required": ["prompt"],
+            }
+        },
+    }
+}
+
+
+def _make_tool_executor(client, loop, allowed_channels, origin_channel=None):
+    """Return a tool executor that handles Discord-specific tools and delegates the rest."""
 
     def executor(tool_name, tool_input):
+        if tool_name == "generate_image":
+            # Optional cross-channel posting, whitelist-gated like the channel
+            # tools; default destination is the originating channel/DM.
+            target = origin_channel
+            channel_name = (tool_input.get("channel_name") or "").strip()
+            if channel_name:
+                if channel_name not in allowed_channels:
+                    return {"error": (
+                        f"Channel '{channel_name}' is not in the allowed list. "
+                        f"Allowed: {allowed_channels}. Omit channel_name to post "
+                        "to the current channel."
+                    )}
+                target = discord.utils.get(
+                    (c for c in client.get_all_channels() if isinstance(c, discord.TextChannel)),
+                    name=channel_name,
+                )
+                if target is None:
+                    return {"error": f"Channel '{channel_name}' not found on this server."}
+            return _execute_generate_image(loop, target, tool_input)
+
         if tool_name not in ("send_channel_message", "read_channel_messages"):
             return execute_tool(tool_name, tool_input)
 
@@ -270,10 +348,59 @@ def _make_tool_executor(client, loop, allowed_channels):
     return executor
 
 
+def _execute_generate_image(loop, origin_channel, tool_input):
+    """Generate an image via Bedrock and post it to the originating channel.
+
+    Returns a content-blocks list (text status + the image itself) so the model
+    can see what it produced and caption it, mirroring read_channel_messages.
+    """
+    prompt = (tool_input.get("prompt") or "").strip()
+    if not prompt:
+        return {"error": "generate_image requires a non-empty prompt."}
+    if origin_channel is None:
+        return {"error": "No channel available to post the image to."}
+
+    try:
+        data = generate_image(
+            prompt,
+            negative_prompt=tool_input.get("negative_prompt"),
+            orientation=tool_input.get("orientation", "square"),
+        )
+    except Exception as exc:
+        logger.warning("Image generation failed: %s", exc)
+        return {"error": f"Image generation failed: {type(exc).__name__}: {exc}"}
+
+    filename = f"arcbot-{int(time.time())}.png"
+    try:
+        async def _post():
+            await origin_channel.send(
+                file=discord.File(io.BytesIO(data), filename=filename)
+            )
+        future = asyncio.run_coroutine_threadsafe(_post(), loop)
+        future.result(timeout=30)
+    except Exception as exc:
+        logger.warning("Posting generated image failed: %s", exc)
+        return {"error": f"Image was generated but posting to Discord failed: {exc}"}
+
+    logger.info("Generated and posted image %s (%d bytes)", filename, len(data))
+    return [
+        {"text": json.dumps({
+            "success": True,
+            "filename": filename,
+            "note": (
+                "The image below was generated and already posted to the channel "
+                "as an attachment - do NOT post it again. You may briefly caption "
+                "or describe it in your reply."
+            ),
+        })},
+        {"image": {"format": "png", "source": {"bytes": data}}},
+    ]
+
+
 # ── Discord Bot ──────────────────────────────────────────────────────────────
 
 
-class ArchbotDiscord:
+class ArcbotDiscord:
     """Discord bot that uses Bedrock Converse for response generation."""
 
     def __init__(self):
@@ -371,6 +498,12 @@ class ArchbotDiscord:
         for msg in reversed(history):
             if image_count >= MAX_IMAGES_PER_CALL:
                 break
+            # Never ingest the bot's own attachments (e.g. generated images):
+            # they would become image blocks on ASSISTANT messages, which
+            # Bedrock rejects - and an image-only bot message yields a
+            # text-less assistant content list.
+            if msg.author == self.client.user:
+                continue
             for attachment in msg.attachments:
                 if image_count >= MAX_IMAGES_PER_CALL:
                     break
@@ -425,10 +558,10 @@ class ArchbotDiscord:
                 continue
 
             # Merge consecutive same-role messages: text concatenates into the
-            # first text block; image blocks accumulate at the end of content.
+            # first text block (which is NOT necessarily content[0] - an
+            # image-only message has no text block); images accumulate at the end.
             if messages and messages[-1]["role"] == role:
-                if text:
-                    messages[-1]["content"][0]["text"] += f"\n\n{text}"
+                merge_text_into_content(messages[-1]["content"], text)
                 messages[-1]["content"].extend(image_blocks)
             else:
                 new_content = [{"text": text}] if text else []
@@ -469,7 +602,9 @@ class ArchbotDiscord:
             "When Discord users attach images to their messages, those images appear "
             "inline in the conversation history you receive. You can see them directly. "
             "Treat them as part of the conversation - describe, reason about, or quote "
-            "text from them when relevant to the discussion."
+            "text from them when relevant to the discussion. You can also CREATE "
+            "images: when a user asks you to draw, render, or visualize something, "
+            "call the generate_image tool with a rich visual prompt."
         )
         if ENV["knowledge_base_id"]:
             # Use the triggering message as the KB query
@@ -481,14 +616,17 @@ class ArchbotDiscord:
         context_id = f"discord-{message.channel.id}-{message.id}"
 
         # Build tool list — shared defaults (whoami, query_iam_permissions, fetch_url)
-        # plus cross-channel messaging when channels are configured.
+        # plus image generation (always) and cross-channel messaging when configured.
         tools = list(TOOL_DEFINITIONS)
-        tool_executor = None
+        tools.append(GENERATE_IMAGE_TOOL)
         if DISCORD_TOOL_CHANNELS:
             tools.append(READ_CHANNEL_MESSAGES_TOOL)
             tools.append(SEND_CHANNEL_MESSAGE_TOOL)
-            loop = asyncio.get_event_loop()
-            tool_executor = _make_tool_executor(self.client, loop, DISCORD_TOOL_CHANNELS)
+        loop = asyncio.get_event_loop()
+        tool_executor = _make_tool_executor(
+            self.client, loop, DISCORD_TOOL_CHANNELS,
+            origin_channel=message.channel,
+        )
 
         # Run Bedrock call in thread pool to avoid blocking the event loop
         loop = asyncio.get_event_loop()
@@ -509,5 +647,5 @@ class ArchbotDiscord:
 # ── Main ─────────────────────────────────────────────────────────────────────
 
 if __name__ == "__main__":
-    bot = ArchbotDiscord()
+    bot = ArcbotDiscord()
     bot.run()

@@ -6,7 +6,7 @@ locals {
     local.configuration_management_enabled ? module.configuration_management[0].commands : [],
     local.compute_enabled ? module.compute[0].commands : [],
     local.compute_enabled && length(module.build) > 0 ? module.build[0].commands : [],
-    local.archbot_enabled ? module.archbot[0].commands : [],
+    local.arcbot_enabled ? module.arcbot[0].commands : [],
     local.storage_enabled ? module.storage[0].commands : [],
   )
 
@@ -116,9 +116,9 @@ locals {
       } : {}
     ) : {},
 
-    # archbot webhook URLs (one per atlassian bot)
-    local.archbot_enabled ? {
-      for entry in module.archbot[0].service_url_entries :
+    # arcbot webhook URLs (one per atlassian bot)
+    local.arcbot_enabled ? {
+      for entry in module.arcbot[0].service_url_entries :
       entry.deployment => entry
     } : {},
 

@@ -35,9 +35,9 @@ targets:
     - ssm-collection
     - patch-management-legacy-prod
 
-  # archbot: Discord bot (local Docker deployment, any dev account)
+  # arcbot: Discord bot (local Docker deployment, any dev account)
   # '*-platform-dev':
-  #   - archbot
+  #   - arcbot
 
   # '*-platform-dev':
   #   - regions-most

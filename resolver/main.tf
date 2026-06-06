@@ -119,7 +119,7 @@ locals {
     # Supports services.portal.enabled: false to disable without removing the key
     portal = contains(keys(var.service_configs), "portal") && try(var.service_configs["portal"].enabled, true)
 
-    # archbot: event-driven AI automation pipeline (Jira-bot and future interfaces)
-    archbot = contains(keys(var.service_configs), "archbot")
+    # arcbot: event-driven AI automation pipeline (Jira-bot and future interfaces)
+    arcbot = contains(keys(var.service_configs), "arcbot")
   }
 }

@@ -1,4 +1,4 @@
-"""Shared AI backend for archbot.
+"""Shared AI backend for arcbot.
 
 Reusable Bedrock Converse loop, KB retrieval, tool execution, and prompt
 composition logic consumed by both the Atlassian Lambda and the Discord bot.
@@ -33,6 +33,13 @@ def load_env():
         "response_rate": float(os.environ.get("RESPONSE_RATE", "0.25")),
         "knowledge_base_id": os.environ.get("KNOWLEDGE_BASE_ID", ""),
         "kb_max_results": int(os.environ.get("KB_MAX_RESULTS", "5")),
+        # Image generation (generate_image tool). The client pins its own region
+        # independently of the text model's: active text-to-image models
+        # (Stability core/ultra/sd3.5) currently live in us-west-2 only -
+        # us-east-1 has just editing/upscale tools, and Amazon's Nova Canvas /
+        # Titan Image are both marked Legacy (provider-locked).
+        "image_model_id": os.environ.get("IMAGE_MODEL_ID", "stability.stable-image-core-v1:1"),
+        "image_model_region": os.environ.get("IMAGE_MODEL_REGION", "us-west-2"),
     }
 
 
@@ -92,7 +99,7 @@ TOOL_DEFINITIONS = [
         "toolSpec": {
             "name": "whoami",
             "description": (
-                "Returns the archbot Lambda's own AWS identity (account, ARN, role name) "
+                "Returns the arcbot Lambda's own AWS identity (account, ARN, role name) "
                 "and the IAM policies attached to its execution role. Use this when asked "
                 "about the bot's own permissions, role, or identity."
             ),
@@ -314,7 +321,7 @@ def _safe_http_get(url, raw_mode=False):
     conn = conn_cls(host, port, timeout=FETCH_URL_TIMEOUT)
     try:
         conn.request("GET", path, headers={
-            "User-Agent": "archbot/1.0",
+            "User-Agent": "arcbot/1.0",
             "Accept": "text/html, text/plain, application/json, application/xml, */*;q=0.5",
         })
         resp = conn.getresponse()
@@ -384,7 +391,103 @@ def _tool_fetch_url(url, raw=False):
         return {"url": url, "error": f"Fetch failed: {type(exc).__name__}: {exc}"}
 
 
+# ── Image generation (generate_image tool) ──────────────────────────────────
+
+# Orientation presets. Stability models take an aspect_ratio string; Amazon
+# models (Nova Canvas / Titan, both currently Legacy) take explicit pixel
+# dimensions (multiples of 16).
+IMAGE_ORIENTATIONS = {
+    "square": {"aspect_ratio": "1:1", "size": (1024, 1024)},
+    "landscape": {"aspect_ratio": "16:9", "size": (1344, 768)},
+    "portrait": {"aspect_ratio": "9:16", "size": (768, 1344)},
+}
+
+
+def generate_image(prompt, negative_prompt=None, orientation="square"):
+    """Generate one PNG image via Bedrock invoke_model.
+
+    Supports both request shapes: Stability (stability.*: stable-image-core/
+    ultra, sd3.5) and Amazon (amazon.*: Nova Canvas / Titan Image). Returns the
+    decoded image bytes. Raises on failure - callers wrap errors into
+    tool-result dicts.
+    """
+    import base64
+    import random as _random
+
+    env = load_env()
+    model_id = env["image_model_id"]
+    preset = IMAGE_ORIENTATIONS.get(orientation, IMAGE_ORIENTATIONS["square"])
+    seed = _random.randint(0, 858993459)
+
+    if model_id.startswith("stability."):
+        body = {
+            "prompt": prompt[:10000],
+            "aspect_ratio": preset["aspect_ratio"],
+            "output_format": "png",
+            "mode": "text-to-image",
+            "seed": seed,
+        }
+        if negative_prompt:
+            body["negative_prompt"] = negative_prompt[:10000]
+    else:
+        # Amazon shape (Nova Canvas / Titan Image)
+        width, height = preset["size"]
+        params = {"text": prompt[:1024]}
+        if negative_prompt:
+            params["negativeText"] = negative_prompt[:1024]
+        body = {
+            "taskType": "TEXT_IMAGE",
+            "textToImageParams": params,
+            "imageGenerationConfig": {
+                "numberOfImages": 1,
+                "width": width,
+                "height": height,
+                "quality": "standard",
+                "cfgScale": 6.5,
+                "seed": seed,
+            },
+        }
+
+    client = boto3.client("bedrock-runtime", region_name=env["image_model_region"])
+    response = client.invoke_model(
+        modelId=model_id,
+        body=json.dumps(body),
+        contentType="application/json",
+        accept="application/json",
+    )
+    payload = json.loads(response["body"].read())
+    if payload.get("error"):
+        raise RuntimeError(f"Image generation error: {payload['error']}")
+    # Stability reports content filtering via finish_reasons (null = success).
+    finish_reasons = payload.get("finish_reasons") or []
+    if finish_reasons and finish_reasons[0]:
+        raise RuntimeError(f"Image generation filtered: {finish_reasons[0]}")
+    images = payload.get("images") or []
+    if not images:
+        raise RuntimeError("Image generation returned no images")
+    logger.info(
+        "Generated %s image via %s (%d chars of prompt)",
+        orientation, model_id, len(prompt),
+    )
+    return base64.b64decode(images[0])
+
+
 # ── Message sanitization ─────────────────────────────────────────────────────
+
+
+def merge_text_into_content(content, text):
+    """Append text to a content-blocks list's first text block, or prepend one.
+
+    Content lists are NOT guaranteed to lead with a text block (e.g. an
+    image-only message), so never assume content[0] carries 'text'.
+    """
+    if not text:
+        return
+    for block in content:
+        if "text" in block:
+            block["text"] = f"{block['text']}\n\n{text}".strip()
+            return
+    content.insert(0, {"text": text})
 
 
 def sanitize_messages(messages, context_id):
@@ -410,11 +513,15 @@ def sanitize_messages(messages, context_id):
             )
             continue
 
-        # Re-merge with previous message if same role (can happen after drops)
+        # Re-merge with previous message if same role (can happen after drops).
+        # Text folds into the previous message's first text block; non-text
+        # blocks (images) carry over as-is.
         if clean and clean[-1]["role"] == role:
-            prev_text = clean[-1]["content"][0].get("text", "")
-            curr_text = valid[0].get("text", "")
-            clean[-1]["content"][0]["text"] = f"{prev_text}\n\n{curr_text}".strip()
+            for block in valid:
+                if "text" in block:
+                    merge_text_into_content(clean[-1]["content"], block["text"])
+                else:
+                    clean[-1]["content"].append(block)
         else:
             clean.append({"role": role, "content": valid})
 
@@ -475,7 +582,12 @@ def bedrock_converse(messages, context_id, system_text="", model_id=None,
         output_message = response["output"]["message"]
 
         if stop_reason == "end_turn":
-            final_text = output_message["content"][0]["text"]
+            # Content can be empty or non-text-first (e.g. the model ended its
+            # turn with nothing to add after delivering output through a tool
+            # like send_channel_message) - never assume content[0]["text"].
+            final_text = "".join(
+                block.get("text", "") for block in output_message.get("content", [])
+            )
             text = "".join(text_prefix_parts) + final_text
             logger.info(
                 "Bedrock response for %s: %d chars (%d continuation parts), %d turns, %d tool iterations (model=%s)",

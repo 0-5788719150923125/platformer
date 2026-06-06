@@ -2,7 +2,7 @@ services:
   ${bot_name}:
     build:
       context: ${build_context}
-    container_name: archbot-${bot_name}-${namespace}
+    container_name: arcbot-${bot_name}-${namespace}
     restart: unless-stopped
     env_file:
       - path: ${env_file}
@@ -18,6 +18,8 @@ services:
       BEDROCK_MODEL_ID: "${bedrock_model_id}"
       BEDROCK_MAX_TOKENS: "${bedrock_max_tokens}"
       BEDROCK_TEMPERATURE: "${bedrock_temperature}"
+      IMAGE_MODEL_ID: "${image_model_id}"
+      IMAGE_MODEL_REGION: "${image_model_region}"
       DEBUG_MODE: "${debug}"
       SYSTEM_PROMPT_PARAM: "${system_prompt_param}"
       DENY_LIST: '${deny_list}'

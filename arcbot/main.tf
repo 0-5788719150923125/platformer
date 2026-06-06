@@ -1,4 +1,4 @@
-# archbot Module
+# arcbot Module
 # Multi-target AI automation pipeline. Routes bot configs by target type:
 #   - atlassian: API Gateway -> SQS -> Lambda -> Bedrock -> Jira REST API
 #   - discord:   Local Docker container -> Bedrock -> Discord API
@@ -26,11 +26,11 @@ locals {
 resource "aws_sqs_queue" "dlq" {
   for_each = local.atlassian_bots
 
-  name                      = "archbot-${each.key}-dlq-${var.namespace}"
+  name                      = "arcbot-${each.key}-dlq-${var.namespace}"
   message_retention_seconds = 1209600 # 14 days
 
   tags = {
-    Name      = "archbot-${each.key}-dlq-${var.namespace}"
+    Name      = "arcbot-${each.key}-dlq-${var.namespace}"
     Namespace = var.namespace
   }
 }
@@ -38,7 +38,7 @@ resource "aws_sqs_queue" "dlq" {
 resource "aws_sqs_queue" "main" {
   for_each = local.atlassian_bots
 
-  name                       = "archbot-${each.key}-${var.namespace}"
+  name                       = "arcbot-${each.key}-${var.namespace}"
   visibility_timeout_seconds = each.value.queue_visibility_timeout
   message_retention_seconds  = 86400 # 1 day
 
@@ -48,7 +48,7 @@ resource "aws_sqs_queue" "main" {
   })
 
   tags = {
-    Name      = "archbot-${each.key}-${var.namespace}"
+    Name      = "arcbot-${each.key}-${var.namespace}"
     Namespace = var.namespace
   }
 }
@@ -64,7 +64,7 @@ resource "aws_sqs_queue_policy" "main" {
       {
         Sid       = "AllowAPIGateway"
         Effect    = "Allow"
-        Principal = { AWS = var.access_iam_role_arns["archbot-api-gateway-sqs"] }
+        Principal = { AWS = var.access_iam_role_arns["arcbot-api-gateway-sqs"] }
         Action    = "sqs:SendMessage"
         Resource  = aws_sqs_queue.main[each.key].arn
       }
@@ -74,15 +74,15 @@ resource "aws_sqs_queue_policy" "main" {
 
 # ── API Gateway (HTTP API) ────────────────────────────────────────────────────
 
-resource "aws_apigatewayv2_api" "archbot" {
+resource "aws_apigatewayv2_api" "arcbot" {
   for_each = local.atlassian_bots
 
-  name          = "archbot-${each.key}-${var.namespace}"
+  name          = "arcbot-${each.key}-${var.namespace}"
   protocol_type = "HTTP"
-  description   = "Atlassian Automation webhook receiver for archbot ${each.key} (${var.namespace})"
+  description   = "Atlassian Automation webhook receiver for arcbot ${each.key} (${var.namespace})"
 
   tags = {
-    Name      = "archbot-${each.key}-${var.namespace}"
+    Name      = "arcbot-${each.key}-${var.namespace}"
     Namespace = var.namespace
   }
 }
@@ -90,16 +90,16 @@ resource "aws_apigatewayv2_api" "archbot" {
 resource "terraform_data" "sqs_integration_key" {
   for_each = local.atlassian_bots
 
-  input = var.access_iam_role_arns["archbot-api-gateway-sqs"]
+  input = var.access_iam_role_arns["arcbot-api-gateway-sqs"]
 }
 
 resource "aws_apigatewayv2_integration" "sqs" {
   for_each = local.atlassian_bots
 
-  api_id              = aws_apigatewayv2_api.archbot[each.key].id
+  api_id              = aws_apigatewayv2_api.arcbot[each.key].id
   integration_type    = "AWS_PROXY"
   integration_subtype = "SQS-SendMessage"
-  credentials_arn     = var.access_iam_role_arns["archbot-api-gateway-sqs"]
+  credentials_arn     = var.access_iam_role_arns["arcbot-api-gateway-sqs"]
 
   request_parameters = {
     "QueueUrl"    = aws_sqs_queue.main[each.key].url
@@ -115,7 +115,7 @@ resource "aws_apigatewayv2_integration" "sqs" {
 resource "aws_apigatewayv2_route" "events" {
   for_each = local.atlassian_bots
 
-  api_id    = aws_apigatewayv2_api.archbot[each.key].id
+  api_id    = aws_apigatewayv2_api.arcbot[each.key].id
   route_key = "POST /events"
   target    = "integrations/${aws_apigatewayv2_integration.sqs[each.key].id}"
 }
@@ -123,12 +123,12 @@ resource "aws_apigatewayv2_route" "events" {
 resource "aws_apigatewayv2_stage" "default" {
   for_each = local.atlassian_bots
 
-  api_id      = aws_apigatewayv2_api.archbot[each.key].id
+  api_id      = aws_apigatewayv2_api.arcbot[each.key].id
   name        = "$default"
   auto_deploy = true
 
   tags = {
-    Name      = "archbot-${each.key}-${var.namespace}"
+    Name      = "arcbot-${each.key}-${var.namespace}"
     Namespace = var.namespace
   }
 }
@@ -139,7 +139,7 @@ resource "aws_iam_role_policy" "api_gateway_sqs" {
   for_each = local.atlassian_bots
 
   name = "sqs-send-message-${each.key}"
-  role = var.access_iam_role_names["archbot-api-gateway-sqs"]
+  role = var.access_iam_role_names["arcbot-api-gateway-sqs"]
 
   policy = jsonencode({
     Version = "2012-10-17"
@@ -158,7 +158,7 @@ resource "aws_iam_role_policy" "api_gateway_sqs" {
 resource "aws_ssm_parameter" "system_prompt" {
   for_each = var.config
 
-  name  = "/platformer/${var.namespace}/archbot/${each.key}/system_prompt"
+  name  = "/platformer/${var.namespace}/arcbot/${each.key}/system_prompt"
   type  = "String"
   value = each.value.system_prompt
 
@@ -172,8 +172,8 @@ resource "aws_ssm_parameter" "system_prompt" {
 resource "aws_iam_role_policy" "lambda" {
   for_each = local.atlassian_bots
 
-  name = "archbot-lambda-${each.key}-${var.namespace}"
-  role = var.access_iam_role_names["archbot-lambda"]
+  name = "arcbot-lambda-${each.key}-${var.namespace}"
+  role = var.access_iam_role_names["arcbot-lambda"]
 
   policy = jsonencode({
     Version = "2012-10-17"
@@ -269,9 +269,9 @@ data "archive_file" "atlassian_bot" {
 resource "aws_lambda_function" "atlassian_bot" {
   for_each = local.atlassian_bots
 
-  function_name = "archbot-${each.key}-${var.namespace}"
+  function_name = "arcbot-${each.key}-${var.namespace}"
   description   = "Processes Atlassian ticket events via AI and posts responses as comments (${each.key})"
-  role          = var.access_iam_role_arns["archbot-lambda"]
+  role          = var.access_iam_role_arns["arcbot-lambda"]
   handler       = "main.handler"
   runtime       = "python3.12"
   timeout       = each.value.lambda_timeout
@@ -299,14 +299,14 @@ resource "aws_lambda_function" "atlassian_bot" {
         RESPONSE_RATE       = tostring(each.value.response_rate)
       },
       each.value.knowledge_base_enabled ? {
-        KNOWLEDGE_BASE_ID = aws_bedrockagent_knowledge_base.archbot[0].id
+        KNOWLEDGE_BASE_ID = aws_bedrockagent_knowledge_base.arcbot[0].id
         KB_MAX_RESULTS    = tostring(each.value.kb_max_results)
       } : {}
     )
   }
 
   tags = {
-    Name      = "archbot-${each.key}-${var.namespace}"
+    Name      = "arcbot-${each.key}-${var.namespace}"
     Namespace = var.namespace
   }
 }

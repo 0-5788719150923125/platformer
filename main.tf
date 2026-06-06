@@ -28,7 +28,7 @@ locals {
   archorchestrator_enabled         = module.resolver.archorchestrator
   portal_enabled                   = module.resolver.portal
   observability_enabled            = module.resolver.observability
-  archbot_enabled                  = module.resolver.archbot
+  arcbot_enabled                   = module.resolver.arcbot
 
   # Effective compute config: merge top-level compute with module-emitted compute classes
   # Modules like archshare/archpacs/archorchestrator define compute classes internally and emit them
@@ -164,7 +164,7 @@ locals {
   # Event bus webhook requests (dependency inversion)
   event_bus_requests = concat(
     local.configuration_management_enabled ? module.configuration_management[0].event_bus_requests : [],
-    local.archbot_enabled ? module.archbot[0].event_bus_requests : []
+    local.arcbot_enabled ? module.arcbot[0].event_bus_requests : []
   )
 
   # Shared portal namespace - non-default workspaces inherit the default workspace's namespace
@@ -189,7 +189,7 @@ module "namespace" {
 
 # Cross-workspace namespace inheritance
 # When running in a non-default workspace, read the default workspace's deployed namespace.
-# This allows archbot, praxis, and other named workspaces to share the same Port.io catalog
+# This allows arcbot, praxis, and other named workspaces to share the same Port.io catalog
 # and namespace-scoped resources as the default workspace instead of creating isolated duplicates.
 # Prerequisite: the default workspace must have been applied at least once (terraform.tfstate must exist).
 data "terraform_remote_state" "default_workspace" {
@@ -223,7 +223,7 @@ module "access" {
     local.compute_enabled ? module.compute[0].access_requests : [],
     local.compute_enabled ? module.build[0].access_requests : [],
     local.archorchestrator_enabled ? module.archorchestrator[0].access_requests : [],
-    local.archbot_enabled ? module.archbot[0].access_requests : [],
+    local.arcbot_enabled ? module.arcbot[0].access_requests : [],
     local.legacy_enabled ? module.legacy[0].access_requests : [],
     local.configuration_management_enabled ? module.configuration_management[0].access_requests : [],
   )
@@ -240,7 +240,7 @@ module "access" {
 
   resource_policies = concat(
     local.storage_enabled ? module.storage[0].access_resource_policies : [],
-    local.archbot_enabled ? module.archbot[0].access_resource_policies : [],
+    local.arcbot_enabled ? module.arcbot[0].access_resource_policies : [],
   )
 }
 
@@ -381,7 +381,7 @@ module "storage" {
     local.archpacs_enabled ? module.archpacs[0].bucket_requests : [],
     local.archorchestrator_enabled ? module.archorchestrator[0].bucket_requests : [],
     local.observability_enabled ? module.observability[0].bucket_requests : [],
-    local.archbot_enabled ? module.archbot[0].bucket_requests : [],
+    local.arcbot_enabled ? module.arcbot[0].bucket_requests : [],
   )
 
   # Collect RDS cluster/instance request definitions from all modules (dependency inversion pattern)
@@ -828,30 +828,37 @@ module "archorchestrator" {
   access_iam_role_names = module.access.iam_role_names
 }
 
-# archbot Module
+# arcbot Module
 # Event-driven AI automation pipeline - Jira webhook -> SQS -> Lambda -> Devin -> Jira comment
 # No dependencies on compute, storage, or networking modules
-module "archbot" {
-  count  = local.archbot_enabled ? 1 : 0
-  source = "./archbot"
+module "arcbot" {
+  count  = local.arcbot_enabled ? 1 : 0
+  source = "./arcbot"
 
   namespace   = module.namespace.id
-  config      = module.config.service_configs["archbot"]
+  config      = module.config.service_configs["arcbot"]
   aws_profile = module.workspaces.aws_profile
 
   # Secrets replicated by the secrets module (dependency inversion)
-  atlassian_secret_arn = local.secrets_enabled ? module.secrets[0].replicated_secret_arns["archbot/atlassian_pat"] : ""
-  devin_secret_arn     = local.secrets_enabled ? module.secrets[0].replicated_secret_arns["archbot/devin_api_key"] : ""
+  atlassian_secret_arn = local.secrets_enabled ? module.secrets[0].replicated_secret_arns["arcbot/atlassian_pat"] : ""
+  devin_secret_arn     = local.secrets_enabled ? module.secrets[0].replicated_secret_arns["arcbot/devin_api_key"] : ""
 
   # Event bus webhooks from portal module (dependency inversion)
   event_bus_webhooks = local.portal_enabled ? module.portal[0].event_bus_webhooks : {}
 
   # KB documents bucket from storage module (dependency inversion)
-  kb_documents_bucket_name    = local.storage_enabled && contains(keys(module.storage[0].bucket_names), "archbot-kb-docs") ? module.storage[0].bucket_names["archbot-kb-docs"] : ""
-  kb_documents_bucket_arn     = local.storage_enabled && contains(keys(module.storage[0].bucket_arns), "archbot-kb-docs") ? module.storage[0].bucket_arns["archbot-kb-docs"] : ""
-  kb_documents_bucket_trigger = local.storage_enabled && contains(keys(module.storage[0].bucket_replacement_triggers), "archbot-kb-docs") ? module.storage[0].bucket_replacement_triggers["archbot-kb-docs"] : ""
+  kb_documents_bucket_name    = local.storage_enabled && contains(keys(module.storage[0].bucket_names), "arcbot-kb-docs") ? module.storage[0].bucket_names["arcbot-kb-docs"] : ""
+  kb_documents_bucket_arn     = local.storage_enabled && contains(keys(module.storage[0].bucket_arns), "arcbot-kb-docs") ? module.storage[0].bucket_arns["arcbot-kb-docs"] : ""
+  kb_documents_bucket_trigger = local.storage_enabled && contains(keys(module.storage[0].bucket_replacement_triggers), "arcbot-kb-docs") ? module.storage[0].bucket_replacement_triggers["arcbot-kb-docs"] : ""
 
   # Access return-path (IAM resources created by access module)
   access_iam_role_arns  = module.access.iam_role_arns
   access_iam_role_names = module.access.iam_role_names
+}
+# archbot -> arcbot rename: keep existing state addressed under the new module name
+# so resources whose AWS names did NOT embed "archbot" are not needlessly recreated.
+# (Resources with embedded names still replace - that rename is intentional.)
+moved {
+  from = module.archbot
+  to   = module.arcbot
 }

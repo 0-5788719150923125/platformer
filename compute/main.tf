@@ -532,7 +532,7 @@ module "preflight" {
 # instance below references terraform_data.taint[each.key]. The token feeds
 # triggers_replace; untainted classes carry "" (stable), so they never replace, while
 # `taint: true` carries a per-apply nonce and replaces every apply. Same
-# terraform_data-sentinel idiom used in archbot/storage, generalized to a keyword.
+# terraform_data-sentinel idiom used in arcbot/storage, generalized to a keyword.
 resource "terraform_data" "taint" {
   for_each = local.tenant_instances
 

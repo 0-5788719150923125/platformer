@@ -68,7 +68,7 @@ output "observability" {
   value       = local.module_requirements.observability
 }
 
-output "archbot" {
-  description = "Enable archbot module (explicitly configured)"
-  value       = local.module_requirements.archbot
+output "arcbot" {
+  description = "Enable arcbot module (explicitly configured)"
+  value       = local.module_requirements.arcbot
 }

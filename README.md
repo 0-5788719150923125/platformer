@@ -24,7 +24,7 @@ Account and region-level orchestration with modular services, controlled via sta
 platformer/
 ├── access/                     # Service module
 ├── applications/               # Service module
-├── archbot/                    # Service module
+├── arcbot/                     # Service module
 ├── archivist/                  # Service module
 ├── archorchestrator/           # Service module
 ├── archpacs/                   # Service module
@@ -72,7 +72,7 @@ The following tools must be available in `PATH` for full functionality:
 
 - **access**: Centralized access control reporting using dependency inversion. Modules declare the IAM roles, security groups, and resource policies they provision, and the audit module aggregates them into a single JSON report rendered in AWS-native format. ([docs](./access/README.md))
 - **applications**: Data transformation layer for application deployment. Enriches application requests with file paths and routes them to appropriate deployment modules. ([docs](./applications/README.md))
-- **archbot**: Multi-target AI bot module. Routes config by target type: ([docs](./archbot/README.md))
+- **arcbot**: Multi-target AI bot module. Routes config by target type: ([docs](./arcbot/README.md))
 - **archivist**: Produces a scrubbed, versioned tarball of the `platformer/` codebase on every `terraform apply`. The archive is safe to distribute - sensitive strings (AWS account IDs, internal domain names, S3 bucket names, and account-specific targets) are replaced with generic placeholders before packaging. ([docs](./archivist/README.md))
 - **archorchestrator**: Domain orchestration module for ArchOrchestrator (IO Cloud / SaaSApp) deployments on AWS ECS Fargate. ([docs](./archorchestrator/README.md))
 - **archpacs**: (WIP) Domain orchestration for ArchPACS medical imaging PACS deployments using dependency inversion pattern. ([docs](./archpacs/README.md))

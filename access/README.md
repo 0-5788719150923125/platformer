@@ -4,7 +4,7 @@ Centralized access control reporting using dependency inversion. Modules declare
 
 ## Concept
 
-Access policies are scattered across modules (compute, build, storage, archorchestrator, archpacs, configuration-management, archbot), each creating IAM roles, security group rules, and bucket/queue policies for different purposes. The audit module gives centralized visibility into all of these without moving the resources themselves.
+Access policies are scattered across modules (compute, build, storage, archorchestrator, archpacs, configuration-management, arcbot), each creating IAM roles, security group rules, and bucket/queue policies for different purposes. The audit module gives centralized visibility into all of these without moving the resources themselves.
 
 Each module emits `audit_iam_roles`, `audit_security_groups`, and/or `audit_resource_policies` outputs describing the policies it creates. The root `main.tf` concatenates these and passes the combined lists to the audit module, which groups by module and writes a JSON report to `audit/build/`.
 
@@ -19,7 +19,7 @@ storage ---------------+ iam_roles / security_groups / resource_policies
 configuration-mgmt ----+---------------------------------------------------> audit --> artifact_requests --> portal
 archorchestrator ------+
 archpacs --------------+
-archbot ---------------+
+arcbot ---------------+
 ```
 
 No module depends on audit. It is a pure consumer at the end of the dependency chain.
@@ -171,7 +171,7 @@ The generated JSON report at `audit/build/access-report-<namespace>.json`:
 | **archorchestrator** | ECS execution, task, bootstrap, app roles | ALB SGs, ECS SGs (per deployment) | - |
 | **archpacs** | - | Maestro SSH trust SGs | - |
 | **configuration-management** | Maintenance window, hybrid instance, Ansible controller roles | - | - |
-| **archbot** | API Gateway, Lambda, Bedrock KB roles | - | SQS queue policy |
+| **arcbot** | API Gateway, Lambda, Bedrock KB roles | - | SQS queue policy |
 
 ## Adding Audit Outputs to a New Module
 

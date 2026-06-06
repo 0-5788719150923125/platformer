@@ -209,7 +209,7 @@ resource "port_blueprint" "service_url" {
         title       = "Module"
         description = "Source module (e.g., archorchestrator, archshare, compute)"
         enum = [
-          "archbot",
+          "arcbot",
           "archorchestrator",
           "archshare",
           "compute",
@@ -217,7 +217,7 @@ resource "port_blueprint" "service_url" {
           "observability"
         ]
         enum_colors = {
-          archbot          = "red"
+          arcbot          = "red"
           archorchestrator = "blue"
           archshare        = "green"
           compute          = "orange"

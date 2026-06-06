@@ -1,4 +1,4 @@
-# archbot
+# arcbot
 
 Multi-target AI bot module. Routes config by target type:
 
@@ -12,9 +12,9 @@ Both targets share a common AI backend (`lambdas/shared/ai_backend.py`) for Bedr
 `var.config` is a `map(object({...}))` keyed by bot name. Each bot declares a `target` ("atlassian" or "discord") and the module creates the appropriate infrastructure.
 
 ```yaml
-# states/archbot-example.yaml
+# states/arcbot-example.yaml
 services:
-  archbot:
+  arcbot:
     jira-bot:
       target: atlassian
       atlassian_base_url: "https://example.atlassian.net"
@@ -105,7 +105,7 @@ Same as above, but with trigger "Comment created" and payload:
 
 Two guards prevent the bot from responding to its own comments:
 
-1. **Pre-fetch:** Checks webhook `comment.body` for the `*[archbot]*` prefix
+1. **Pre-fetch:** Checks webhook `comment.body` for the `*[arcbot]*` prefix
 2. **Post-fetch:** After re-fetching the ticket, checks the latest comment for the same prefix
 
 ### Atlassian API Token

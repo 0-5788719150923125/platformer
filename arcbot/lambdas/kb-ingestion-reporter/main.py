@@ -58,7 +58,7 @@ def build_event_payload(
     payload = {
         "event_id": event_id,
         "event_type": "kb-ingestion",
-        "source": "archbot",
+        "source": "arcbot",
         "status": status,
         "message": message,
         "timestamp": datetime.utcnow().isoformat() + "Z",

@@ -1,5 +1,5 @@
 """
-archbot - Atlassian Bot Lambda Handler
+arcbot - Atlassian Bot Lambda Handler
 
 Event-driven AI assistant for Atlassian maintenance tickets.
 
@@ -22,7 +22,7 @@ AI backends (configured via AI_BACKEND env var):
   - test:    Echo bot - logs the prompt and returns a canned response
 
 Context persistence: Jira comment thread. For Bedrock, each invocation reconstructs the
-full conversation from the ticket's comment history. Comments with the *[archbot]* prefix
+full conversation from the ticket's comment history. Comments with the *[arcbot]* prefix
 are mapped to the assistant role; all others become user turns. Consecutive same-role
 messages are merged to satisfy Bedrock's alternating-turn constraint.
 Failed messages (raised exceptions) are returned as batchItemFailures so SQS retries
@@ -169,7 +169,7 @@ def process_event(payload):
             if latest_comments:
                 latest_body = _body_to_text(latest_comments[-1].get("body", "")).strip()
                 if latest_body.startswith(BOT_PREFIX):
-                    logger.info("Skipping %s - latest comment is from archbot (post-fetch guard)", ticket_key)
+                    logger.info("Skipping %s - latest comment is from arcbot (post-fetch guard)", ticket_key)
                     return
 
         reply_context = payload.get("comment") if event_type == "comment_created" else None
@@ -202,7 +202,7 @@ def process_event(payload):
 def _should_skip_comment(payload):
     """Loop guard - skip comments posted by the bot itself.
 
-    Detection uses the *[archbot]* body prefix that _post_comment() always
+    Detection uses the *[arcbot]* body prefix that _post_comment() always
     adds.  We intentionally do NOT check the author email because the bot's
     ATLASSIAN_EMAIL may match a real user during testing.
 
@@ -216,8 +216,8 @@ def _should_skip_comment(payload):
         logger.warning("Loop guard body extraction failed: %s", exc)
         return False
 
-    if body.startswith("*[archbot]*"):
-        logger.info("Skipping comment - body starts with archbot signature")
+    if body.startswith("*[arcbot]*"):
+        logger.info("Skipping comment - body starts with arcbot signature")
         return True
 
     return False
@@ -330,7 +330,7 @@ def _fetch_issue(ticket_key, pat):
 
 def _post_comment(ticket_key, comment_text, pat, reply_context=None):
     url = f"{ATLASSIAN_BASE_URL}/rest/api/2/issue/{ticket_key}/comment"
-    parts = ["*[archbot]*"]
+    parts = ["*[arcbot]*"]
     if reply_context:
         author = _user_display(reply_context.get("author", "someone"))
         quote_body = _body_to_text(reply_context.get("body", ""))
@@ -360,7 +360,7 @@ def _atlassian_request(method, url, pat, body=None):
 
 # -- Prompt building -----------------------------------------------------------
 
-BOT_PREFIX = "*[archbot]*"
+BOT_PREFIX = "*[arcbot]*"
 
 
 def _body_to_text(body):
@@ -454,7 +454,7 @@ Linked issues:
 
 
 def _extract_bot_response(body):
-    """Strip the archbot marker and any reply quote from a bot comment body."""
+    """Strip the arcbot marker and any reply quote from a bot comment body."""
     text = body.removeprefix(BOT_PREFIX).strip()
     # Strip leading {quote}...{quote} block added by _post_comment for reply context
     if text.startswith("{quote}") and "{quote}" in text[7:]:
@@ -466,7 +466,7 @@ def _build_messages(ticket, event_type, triggering_comment=None):
     """Build a multi-turn Bedrock Converse messages list from ticket history.
 
     The ticket metadata becomes the first user turn. Each Jira comment is then
-    appended as either a user or assistant turn based on the *[archbot]* prefix.
+    appended as either a user or assistant turn based on the *[arcbot]* prefix.
     Consecutive same-role messages are merged - Bedrock requires strict alternation.
 
     If triggering_comment is provided, it is always appended as the final user

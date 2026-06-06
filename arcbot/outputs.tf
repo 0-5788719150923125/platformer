@@ -19,7 +19,7 @@ output "lambda_function_names" {
 }
 
 output "knowledge_base_id" {
-  value       = local.kb_enabled ? aws_bedrockagent_knowledge_base.archbot[0].id : null
+  value       = local.kb_enabled ? aws_bedrockagent_knowledge_base.arcbot[0].id : null
   description = "Bedrock Knowledge Base ID (null when KB is disabled)"
 }
 
@@ -27,8 +27,8 @@ output "bucket_requests" {
   description = "S3 bucket requests for the storage module (dependency inversion)"
   value = local.kb_enabled ? [
     {
-      purpose            = "archbot-kb-docs"
-      description        = "Bedrock Knowledge Base document store for archbot RAG"
+      purpose            = "arcbot-kb-docs"
+      description        = "Bedrock Knowledge Base document store for arcbot RAG"
       versioning_enabled = false
       access_logging     = false
       force_destroy      = true
@@ -46,9 +46,9 @@ output "event_bus_requests" {
   value = local.kb_enabled ? [
     {
       purpose     = "kb-ingestion-lifecycle"
-      description = "KB ingestion lifecycle events (archbot)"
+      description = "KB ingestion lifecycle events (arcbot)"
       event_type  = "kb-ingestion"
-      source      = "archbot"
+      source      = "arcbot"
     }
   ] : []
 }
@@ -58,19 +58,19 @@ output "commands" {
   value = local.kb_enabled ? [
     {
       title          = "Reindex Knowledge Base"
-      description    = "Trigger KB document re-indexing for archbot RAG"
-      commands       = ["aws lambda invoke --function-name ${aws_lambda_function.kb_ingestion_reporter[0].function_name} --cli-binary-format raw-in-base64-out --payload '{\"knowledge_base_id\":\"${aws_bedrockagent_knowledge_base.archbot[0].id}\",\"data_source_id\":\"${aws_bedrockagent_data_source.s3[0].data_source_id}\"}' --region ${local.aws_region} /tmp/kb-reindex.json"]
-      service        = "archbot"
+      description    = "Trigger KB document re-indexing for arcbot RAG"
+      commands       = ["aws lambda invoke --function-name ${aws_lambda_function.kb_ingestion_reporter[0].function_name} --cli-binary-format raw-in-base64-out --payload '{\"knowledge_base_id\":\"${aws_bedrockagent_knowledge_base.arcbot[0].id}\",\"data_source_id\":\"${aws_bedrockagent_data_source.s3[0].data_source_id}\"}' --region ${local.aws_region} /tmp/kb-reindex.json"]
+      service        = "arcbot"
       category       = "kb-reindex"
       target_type    = "service"
-      target         = "archbot"
+      target         = "arcbot"
       execution      = "local"
       blueprint_type = "service_url"
       action_config = {
         type              = "lambda_invoke"
         function_name     = aws_lambda_function.kb_ingestion_reporter[0].function_name
         region            = local.aws_region
-        knowledge_base_id = aws_bedrockagent_knowledge_base.archbot[0].id
+        knowledge_base_id = aws_bedrockagent_knowledge_base.arcbot[0].id
         data_source_id    = aws_bedrockagent_data_source.s3[0].data_source_id
       }
     }
@@ -92,10 +92,10 @@ output "service_url_entries" {
   value = [
     for n, _ in local.atlassian_bots : {
       url        = "${trimsuffix(aws_apigatewayv2_stage.default[n].invoke_url, "/")}/events"
-      service    = "archbot"
-      module     = "archbot"
+      service    = "arcbot"
+      module     = "arcbot"
       tenants    = []
-      deployment = "archbot-${n}"
+      deployment = "arcbot-${n}"
       metadata = {
         type        = "api-gateway"
         protocol    = "https"
@@ -113,7 +113,7 @@ output "discord_bots" {
   value = {
     for n, b in local.discord_bots : n => {
       nickname       = b.discord_nickname
-      container_name = "archbot-${n}-${var.namespace}"
+      container_name = "arcbot-${n}-${var.namespace}"
     }
   }
   description = "Discord bot container info (keyed by bot name)"

@@ -1,4 +1,4 @@
-# ArchBot IAM
+# ArcBot IAM
 # IAM roles are created by the access module via access_requests (dependency inversion).
 # All values are config/variable-derived (no module-internal resource attributes).
 # Local policies referencing module resources (SQS ARNs, KB ARN, S3 Vectors ARNs)
@@ -10,7 +10,7 @@ locals {
     local.has_atlassian_bots ? [
       # API Gateway SQS role - sends webhook events to SQS queue
       {
-        module              = "archbot"
+        module              = "arcbot"
         type                = "iam-role"
         purpose             = "api-gateway-sqs"
         description         = "API Gateway role for sending messages to SQS"
@@ -24,7 +24,7 @@ locals {
       },
       # Lambda execution role - processes Atlassian ticket events
       {
-        module              = "archbot"
+        module              = "arcbot"
         type                = "iam-role"
         purpose             = "lambda"
         description         = "Lambda execution role for Atlassian bot"
@@ -41,7 +41,7 @@ locals {
     local.kb_enabled ? [
       # Bedrock Knowledge Base service role
       {
-        module         = "archbot"
+        module         = "arcbot"
         type           = "iam-role"
         purpose        = "bedrock-kb"
         description    = "Bedrock Knowledge Base service role (S3 + S3 Vectors + embedding model)"
@@ -83,7 +83,7 @@ locals {
       },
       # KB Ingestion Reporter Lambda role
       {
-        module              = "archbot"
+        module              = "arcbot"
         type                = "iam-role"
         purpose             = "kb-ingestion-reporter"
         description         = "Lambda role for KB ingestion reporter"
@@ -102,7 +102,7 @@ locals {
 locals {
   access_resource_policies = [
     for n, b in local.atlassian_bots : {
-      module        = "archbot"
+      module        = "arcbot"
       resource_type = "sqs-queue-policy"
       resource_name = aws_sqs_queue.main[n].name
       policy        = aws_sqs_queue_policy.main[n].policy

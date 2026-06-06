@@ -1,17 +1,17 @@
 services:
   secrets:
-    archbot/atlassian_pat:
-      source_secret_id: "prod/archbot"
+    arcbot/atlassian_pat:
+      source_secret_id: "prod/arcbot"
       source_provider: "prod"
       json_key: "ATLASSIAN_TOKEN"
-      description: "Atlassian API token for archbot"
-    archbot/devin_api_key:
-      source_secret_id: "prod/archbot"
+      description: "Atlassian API token for arcbot"
+    arcbot/devin_api_key:
+      source_secret_id: "prod/arcbot"
       source_provider: "prod"
       json_key: "DEVIN_TOKEN"
-      description: "Devin API key for archbot"
+      description: "Devin API key for arcbot"
 
-  archbot:
+  arcbot:
     jira-bot:
       target: atlassian
       atlassian_base_url: "https://example.atlassian.net"

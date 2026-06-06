@@ -1,5 +1,5 @@
 services:
-  archbot:
+  arcbot:
     ryan:
       target: discord
       ai_backend: bedrock
