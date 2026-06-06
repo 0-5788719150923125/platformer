@@ -1,55 +1,96 @@
 ---
-# Configure swap file on Linux instances
-# Param: SWAP_SIZE_GB - size in GB (default: 0 = skip)
-# Idempotent: skips creation if swapfile already exists at the correct size
+# Configure swap on Linux instances - a disk swapfile, compressed RAM (zram), or both.
+# Params:
+#   SWAP_SIZE_GB - disk swapfile size in GB (default: 0 = skip)
+#   ZRAM_SIZE_GB - zram (compressed RAM) swap size in GB (default: 0 = skip).
+#                  Absorbs transient memory spikes far faster than disk swap and
+#                  typically holds 2-3x its size in compressed pages. zram mounts at
+#                  a higher swap priority than the swapfile, so spikes hit compressed
+#                  RAM first and only overflow to disk under sustained pressure.
+# Idempotent: skips creation when already configured at the requested size.
 
 - name: Configure swap
   hosts: linux
   become: yes
   vars:
     swap_size_gb: "{{ SWAP_SIZE_GB | default('0', true) | int }}"
+    zram_size_gb: "{{ ZRAM_SIZE_GB | default('0', true) | int }}"
     swap_path: /swapfile
 
   tasks:
-    - name: Skip swap configuration when size is 0
+    - name: Skip swap configuration when nothing is requested
       ansible.builtin.meta: end_play
-      when: swap_size_gb | int == 0
+      when: swap_size_gb | int == 0 and zram_size_gb | int == 0
 
-    - name: Check if swapfile exists
-      ansible.builtin.stat:
-        path: "{{ swap_path }}"
-      register: swap_stat
+    # ── Disk swapfile ────────────────────────────────────────────────
+    - name: Configure disk swapfile
+      when: swap_size_gb | int > 0
+      block:
+        - name: Check if swapfile exists
+          ansible.builtin.stat:
+            path: "{{ swap_path }}"
+          register: swap_stat
 
-    - name: Check existing swapfile size
-      ansible.builtin.set_fact:
-        swap_exists_correct_size: "{{ swap_stat.stat.exists and swap_stat.stat.size == (swap_size_gb | int * 1073741824) }}"
+        - name: Check existing swapfile size
+          ansible.builtin.set_fact:
+            swap_exists_correct_size: "{{ swap_stat.stat.exists and swap_stat.stat.size == (swap_size_gb | int * 1073741824) }}"
 
-    - name: Disable existing swap if resizing
-      ansible.builtin.command: swapoff {{ swap_path }}
-      when: swap_stat.stat.exists and not (swap_exists_correct_size | bool)
-      failed_when: false
+        - name: Disable existing swap if resizing
+          ansible.builtin.command: swapoff {{ swap_path }}
+          when: swap_stat.stat.exists and not (swap_exists_correct_size | bool)
+          failed_when: false
 
-    - name: Create swapfile
-      ansible.builtin.command: fallocate -l {{ swap_size_gb }}G {{ swap_path }}
-      when: not (swap_exists_correct_size | bool)
+        - name: Create swapfile
+          ansible.builtin.command: fallocate -l {{ swap_size_gb }}G {{ swap_path }}
+          when: not (swap_exists_correct_size | bool)
 
-    - name: Set swapfile permissions
-      ansible.builtin.file:
-        path: "{{ swap_path }}"
-        mode: '0600'
-        owner: root
-        group: root
+        - name: Set swapfile permissions
+          ansible.builtin.file:
+            path: "{{ swap_path }}"
+            mode: '0600'
+            owner: root
+            group: root
 
-    - name: Format swapfile
-      ansible.builtin.command: mkswap {{ swap_path }}
-      when: not (swap_exists_correct_size | bool)
+        - name: Format swapfile
+          ansible.builtin.command: mkswap {{ swap_path }}
+          when: not (swap_exists_correct_size | bool)
 
-    - name: Enable swapfile
-      ansible.builtin.command: swapon {{ swap_path }}
-      when: not (swap_exists_correct_size | bool)
+        - name: Enable swapfile
+          ansible.builtin.command: swapon {{ swap_path }}
+          when: not (swap_exists_correct_size | bool)
 
-    - name: Persist swap in fstab
-      ansible.builtin.lineinfile:
-        path: /etc/fstab
-        line: "{{ swap_path }} none swap sw 0 0"
-        state: present
+        - name: Persist swap in fstab
+          ansible.builtin.lineinfile:
+            path: /etc/fstab
+            line: "{{ swap_path }} none swap sw 0 0"
+            state: present
+
+    # ── zram (compressed RAM swap) ───────────────────────────────────
+    # Uses systemd-zram-generator: declare the device in zram-generator.conf and
+    # systemd creates/formats/activates it at boot (and via the setup unit below).
+    # Default zram swap priority (100) beats the swapfile's (-2), so zram fills first.
+    - name: Configure zram swap
+      when: zram_size_gb | int > 0
+      block:
+        - name: Install zram generator
+          ansible.builtin.package:
+            name: "{{ 'systemd-zram-generator' if ansible_facts['os_family'] == 'Debian' else 'zram-generator' }}"
+            state: present
+
+        - name: Write zram-generator configuration
+          ansible.builtin.copy:
+            dest: /etc/systemd/zram-generator.conf
+            mode: '0644'
+            content: |
+              # Managed by Ansible (applications/ansible/swap) - do not edit.
+              [zram0]
+              zram-size = {{ zram_size_gb | int * 1024 }}
+              compression-algorithm = zstd
+              swap-priority = 100
+          register: zram_conf
+
+        - name: Activate zram device
+          ansible.builtin.systemd:
+            name: systemd-zram-setup@zram0.service
+            state: "{{ 'restarted' if zram_conf.changed else 'started' }}"
+            daemon_reload: "{{ zram_conf.changed }}"

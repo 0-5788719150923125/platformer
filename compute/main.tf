@@ -316,6 +316,10 @@ locals {
               class_config.swap_size > 0 ? {
                 SWAP_SIZE_GB = tostring(class_config.swap_size)
               } : {},
+              # Inject zram size when configured on the class
+              class_config.zram_size > 0 ? {
+                ZRAM_SIZE_GB = tostring(class_config.zram_size)
+              } : {},
               # Inject storage volumes manifest when the class declares persistent volumes.
               # JSON-encoded list of {mount_path, fs_type} for the storage-mount playbook.
               contains(keys(local.storage_volumes_by_class), class_name) ? {
@@ -417,6 +421,10 @@ locals {
             # Inject swap size when configured on the class
             class_config.swap_size > 0 ? {
               SWAP_SIZE_GB = tostring(class_config.swap_size)
+            } : {},
+            # Inject zram size when configured on the class
+            class_config.zram_size > 0 ? {
+              ZRAM_SIZE_GB = tostring(class_config.zram_size)
             } : {},
             # Inject storage volumes manifest when the class declares persistent volumes.
             contains(keys(local.storage_volumes_by_class), class_name) ? {

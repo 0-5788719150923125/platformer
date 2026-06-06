@@ -31,7 +31,13 @@ services:
       #   true  -> fire the ansible-controller CodeBuild on every apply (converge now)
       #   false -> off (scheduler-only). A "<nonce>" string also works: it fires only
       #            when the value changes, e.g. redeploy: "2026-06-02-a".
-      redeploy: true
+      redeploy: false
+
+      # Force reboot: true HARD stop/starts the instance on EVERY apply (clears OOM
+      # memory pressure; uses stop-instances --force, so a hung box cannot ignore it).
+      # The ansible-controller build fires AFTER the reboot completes. Flip to false
+      # to disable, or use a "<nonce>" string for a one-shot reboot-when-changed.
+      reboot: false
 
       # Taint: true REPLACES the instance on EVERY apply (destroys + recreates the box;
       # the persistent /opt/praxis EBS volume survives). Flip back to false once it has
@@ -39,9 +45,13 @@ services:
       taint: false
 
       # CPU Instance Configuration
-      # t4g.medium: ARM64 Graviton2, 2 vCPU, 4GB RAM, CPU-only
-      instance_type: t4g.medium
+      # r8g.medium: ARM64 Graviton4, 1 vCPU, 8GB RAM, memory-optimized, CPU-only
+      instance_type: r8g.medium
       swap_size: 4
+      # 2GB of zram (compressed RAM swap, zstd) absorbs transient memory spikes -
+      # typically holds 2-3x its size in compressed pages and mounts at a higher
+      # swap priority than the disk swapfile, so spikes never touch disk first.
+      zram_size: 2
 
       # AWS Deep Learning AMI (Ubuntu 24.04) ARM64 - Docker, PyTorch 2.9 pre-installed
       ami_filter: "Deep Learning ARM64 AMI OSS Nvidia Driver GPU PyTorch 2.9 (Ubuntu 24.04)*"
@@ -84,4 +94,4 @@ services:
             PRAXIS_BRANCH: "main"
             PRAXIS_INSTALL_DIR: "/opt/praxis"
             PRAXIS_PORT: "8080"
-            PRAXIS_LAUNCH_ARGS: "compose --beta --device cpu --headless --no-dashboard --port 8080 --reset-after 3"
+            PRAXIS_LAUNCH_ARGS: "compose --beta --device cpu --headless --no-dashboard --port 8080 --no-compile --reset-after 3"

@@ -17,6 +17,18 @@ variable "redeploy_triggers" {
   default     = {}
 }
 
+# Force reboot: map of compute class name to a trigger value (from the state file's
+# `reboot` switch, normalized at the root). A change to this map replaces
+# null_resource.force_reboot, which hard stop/starts the class's instances
+# (stop-instances --force - the guaranteed path for OOM-hung boxes that ignore ACPI
+# reboot requests). The ansible-controller trigger is ordered AFTER the reboot and
+# also fires on a reboot bump, so the build always lands on a freshly booted box.
+variable "reboot_triggers" {
+  description = "Map of compute class name to reboot trigger value; a change force stop/starts the class's instances before the ansible-controller CodeBuild run."
+  type        = map(string)
+  default     = {}
+}
+
 variable "aws_account_id" {
   description = "AWS account ID for IAM policy resources"
   type        = string

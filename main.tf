@@ -65,6 +65,24 @@ locals {
     if value != "" && value != "false"
   }
 
+  # Per-compute-class force-reboot switch, mirroring the `redeploy` normalization:
+  #   reboot: true      -> forced ON  - hard stop/start this class's instances on EVERY apply
+  #   reboot: false     -> forced OFF - same as omitting it
+  #   reboot: "<nonce>" -> reboots only when the string value changes (one-shot)
+  # Consumed by configuration-management: instances are force-stopped (stop-instances
+  # --force, which works on OOM-hung boxes that ignore ACPI) and restarted BEFORE the
+  # ansible-controller CodeBuild fires, so the build always lands on a fresh boot.
+  reboot_raw = {
+    for class_name, class_config in local.effective_compute_config :
+    class_name => lower(trimspace(try(tostring(class_config.reboot), "")))
+  }
+
+  reboot_triggers = {
+    for class_name, value in local.reboot_raw :
+    class_name => value == "true" ? local.apply_nonce : value
+    if value != "" && value != "false"
+  }
+
   # Expand archpacs deployment entitlements to individual compute class names
   # Archpacs has multiple compute classes per deployment (e.g., depot, database)
   # Entitlement "archpacs.ec2-poc" maps to tenants_by_class["ec2-poc"]
@@ -620,6 +638,10 @@ module "configuration_management" {
   # Per-class redeploy nonces (see local.redeploy_triggers). A change to this map
   # forces an immediate ansible-controller run via the module's local-exec trigger.
   redeploy_triggers = local.redeploy_triggers
+
+  # Per-class force-reboot nonces (see local.reboot_triggers). A change to this map
+  # hard stop/starts the class's instances, then fires the ansible-controller build.
+  reboot_triggers = local.reboot_triggers
 }
 
 # Applications Module

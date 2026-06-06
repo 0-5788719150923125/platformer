@@ -2,9 +2,9 @@
 Description=Praxis AI Agents Framework
 After=docker.service
 Requires=docker.service
-# The crash policy (count crashes, inject --reset) is owned by praxis-supervise.sh,
-# not systemd. Disable systemd's own start limiter so it never parks the unit in a
-# failed state and stops restarting mid-loop; the wrapper + Restart=always govern it.
+# Restart pacing is governed by the RestartSec/RestartSteps backoff below;
+# disable systemd's start limiter so the unit is never parked in a failed
+# state and always keeps retrying (just increasingly slowly).
 StartLimitIntervalSec=0
 
 [Service]
@@ -16,24 +16,36 @@ WorkingDirectory={{ praxis_install_dir }}
 Environment="COLUMNS=160"
 Environment="LINES=48"
 Environment="TERM=xterm-256color"
-# Tear down any previous compose containers (handles both bridge and host networking)
-ExecStartPre=-/bin/bash -c 'docker compose {{ compose_files }} down --remove-orphans --timeout 10 2>/dev/null; docker ps -q --filter "ancestor=praxis-agent" | xargs -r docker rm -f'
-# Launch through the crash supervisor, which decides whether to add --reset.
-# Args are passed through verbatim to {{ praxis_install_dir }}/launch.
-ExecStart=/bin/bash {{ praxis_install_dir }}/praxis-supervise.sh {{ praxis_launch_args }}
-# Crash counting: ExecStop runs ONLY on an intentional stop/restart (systemctl
-# stop, or Ansible's restart), never when launch exits on its own. So we drop a
-# marker here first; ExecStopPost then counts the exit as a crash ONLY when the
-# marker is absent (i.e. launch self-exited). This is how we tell a real crash
-# from an Ansible/admin restart without trusting launch's exit code.
-ExecStop=/bin/bash -c 'mkdir -p /run/praxis && : > /run/praxis/intentional-stop'
+# HARD GATE: never launch while a previous praxis container still exists. The
+# container runs under containerd, OUTSIDE this unit's cgroup - if the compose
+# client is OOM-killed, the trainer keeps running, and a plain Restart= would
+# stack a second trainer next to it (memory pressure compounds until the box
+# hard-locks). No `-` prefix here on purpose: if cleanup cannot complete, FAIL
+# the start - with Restart=always a failed start simply retries after the
+# backoff, which is strictly safer than launching into a dirty state.
+ExecStartPre=/bin/bash -c '\
+  docker compose {{ compose_files }} down --remove-orphans --timeout 10 2>/dev/null; \
+  for attempt in $(seq 1 12); do \
+    ids=$(docker ps -aq --filter "ancestor=praxis-agent"); \
+    if [ -z "$ids" ]; then exit 0; fi; \
+    echo "[pre] praxis containers still present (attempt $attempt/12): $ids"; \
+    docker rm -f $ids 2>/dev/null; \
+    sleep 5; \
+  done; \
+  echo "[pre] could not clear previous praxis containers - failing start"; \
+  exit 1'
+# Launch directly - crash/reset policy is praxis's own job now (--reset-after).
+ExecStart=/bin/bash {{ praxis_install_dir }}/launch {{ praxis_launch_args }}
+# Tear down compose containers on intentional stop/restart
 ExecStop=/bin/bash -c 'docker compose {{ compose_files }} down --remove-orphans --timeout 10 2>/dev/null; docker ps -q --filter "ancestor=praxis-agent" | xargs -r docker rm -f'
-# Runs after the main process exits for ANY reason. No marker => crash => record
-# a timestamp the supervisor reads next start to decide on --reset.
-ExecStopPost=/bin/bash -c 'if [ -e /run/praxis/intentional-stop ]; then rm -f /run/praxis/intentional-stop; else mkdir -p /var/lib/praxis && date +%s >> /var/lib/praxis/crash-history; fi'
 TimeoutStopSec=30
 Restart=always
+# Exponential backoff: 10s doubling over 5 steps up to 5min between retries.
+# A crash-looping box gets breathing room to recover instead of a flat-10s
+# thrash loop (requires systemd >= 254; Ubuntu 24.04 ships 255).
 RestartSec=10
+RestartSteps=5
+RestartMaxDelaySec=300
 
 [Install]
 WantedBy=multi-user.target

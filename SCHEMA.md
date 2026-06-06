@@ -649,6 +649,7 @@ services:
           protocol: string  # "http" (direct SG rule) or "https" (ALB with TLS termination) (default: http)
       build: bool  # Build golden AMI via ImageBuilder before launching instances (default: false)
       swap_size: number  # Swap file size in GB (0 = no swap). Useful for memory-constrained instances. (default: 0)
+      zram_size: number  # zram (compressed RAM) swap size in GB (0 = none). Absorbs transient memory spikes far faster than disk swap; typically holds 2-3x its size in compressed pages. Takes priority over the disk swapfile. (default: 0)
       mode: string  # Cluster topology: "single" (default) or "1-master" (1 master + N-1 workers)
       cluster_port: number  # Intra-cluster port (creates self-referencing SG rule; required for 1-master mode)
       volumes:  # list
@@ -711,21 +712,21 @@ This module supports the following arguments:
 | `networks` | `map` | No | Map of network name to network module outputs (for multi-VPC support) | [./compute/variables.tf:31](./compute/variables.tf#L31) |
 | `tenants_by_class` | `map` | No | Map of class name to entitled tenant list (from tenants module) | [./compute/variables.tf:38](./compute/variables.tf#L38) |
 | `config` | `map(object)` | No | Compute service configuration - map of class name to class definition | [./compute/variables.tf:45](./compute/variables.tf#L45) |
-| `instance_parameters` | `list(object)` | No | Parameter Store definitions for each instance (compute module creates resources) | [./compute/variables.tf:266](./compute/variables.tf#L266) |
-| `application_requests` | `list(object)` | No | All application deployment requests from applications module - filtered internally by type | [./compute/variables.tf:280](./compute/variables.tf#L280) |
-| `pod_identity_requests` | `list(object)` | No | Pod Identity association requests from upstream modules (e.g., observability) | [./compute/variables.tf:316](./compute/variables.tf#L316) |
-| `lb_requests` | `list(object)` | No | NLB requests for EKS services (observability, etc.) - Terraform-managed infrastructure | [./compute/variables.tf:331](./compute/variables.tf#L331) |
-| `built_amis` | `map` | No | Map of class name to golden AMI ID (from build module) | [./compute/variables.tf:346](./compute/variables.tf#L346) |
-| `standalone_applications` | `any` | No | Standalone application definitions (services.applications) for ImageBuilder inclusion | [./compute/variables.tf:355](./compute/variables.tf#L355) |
-| `patch_groups_by_class` | `map` | No | Map of class names to their namespaced patch group names (provided by configuration-management module) | [./compute/variables.tf:363](./compute/variables.tf#L363) |
-| `domain_enabled` | `bool` | No | Whether domains module is active (plan-time safe, from config) | [./compute/variables.tf:372](./compute/variables.tf#L372) |
-| `domain_zone_id` | `string` | No | Route53 hosted zone ID for DNS records (empty = no domain) | [./compute/variables.tf:378](./compute/variables.tf#L378) |
-| `domain_zone_name` | `string` | No | Route53 hosted zone name (e.g., dev-platform.example.com) | [./compute/variables.tf:384](./compute/variables.tf#L384) |
-| `domain_certificate_arn` | `string` | No | ACM certificate ARN for HTTPS listeners (empty = no HTTPS) | [./compute/variables.tf:390](./compute/variables.tf#L390) |
-| `domain_aliases` | `map` | No | DNS alias map: FQDN -> compute class name (from domains module) | [./compute/variables.tf:396](./compute/variables.tf#L396) |
-| `access_iam_role_arns` | `map` | No | IAM role ARNs from access module (keyed by module-purpose) | [./compute/variables.tf:403](./compute/variables.tf#L403) |
-| `access_iam_role_names` | `map` | No | IAM role names from access module (keyed by module-purpose) | [./compute/variables.tf:409](./compute/variables.tf#L409) |
-| `access_instance_profile_names` | `map` | No | Instance profile names from access module (keyed by module-purpose) | [./compute/variables.tf:415](./compute/variables.tf#L415) |
+| `instance_parameters` | `list(object)` | No | Parameter Store definitions for each instance (compute module creates resources) | [./compute/variables.tf:268](./compute/variables.tf#L268) |
+| `application_requests` | `list(object)` | No | All application deployment requests from applications module - filtered internally by type | [./compute/variables.tf:282](./compute/variables.tf#L282) |
+| `pod_identity_requests` | `list(object)` | No | Pod Identity association requests from upstream modules (e.g., observability) | [./compute/variables.tf:318](./compute/variables.tf#L318) |
+| `lb_requests` | `list(object)` | No | NLB requests for EKS services (observability, etc.) - Terraform-managed infrastructure | [./compute/variables.tf:333](./compute/variables.tf#L333) |
+| `built_amis` | `map` | No | Map of class name to golden AMI ID (from build module) | [./compute/variables.tf:348](./compute/variables.tf#L348) |
+| `standalone_applications` | `any` | No | Standalone application definitions (services.applications) for ImageBuilder inclusion | [./compute/variables.tf:357](./compute/variables.tf#L357) |
+| `patch_groups_by_class` | `map` | No | Map of class names to their namespaced patch group names (provided by configuration-management module) | [./compute/variables.tf:365](./compute/variables.tf#L365) |
+| `domain_enabled` | `bool` | No | Whether domains module is active (plan-time safe, from config) | [./compute/variables.tf:374](./compute/variables.tf#L374) |
+| `domain_zone_id` | `string` | No | Route53 hosted zone ID for DNS records (empty = no domain) | [./compute/variables.tf:380](./compute/variables.tf#L380) |
+| `domain_zone_name` | `string` | No | Route53 hosted zone name (e.g., dev-platform.example.com) | [./compute/variables.tf:386](./compute/variables.tf#L386) |
+| `domain_certificate_arn` | `string` | No | ACM certificate ARN for HTTPS listeners (empty = no HTTPS) | [./compute/variables.tf:392](./compute/variables.tf#L392) |
+| `domain_aliases` | `map` | No | DNS alias map: FQDN -> compute class name (from domains module) | [./compute/variables.tf:398](./compute/variables.tf#L398) |
+| `access_iam_role_arns` | `map` | No | IAM role ARNs from access module (keyed by module-purpose) | [./compute/variables.tf:405](./compute/variables.tf#L405) |
+| `access_iam_role_names` | `map` | No | IAM role names from access module (keyed by module-purpose) | [./compute/variables.tf:411](./compute/variables.tf#L411) |
+| `access_instance_profile_names` | `map` | No | Instance profile names from access module (keyed by module-purpose) | [./compute/variables.tf:417](./compute/variables.tf#L417) |
 
 ### Attributes
 
@@ -885,24 +886,25 @@ This module supports the following arguments:
 |----------|------|----------|-------------|-----|
 | `namespace` | `string` | **Yes** | Deployment namespace for resource isolation | [./configuration-management/variables.tf:2](./configuration-management/variables.tf#L2) |
 | `redeploy_triggers` | `map` | No | Map of compute class name to redeploy trigger value; a change forces an immediate ansible-controller CodeBuild run on apply. | [./configuration-management/variables.tf:14](./configuration-management/variables.tf#L14) |
-| `aws_account_id` | `string` | **Yes** | AWS account ID for IAM policy resources | [./configuration-management/variables.tf:20](./configuration-management/variables.tf#L20) |
-| `aws_profile` | `string` | **Yes** | AWS CLI profile name for output commands | [./configuration-management/variables.tf:30](./configuration-management/variables.tf#L30) |
-| `aws_region` | `string` | **Yes** | AWS region for deployment (passed to Ansible playbooks) | [./configuration-management/variables.tf:35](./configuration-management/variables.tf#L35) |
-| `config` | `object` | No | Configuration management service configuration | [./configuration-management/variables.tf:42](./configuration-management/variables.tf#L42) |
-| `ssm_association_log_bucket` | `string` | No | S3 bucket name for SSM association logs (provided by storage module) | [./configuration-management/variables.tf:446](./configuration-management/variables.tf#L446) |
-| `hooks_bucket` | `string` | No | S3 bucket name for hook scripts (provided by storage module) | [./configuration-management/variables.tf:453](./configuration-management/variables.tf#L453) |
-| `instances_by_class` | `map` | No | Instances grouped by class name  -  map of class_name => { instance_key => instance_id } (provided by compute module) | [./configuration-management/variables.tf:460](./configuration-management/variables.tf#L460) |
-| `application_requests` | `list(object)` | No | All application deployment requests from applications module - filtered internally by type (ssm, ansible, user-data, helm) | [./configuration-management/variables.tf:468](./configuration-management/variables.tf#L468) |
-| `has_application_deployments` | `bool` | No | Whether any application deployments (SSM/Ansible) exist  -  drives application-scripts bucket request | [./configuration-management/variables.tf:524](./configuration-management/variables.tf#L524) |
-| `application_scripts_bucket` | `string` | No | S3 bucket name for application scripts (provided by storage module) | [./configuration-management/variables.tf:531](./configuration-management/variables.tf#L531) |
-| `instances_role_name` | `string` | No | IAM role name for compute instances (for attaching S3 access policy) | [./configuration-management/variables.tf:538](./configuration-management/variables.tf#L538) |
-| `instances_role_arn` | `string` | No | IAM role ARN for compute instances (for S3 bucket policy) | [./configuration-management/variables.tf:544](./configuration-management/variables.tf#L544) |
-| `lambda_requests` | `list(object)` | No | Scheduled Lambda function requests from external modules (dependency inversion) | [./configuration-management/variables.tf:552](./configuration-management/variables.tf#L552) |
-| `event_bus_webhooks` | `map` | No | Event bus webhook URLs from portal module (dependency inversion) | [./configuration-management/variables.tf:571](./configuration-management/variables.tf#L571) |
-| `aws_sso_start_url` | `string` | No | AWS SSO start URL for console link wrapping | [./configuration-management/variables.tf:578](./configuration-management/variables.tf#L578) |
-| `ansible_applications_configured` | `bool` | No | Config-derived flag: are there ansible application requests (used in access_requests to avoid cycle) | [./configuration-management/variables.tf:587](./configuration-management/variables.tf#L587) |
-| `access_iam_role_arns` | `map` | No | IAM role ARNs from access module (keyed by module-purpose) | [./configuration-management/variables.tf:594](./configuration-management/variables.tf#L594) |
-| `access_iam_role_names` | `map` | No | IAM role names from access module (keyed by module-purpose) | [./configuration-management/variables.tf:600](./configuration-management/variables.tf#L600) |
+| `reboot_triggers` | `map` | No | Map of compute class name to reboot trigger value; a change force stop/starts the class's instances before the ansible-controller CodeBuild run. | [./configuration-management/variables.tf:26](./configuration-management/variables.tf#L26) |
+| `aws_account_id` | `string` | **Yes** | AWS account ID for IAM policy resources | [./configuration-management/variables.tf:32](./configuration-management/variables.tf#L32) |
+| `aws_profile` | `string` | **Yes** | AWS CLI profile name for output commands | [./configuration-management/variables.tf:42](./configuration-management/variables.tf#L42) |
+| `aws_region` | `string` | **Yes** | AWS region for deployment (passed to Ansible playbooks) | [./configuration-management/variables.tf:47](./configuration-management/variables.tf#L47) |
+| `config` | `object` | No | Configuration management service configuration | [./configuration-management/variables.tf:54](./configuration-management/variables.tf#L54) |
+| `ssm_association_log_bucket` | `string` | No | S3 bucket name for SSM association logs (provided by storage module) | [./configuration-management/variables.tf:458](./configuration-management/variables.tf#L458) |
+| `hooks_bucket` | `string` | No | S3 bucket name for hook scripts (provided by storage module) | [./configuration-management/variables.tf:465](./configuration-management/variables.tf#L465) |
+| `instances_by_class` | `map` | No | Instances grouped by class name  -  map of class_name => { instance_key => instance_id } (provided by compute module) | [./configuration-management/variables.tf:472](./configuration-management/variables.tf#L472) |
+| `application_requests` | `list(object)` | No | All application deployment requests from applications module - filtered internally by type (ssm, ansible, user-data, helm) | [./configuration-management/variables.tf:480](./configuration-management/variables.tf#L480) |
+| `has_application_deployments` | `bool` | No | Whether any application deployments (SSM/Ansible) exist  -  drives application-scripts bucket request | [./configuration-management/variables.tf:536](./configuration-management/variables.tf#L536) |
+| `application_scripts_bucket` | `string` | No | S3 bucket name for application scripts (provided by storage module) | [./configuration-management/variables.tf:543](./configuration-management/variables.tf#L543) |
+| `instances_role_name` | `string` | No | IAM role name for compute instances (for attaching S3 access policy) | [./configuration-management/variables.tf:550](./configuration-management/variables.tf#L550) |
+| `instances_role_arn` | `string` | No | IAM role ARN for compute instances (for S3 bucket policy) | [./configuration-management/variables.tf:556](./configuration-management/variables.tf#L556) |
+| `lambda_requests` | `list(object)` | No | Scheduled Lambda function requests from external modules (dependency inversion) | [./configuration-management/variables.tf:564](./configuration-management/variables.tf#L564) |
+| `event_bus_webhooks` | `map` | No | Event bus webhook URLs from portal module (dependency inversion) | [./configuration-management/variables.tf:583](./configuration-management/variables.tf#L583) |
+| `aws_sso_start_url` | `string` | No | AWS SSO start URL for console link wrapping | [./configuration-management/variables.tf:590](./configuration-management/variables.tf#L590) |
+| `ansible_applications_configured` | `bool` | No | Config-derived flag: are there ansible application requests (used in access_requests to avoid cycle) | [./configuration-management/variables.tf:599](./configuration-management/variables.tf#L599) |
+| `access_iam_role_arns` | `map` | No | IAM role ARNs from access module (keyed by module-purpose) | [./configuration-management/variables.tf:606](./configuration-management/variables.tf#L606) |
+| `access_iam_role_names` | `map` | No | IAM role names from access module (keyed by module-purpose) | [./configuration-management/variables.tf:612](./configuration-management/variables.tf#L612) |
 
 ### Attributes
 

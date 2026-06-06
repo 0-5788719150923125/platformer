@@ -33,11 +33,6 @@
     praxis_install_dir: "{{ PRAXIS_INSTALL_DIR | default('/opt/praxis', true) }}"
     praxis_launch_args: "{{ PRAXIS_LAUNCH_ARGS | default('compose --alpha --port 8080', true) }}"
     praxis_port: "{{ PRAXIS_PORT | default('8080', true) }}"
-    # Crash supervisor policy: if the service crashes >= praxis_reset_threshold
-    # times within praxis_reset_window seconds, the next launch gets --reset
-    # (wipes artifacts/checkpoints, starts the run fresh). Overridable via SSM.
-    praxis_reset_threshold: "{{ PRAXIS_RESET_THRESHOLD | default('3', true) }}"
-    praxis_reset_window: "{{ PRAXIS_RESET_WINDOW | default('600', true) }}"
     aws_region: "{{ AWS_REGION | default('us-east-2', true) }}"
     deployment_namespace: "{{ DEPLOYMENT_NAMESPACE | default('platformer', true) }}"
 
@@ -271,11 +266,15 @@
       no_log: true
       register: env_file
 
-    - name: Install Praxis crash supervisor wrapper
-      ansible.builtin.template:
-        src: praxis-supervise.sh.j2
-        dest: "{{ praxis_install_dir }}/praxis-supervise.sh"
-        mode: '0755'
+    # The crash-supervisor wrapper (--reset injection) is retired: praxis handles
+    # periodic resets natively via --reset-after. Remove leftovers from old deploys.
+    - name: Remove retired Praxis crash supervisor artifacts
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: absent
+      loop:
+        - "{{ praxis_install_dir }}/praxis-supervise.sh"
+        - /var/lib/praxis/crash-history
       register: praxis_supervisor
 
     - name: Create systemd service for Praxis

@@ -209,6 +209,85 @@ resource "aws_scheduler_schedule" "ansible_controller" {
 }
 
 # ========================================
+# Force reboot (state-file `reboot` switch)
+# ========================================
+# A compute class's `reboot` switch (true / false / "<nonce>") flows in via
+# var.reboot_triggers. A change to that map replaces this resource and hard
+# stop/starts the class's instances. We deliberately use `stop-instances --force`
+# + `start-instances` rather than `reboot-instances`: the latter is only an ACPI
+# request that an OOM-hung box ignores (AWS falls back to a hard reboot after ~4
+# minutes); a forced stop is the guaranteed immediate path. `reboot: true` carries
+# a per-apply value, so the instances reboot on EVERY apply (expect a standing plan
+# diff); a "<nonce>" string reboots only when it changes.
+#
+# Ordering: referencing var.instances_by_class orders this AFTER instance
+# creation/replacement, and null_resource.trigger_ansible_controller depends_on
+# this resource (and includes the reboot nonces in its triggers), so the
+# ansible-controller build always fires AFTER the reboot - never against a box
+# mid-stop. Note: a stop/start releases any auto-assigned public IP; ALB targeting
+# and SSM are instance-ID based, so deployments are unaffected.
+resource "null_resource" "force_reboot" {
+  count = length(var.reboot_triggers) > 0 ? 1 : 0
+
+  # Any change to the set of class nonces (add/remove/bump) forces one new reboot.
+  triggers = {
+    nonces = jsonencode(var.reboot_triggers)
+  }
+
+  provisioner "local-exec" {
+    # Only instances of classes present in reboot_triggers are rebooted.
+    # Referencing instance IDs creates the dependency on the instances themselves.
+    environment = merge(
+      {
+        REBOOT_INSTANCE_IDS = join(" ", flatten([
+          for class_name, instances in var.instances_by_class :
+          values(instances) if contains(keys(var.reboot_triggers), class_name)
+        ]))
+        AWS_REGION = data.aws_region.current.id
+      },
+      var.aws_profile != "" ? { AWS_PROFILE = var.aws_profile } : {}
+    )
+
+    # Force-stop (hard power-off), then start. An OOM-hung box can wedge in the
+    # "stopping" state even after one forced stop - AWS only escalates to a hard
+    # power-off when stop-instances --force is issued AGAIN while already stopping.
+    # So instead of a blind `aws ec2 wait instance-stopped` (which sits for up to
+    # 10 minutes without ever re-forcing), poll the state and re-issue the forced
+    # stop every 30s until the instance actually reaches "stopped".
+    command = <<-EOT
+      set -u
+      if [ -z "$REBOOT_INSTANCE_IDS" ]; then
+        echo "[reboot] no instances to reboot"
+        exit 0
+      fi
+      echo "[reboot] force-stopping: $REBOOT_INSTANCE_IDS"
+      aws ec2 stop-instances --region "$AWS_REGION" --force --instance-ids $REBOOT_INSTANCE_IDS >/dev/null
+      for attempt in $(seq 1 40); do
+        states=$(aws ec2 describe-instances --region "$AWS_REGION" \
+          --instance-ids $REBOOT_INSTANCE_IDS \
+          --query 'Reservations[].Instances[].State.Name' --output text)
+        if ! echo "$states" | grep -qv stopped; then
+          echo "[reboot] all instances stopped"
+          break
+        fi
+        echo "[reboot] waiting for stop (attempt $attempt/40, states: $states)"
+        # Re-issue the forced stop every 30s - a second --force while an instance
+        # is in "stopping" is what escalates AWS to a hard power-off.
+        if [ $((attempt % 2)) -eq 0 ]; then
+          echo "[reboot] re-issuing forced stop"
+          aws ec2 stop-instances --region "$AWS_REGION" --force --instance-ids $REBOOT_INSTANCE_IDS >/dev/null || true
+        fi
+        sleep 15
+      done
+      echo "[reboot] starting: $REBOOT_INSTANCE_IDS"
+      aws ec2 start-instances --region "$AWS_REGION" --instance-ids $REBOOT_INSTANCE_IDS >/dev/null
+      aws ec2 wait instance-running --region "$AWS_REGION" --instance-ids $REBOOT_INSTANCE_IDS
+      echo "[reboot] all instances running"
+    EOT
+  }
+}
+
+# ========================================
 # On-demand trigger (state-file `redeploy` switch)
 # ========================================
 # A compute class's `redeploy` switch (true / false / "<nonce>") flows in via
@@ -227,18 +306,23 @@ resource "aws_scheduler_schedule" "ansible_controller" {
 # rather than firing against a box that hasn't joined SSM yet. The scheduled run
 # remains the backstop. Mirrors the manual command in outputs.tf ("Run Ansible Controller").
 resource "null_resource" "trigger_ansible_controller" {
-  count = local.ansible_controller_enabled && length(var.redeploy_triggers) > 0 ? 1 : 0
+  count = local.ansible_controller_enabled && (length(var.redeploy_triggers) > 0 || length(var.reboot_triggers) > 0) ? 1 : 0
 
   # Any change to the set of class nonces (add/remove/bump) forces one new run.
+  # Reboot nonces are included so a forced reboot is always followed by a build.
   # Instance IDs are deliberately NOT in triggers - they gate ordering/readiness via
-  # the provisioner below, but the redeploy switch alone decides WHEN to fire.
+  # the provisioner below, but the redeploy/reboot switches alone decide WHEN to fire.
   triggers = {
-    nonces = jsonencode(var.redeploy_triggers)
+    nonces        = jsonencode(var.redeploy_triggers)
+    reboot_nonces = jsonencode(var.reboot_triggers)
   }
 
   depends_on = [
     aws_codebuild_project.ansible_controller,
     aws_scheduler_schedule.ansible_controller,
+    # Reboot BEFORE build: the SSM-Online wait below then confirms the rebooted
+    # boxes are back before start-build fires.
+    null_resource.force_reboot,
   ]
 
   provisioner "local-exec" {
@@ -254,7 +338,10 @@ resource "null_resource" "trigger_ansible_controller" {
       var.aws_profile != "" ? { AWS_PROFILE = var.aws_profile } : {}
     )
 
-    # Wait (bounded) for each target instance to be Online in SSM, then start the build.
+    # Wait (bounded) for each target instance to be Online in SSM, start the build,
+    # then BLOCK on it: stream the build's CloudWatch logs into the apply output and
+    # propagate the result - a FAILED ansible run fails the terraform apply instead
+    # of silently fire-and-forgetting.
     command = <<-EOT
       set -u
       if [ -n "$READY_INSTANCE_IDS" ]; then
@@ -273,7 +360,50 @@ resource "null_resource" "trigger_ansible_controller" {
         done
       fi
       echo "[redeploy] starting ansible-controller build"
-      aws codebuild start-build --region "$AWS_REGION" --project-name "$PROJECT_NAME"
+      BUILD_ID=$(aws codebuild start-build --region "$AWS_REGION" --project-name "$PROJECT_NAME" \
+        --query 'build.id' --output text)
+      echo "[redeploy] build started: $BUILD_ID"
+      LOG_GROUP="/aws/codebuild/$PROJECT_NAME"
+      LOG_STREAM="$${BUILD_ID#*:}"   # log stream name is the UUID after "project:"
+      echo "[redeploy] streaming logs from $LOG_GROUP ($LOG_STREAM)"
+
+      # Fetch-and-print new log events since the last call. Polled inline rather
+      # than `aws logs tail --follow` in the background: the CLI block-buffers
+      # stdout when piped (local-exec is a pipe), so a backgrounded tail shows
+      # nothing until exit. get-log-events with a forward token is unbuffered and
+      # exact - each call returns only events after the previous token.
+      NEXT_TOKEN=""
+      EVENTS_TMP=$(mktemp)
+      trap 'rm -f "$EVENTS_TMP"' EXIT
+      fetch_logs() {
+        if aws logs get-log-events --region "$AWS_REGION" \
+            --log-group-name "$LOG_GROUP" --log-stream-name "$LOG_STREAM" \
+            --start-from-head $${NEXT_TOKEN:+--next-token $NEXT_TOKEN} \
+            --output json > "$EVENTS_TMP" 2>/dev/null; then
+          python3 -c 'import json,sys; d=json.load(open(sys.argv[1])); [print(e["message"].rstrip()) for e in d["events"]]' "$EVENTS_TMP"
+          NEXT_TOKEN=$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["nextForwardToken"])' "$EVENTS_TMP")
+        fi
+      }
+
+      # Poll the build to completion, printing new logs each pass; only
+      # SUCCEEDED lets the apply pass.
+      while true; do
+        fetch_logs
+        status=$(aws codebuild batch-get-builds --region "$AWS_REGION" --ids "$BUILD_ID" \
+          --query 'builds[0].buildStatus' --output text 2>/dev/null || echo UNKNOWN)
+        case "$status" in
+          IN_PROGRESS|UNKNOWN) sleep 10 ;;
+          SUCCEEDED)
+            sleep 5; fetch_logs   # flush the final lines
+            echo "[redeploy] build SUCCEEDED: $BUILD_ID"
+            exit 0 ;;
+          *)
+            sleep 5; fetch_logs
+            echo "[redeploy] build finished with status $status: $BUILD_ID" >&2
+            echo "[redeploy] full logs: aws logs tail '$LOG_GROUP' --region $AWS_REGION --log-stream-name-prefix '$LOG_STREAM'" >&2
+            exit 1 ;;
+        esac
+      done
     EOT
   }
 }
