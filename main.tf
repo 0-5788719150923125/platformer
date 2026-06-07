@@ -23,20 +23,20 @@ locals {
   secrets_enabled                  = module.resolver.secrets
   legacy_enabled                   = module.resolver.legacy
   clairevoyance_enabled            = module.resolver.clairevoyance
-  archshare_enabled                = module.resolver.archshare
-  archpacs_enabled                 = module.resolver.archpacs
-  archorchestrator_enabled         = module.resolver.archorchestrator
+  ioshare_enabled                  = module.resolver.ioshare
+  iopacs_enabled                   = module.resolver.iopacs
+  iorchestrator_enabled            = module.resolver.iorchestrator
   portal_enabled                   = module.resolver.portal
   observability_enabled            = module.resolver.observability
   arcbot_enabled                   = module.resolver.arcbot
 
   # Effective compute config: merge top-level compute with module-emitted compute classes
-  # Modules like archshare/archpacs/archorchestrator define compute classes internally and emit them
+  # Modules like ioshare/iopacs/iorchestrator define compute classes internally and emit them
   effective_compute_config = merge(
     lookup(module.config.service_configs, "compute", {}),
-    local.archshare_enabled ? module.archshare[0].compute_class_requests : {},
-    local.archpacs_enabled ? module.archpacs[0].compute_class_requests : {},
-    local.archorchestrator_enabled ? module.archorchestrator[0].compute_class_requests : {},
+    local.ioshare_enabled ? module.ioshare[0].compute_class_requests : {},
+    local.iopacs_enabled ? module.iopacs[0].compute_class_requests : {},
+    local.iorchestrator_enabled ? module.iorchestrator[0].compute_class_requests : {},
     local.observability_enabled ? module.observability[0].compute_class_requests : {}
   )
 
@@ -46,9 +46,11 @@ locals {
   #   redeploy: "<nonce>"  -> fires only when the string value changes (power-user mode)
   # Normalize whatever was written (bool or string) to a lowercased string; classes
   # that are off ("" / "false") are dropped below.
+  # try wraps the WHOLE chain: tostring(null) returns null without erroring,
+  # so trimspace would otherwise fail on classes that omit the switch.
   redeploy_raw = {
     for class_name, class_config in local.effective_compute_config :
-    class_name => lower(trimspace(try(tostring(class_config.redeploy), "")))
+    class_name => try(lower(trimspace(tostring(class_config.redeploy))), "")
   }
 
   # Per-apply nonce: only used for forced-ON ("true") classes, so the trigger value
@@ -74,7 +76,7 @@ locals {
   # ansible-controller CodeBuild fires, so the build always lands on a fresh boot.
   reboot_raw = {
     for class_name, class_config in local.effective_compute_config :
-    class_name => lower(trimspace(try(tostring(class_config.reboot), "")))
+    class_name => try(lower(trimspace(tostring(class_config.reboot))), "")
   }
 
   reboot_triggers = {
@@ -83,13 +85,13 @@ locals {
     if value != "" && value != "false"
   }
 
-  # Expand archpacs deployment entitlements to individual compute class names
-  # Archpacs has multiple compute classes per deployment (e.g., depot, database)
-  # Entitlement "archpacs.ec2-poc" maps to tenants_by_class["ec2-poc"]
+  # Expand iopacs deployment entitlements to individual compute class names
+  # Iopacs has multiple compute classes per deployment (e.g., depot, database)
+  # Entitlement "iopacs.ec2-poc" maps to tenants_by_class["ec2-poc"]
   # But compute classes are named "ec2-poc-depot", "ec2-poc-database"  -  need expansion
-  archpacs_compute_class_tenants = local.archpacs_enabled ? merge([
-    for deploy_name in try(keys(module.config.service_configs["archpacs"]), []) : {
-      for class_name in try(keys(module.config.service_configs["archpacs"][deploy_name].compute), []) :
+  iopacs_compute_class_tenants = local.iopacs_enabled ? merge([
+    for deploy_name in try(keys(module.config.service_configs["iopacs"]), []) : {
+      for class_name in try(keys(module.config.service_configs["iopacs"][deploy_name].compute), []) :
       "${deploy_name}-${class_name}" => try(module.tenants.tenants_by_class[deploy_name], [])
     }
   ]...) : {}
@@ -100,10 +102,10 @@ locals {
     "observability" = ["platform"]
   } : {}
 
-  # ArchOrchestrator ECS cluster entitlements
+  # IOrchestrator ECS cluster entitlements
   # Map cluster purpose (e.g., "dev1-io") to tenants entitled to that deployment
-  archorchestrator_cluster_tenants = local.archorchestrator_enabled ? {
-    for deploy_name in try(keys(module.config.service_configs["archorchestrator"]), []) :
+  iorchestrator_cluster_tenants = local.iorchestrator_enabled ? {
+    for deploy_name in try(keys(module.config.service_configs["iorchestrator"]), []) :
     "${deploy_name}-io" => try(module.tenants.tenants_by_class[deploy_name], [])
   } : {}
 
@@ -222,7 +224,7 @@ module "access" {
   access_requests = concat(
     local.compute_enabled ? module.compute[0].access_requests : [],
     local.compute_enabled ? module.build[0].access_requests : [],
-    local.archorchestrator_enabled ? module.archorchestrator[0].access_requests : [],
+    local.iorchestrator_enabled ? module.iorchestrator[0].access_requests : [],
     local.arcbot_enabled ? module.arcbot[0].access_requests : [],
     local.legacy_enabled ? module.legacy[0].access_requests : [],
     local.configuration_management_enabled ? module.configuration_management[0].access_requests : [],
@@ -234,8 +236,8 @@ module "access" {
   security_groups = concat(
     local.compute_enabled ? module.compute[0].access_security_groups : [],
     local.storage_enabled ? module.storage[0].access_security_groups : [],
-    local.archpacs_enabled ? module.archpacs[0].access_security_groups : [],
-    local.archorchestrator_enabled ? module.archorchestrator[0].access_security_groups : [],
+    local.iopacs_enabled ? module.iopacs[0].access_security_groups : [],
+    local.iorchestrator_enabled ? module.iorchestrator[0].access_security_groups : [],
   )
 
   resource_policies = concat(
@@ -307,10 +309,10 @@ module "tenants" {
   # Class names per service (for resolving entitlements to deployment-level granularity)
   # Deployment names ARE class names for entitlement resolution
   service_class_names = {
-    compute          = try(keys(module.config.service_configs["compute"]), [])
-    archshare        = try(keys(module.config.service_configs["archshare"]), [])
-    archpacs         = try(keys(module.config.service_configs["archpacs"]), [])
-    archorchestrator = try(keys(module.config.service_configs["archorchestrator"]), [])
+    compute       = try(keys(module.config.service_configs["compute"]), [])
+    ioshare       = try(keys(module.config.service_configs["ioshare"]), [])
+    iopacs        = try(keys(module.config.service_configs["iopacs"]), [])
+    iorchestrator = try(keys(module.config.service_configs["iorchestrator"]), [])
   }
 }
 
@@ -346,8 +348,14 @@ module "domains" {
 # Supports multiple named networks for VPC isolation
 # If no networks defined, auto-create a "default" network using AWS default VPC
 module "networks" {
-  for_each = local.aws_configured ? lookup(module.config.service_configs, "networks", { default = { allocation_method = "default" } }) : {}
-  source   = "./networking"
+  # Filter via comprehension rather than `cond ? object : {}` - conditionals
+  # must unify both branches' types, which fails for heterogeneous network
+  # objects; a for-expression sidesteps type unification entirely.
+  for_each = {
+    for name, cfg in lookup(module.config.service_configs, "networks", { default = { allocation_method = "default" } }) :
+    name => cfg if local.aws_configured
+  }
+  source = "./networking"
 
   # Core variables
   namespace      = module.namespace.id
@@ -376,10 +384,10 @@ module "storage" {
     module.archivist.bucket_requests,
     module.access.bucket_requests,
     local.configuration_management_enabled ? module.configuration_management[0].bucket_requests : [],
-    local.archshare_enabled ? module.archshare[0].bucket_requests : [],
-    local.archshare_enabled ? [module.archshare[0].ansible_bucket_request] : [],
-    local.archpacs_enabled ? module.archpacs[0].bucket_requests : [],
-    local.archorchestrator_enabled ? module.archorchestrator[0].bucket_requests : [],
+    local.ioshare_enabled ? module.ioshare[0].bucket_requests : [],
+    local.ioshare_enabled ? [module.ioshare[0].ansible_bucket_request] : [],
+    local.iopacs_enabled ? module.iopacs[0].bucket_requests : [],
+    local.iorchestrator_enabled ? module.iorchestrator[0].bucket_requests : [],
     local.observability_enabled ? module.observability[0].bucket_requests : [],
     local.arcbot_enabled ? module.arcbot[0].bucket_requests : [],
   )
@@ -388,16 +396,16 @@ module "storage" {
   # Unified interface supports both Aurora clusters (type = "aurora") and standalone instances (type = "standalone")
   # Modules define RDS requirements; storage module creates resources based on type
   rds_cluster_requests = concat(
-    local.archshare_enabled ? module.archshare[0].rds_cluster_requests : [],
-    local.archpacs_enabled ? module.archpacs[0].rds_cluster_requests : [],
-    local.archorchestrator_enabled ? module.archorchestrator[0].rds_cluster_requests : []
+    local.ioshare_enabled ? module.ioshare[0].rds_cluster_requests : [],
+    local.iopacs_enabled ? module.iopacs[0].rds_cluster_requests : [],
+    local.iorchestrator_enabled ? module.iorchestrator[0].rds_cluster_requests : []
     # Future modules can add RDS requests here
   )
 
   # Collect ElastiCache cluster request definitions from all modules (dependency inversion pattern)
   # Modules define ElastiCache requirements; storage module creates ElastiCache resources
   elasticache_cluster_requests = concat(
-    local.archshare_enabled ? module.archshare[0].elasticache_cluster_requests : []
+    local.ioshare_enabled ? module.ioshare[0].elasticache_cluster_requests : []
     # Future modules can add ElastiCache requests here
   )
 
@@ -475,11 +483,11 @@ module "compute" {
   standalone_applications = lookup(module.config.service_configs, "applications", {})
 
   # Per-class tenant lists from entitlements
-  # Merge base entitlements with expanded archpacs deployment→class mappings and archorchestrator ECS clusters
+  # Merge base entitlements with expanded iopacs deployment→class mappings and iorchestrator ECS clusters
   tenants_by_class = merge(
     module.tenants.tenants_by_class,
-    local.archpacs_compute_class_tenants,
-    local.archorchestrator_cluster_tenants,
+    local.iopacs_compute_class_tenants,
+    local.iorchestrator_cluster_tenants,
     local.observability_cluster_tenants
   )
 
@@ -655,7 +663,7 @@ module "applications" {
   # Alloy requests get LOKI_ENDPOINT injected from compute's Terraform-managed NLB
   application_requests = concat(
     local.compute_enabled ? module.compute[0].application_requests : [],
-    local.archshare_enabled ? module.archshare[0].helm_application_requests : [],
+    local.ioshare_enabled ? module.ioshare[0].helm_application_requests : [],
     local.observability_enabled ? module.observability[0].helm_application_requests : [],
     local.observability_enabled ? [
       for req in module.observability[0].alloy_application_requests :
@@ -714,11 +722,11 @@ module "clairevoyance" {
   config = module.config.service_configs["clairevoyance"]
 }
 
-# Archshare Module
+# Ioshare Module
 # Medical imaging platform orchestration - generates infrastructure requests for storage module
-module "archshare" {
-  count  = local.archshare_enabled ? 1 : 0
-  source = "./archshare"
+module "ioshare" {
+  count  = local.ioshare_enabled ? 1 : 0
+  source = "./ioshare"
 
   # Core variables
   namespace      = module.namespace.id
@@ -726,12 +734,12 @@ module "archshare" {
 
   # Service-specific configuration (defaults handled by module)
   # Each key is a named deployment containing compute + RDS + ElastiCache config
-  config = module.config.service_configs["archshare"]
+  config = module.config.service_configs["ioshare"]
 
   # Per-deployment tenant lists (from entitlements system)
   # Deployment name = class name, so tenants_by_class maps deployment → tenants
   tenants_by_deployment = {
-    for name in try(keys(module.config.service_configs["archshare"]), []) :
+    for name in try(keys(module.config.service_configs["ioshare"]), []) :
     name => try(module.tenants.tenants_by_class[name], [])
   }
 
@@ -739,13 +747,13 @@ module "archshare" {
   networks = module.networks
 
   # Pass storage outputs back (dependency inversion return path)
-  # Storage module creates resources, then we pass endpoints back to archshare
+  # Storage module creates resources, then we pass endpoints back to ioshare
   rds_clusters         = local.storage_enabled ? module.storage[0].rds_clusters : {}
   elasticache_clusters = local.storage_enabled ? module.storage[0].elasticache_clusters : {}
   s3_buckets           = local.storage_enabled ? module.storage[0].bucket_names : {}
   efs_filesystems      = {} # Not implemented yet
 
-  # Pass storage security group IDs (for archshare to create access rules)
+  # Pass storage security group IDs (for ioshare to create access rules)
   storage_enabled                       = local.storage_enabled
   storage_rds_security_group_id         = local.storage_enabled ? module.storage[0].rds_security_group_id : ""
   storage_elasticache_security_group_id = local.storage_enabled ? module.storage[0].elasticache_security_group_id : ""
@@ -763,23 +771,23 @@ module "archshare" {
   eks_cluster_security_groups = local.compute_enabled ? module.compute[0].eks_cluster_security_groups : {}
 }
 
-# ArchPACS Module
+# IOPACS Module
 # Medical imaging PACS platform - generates infrastructure requests for compute, storage, and applications
-module "archpacs" {
-  count  = local.archpacs_enabled ? 1 : 0
-  source = "./archpacs"
+module "iopacs" {
+  count  = local.iopacs_enabled ? 1 : 0
+  source = "./iopacs"
 
   # Core variables
   namespace = module.namespace.id
 
   # Service-specific configuration
   # Each key is a named deployment containing compute + RDS + S3 config
-  config = module.config.service_configs["archpacs"]
+  config = module.config.service_configs["iopacs"]
 
   # Per-deployment tenant lists (from entitlements system)
   # Deployment name = class name, so tenants_by_class maps deployment → tenants
   tenants_by_deployment = {
-    for name in try(keys(module.config.service_configs["archpacs"]), []) :
+    for name in try(keys(module.config.service_configs["iopacs"]), []) :
     name => try(module.tenants.tenants_by_class[name], [])
   }
 
@@ -787,12 +795,12 @@ module "archpacs" {
   networks = module.networks
 }
 
-# ArchOrchestrator Module
+# IOrchestrator Module
 # IO Cloud / SaaSApp platform - ECS Fargate services with MSSQL backend
 # Generates infrastructure requests for storage module (RDS SQL Server, S3)
-module "archorchestrator" {
-  count  = local.archorchestrator_enabled ? 1 : 0
-  source = "./archorchestrator"
+module "iorchestrator" {
+  count  = local.iorchestrator_enabled ? 1 : 0
+  source = "./iorchestrator"
 
   # Core variables
   namespace      = module.namespace.id
@@ -802,12 +810,12 @@ module "archorchestrator" {
 
   # Service-specific configuration
   # Each key is a named deployment (IO Cloud "instance") containing ECS + RDS + S3 config
-  config = module.config.service_configs["archorchestrator"]
+  config = module.config.service_configs["iorchestrator"]
 
   # Per-deployment tenant lists (from entitlements system)
   # Deployment name = class name, so tenants_by_class maps deployment → tenants
   tenants_by_deployment = {
-    for name in try(keys(module.config.service_configs["archorchestrator"]), []) :
+    for name in try(keys(module.config.service_configs["iorchestrator"]), []) :
     name => try(module.tenants.tenants_by_class[name], [])
   }
 
@@ -861,4 +869,21 @@ module "arcbot" {
 moved {
   from = module.archbot
   to   = module.arcbot
+}
+
+# Legacy module renames (ported examples; normally unused, blocks are no-ops
+# when no state exists but protect any deployment that does have them):
+moved {
+  from = module.archpacs
+  to   = module.iopacs
+}
+
+moved {
+  from = module.archshare
+  to   = module.ioshare
+}
+
+moved {
+  from = module.archorchestrator
+  to   = module.iorchestrator
 }

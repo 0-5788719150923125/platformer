@@ -151,7 +151,7 @@ locals {
         port         = https_class.https_rules[0].port
         fqdn         = "${instance_key}.${var.domain_zone_name}"
         # Start at 100 to leave room for alias rules (priority 1-99)
-        priority     = index(sort([for k, v in local.tenant_instances : k if v.class == class_name]), instance_key) + 100
+        priority = index(sort([for k, v in local.tenant_instances : k if v.class == class_name]), instance_key) + 100
       }
       if instance_config.class == class_name
     }

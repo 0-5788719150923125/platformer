@@ -12,7 +12,7 @@ graph TB
     subgraph "Pattern-Based Targeting"
         P1["*-platform-dev"]
         P2["*uat* or *staging*"]
-        P3["archpacs-*"]
+        P3["iopacs-*"]
     end
 
     subgraph "AWS Organization"

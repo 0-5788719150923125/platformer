@@ -71,11 +71,11 @@ locals {
   # Use ellipsis to handle duplicate class-playbook combinations (same playbook used across multiple tenants)
   #
   # Path resolution order:
-  # 1. Check each known module directory (e.g., archpacs/ansible/<playbook>/)
+  # 1. Check each known module directory (e.g., iopacs/ansible/<playbook>/)
   # 2. Fall back to shared path (applications/ansible/<playbook>/)
   #
   # NOTE: The previous approach used split("-", class)[0] to guess the module prefix, but this
-  # breaks for multi-segment deployment names (e.g., class "ec2-poc-depot" → prefix "ec2", not "archpacs").
+  # breaks for multi-segment deployment names (e.g., class "ec2-poc-depot" → prefix "ec2", not "iopacs").
   # Instead, we search all known module directories for the playbook.
   ansible_playbook_paths = merge([
     for req in local.all_application_requests : {

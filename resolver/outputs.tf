@@ -43,19 +43,19 @@ output "applications" {
   value       = local.module_requirements.applications
 }
 
-output "archshare" {
-  description = "Enable archshare module (explicitly configured)"
-  value       = local.module_requirements.archshare
+output "ioshare" {
+  description = "Enable ioshare module (explicitly configured)"
+  value       = local.module_requirements.ioshare
 }
 
-output "archpacs" {
-  description = "Enable archpacs module (explicitly configured)"
-  value       = local.module_requirements.archpacs
+output "iopacs" {
+  description = "Enable iopacs module (explicitly configured)"
+  value       = local.module_requirements.iopacs
 }
 
-output "archorchestrator" {
-  description = "Enable archorchestrator module (explicitly configured)"
-  value       = local.module_requirements.archorchestrator
+output "iorchestrator" {
+  description = "Enable iorchestrator module (explicitly configured)"
+  value       = local.module_requirements.iorchestrator
 }
 
 output "portal" {

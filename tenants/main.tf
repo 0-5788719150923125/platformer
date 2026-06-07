@@ -24,7 +24,7 @@ locals {
   # Dot-notation syntax:
   #   "compute.*"              → wildcard, tenant gets ALL classes in the service
   #   "compute.windows-server" → scoped, tenant gets only that class
-  #   "archshare"            → bare service name (for services without classes)
+  #   "ioshare"            → bare service name (for services without classes)
 
   # Known service names: auto-discovered from sibling directories containing main.tf
   # Catches typos in entitlements (e.g., "compue" instead of "compute")

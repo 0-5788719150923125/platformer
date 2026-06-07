@@ -25,13 +25,13 @@ locals {
   # Aggregates all service URLs across modules with consistent metadata
   # Format: { unique_key => { url, service, module, tenants, deployment, metadata } }
   service_urls = merge(
-    # ArchOrchestrator ALB URLs (deployment-wide, multi-tenant)
-    local.archorchestrator_enabled ? {
-      for deploy_name, alb_url in module.archorchestrator[0].alb_urls :
-      "archorchestrator-${deploy_name}" => {
+    # IOrchestrator ALB URLs (deployment-wide, multi-tenant)
+    local.iorchestrator_enabled ? {
+      for deploy_name, alb_url in module.iorchestrator[0].alb_urls :
+      "iorchestrator-${deploy_name}" => {
         url        = alb_url
-        service    = "ArchOrchestrator"
-        module     = "archorchestrator"
+        service    = "IOrchestrator"
+        module     = "iorchestrator"
         tenants    = lookup(module.tenants.tenants_by_class, deploy_name, [])
         deployment = deploy_name
         metadata = {
@@ -122,18 +122,18 @@ locals {
       entry.deployment => entry
     } : {},
 
-    # Archshare URLs (per deployment-tenant, queried from Kubernetes)
-    local.archshare_enabled && local.compute_enabled ? {
-      for key, dc in module.archshare[0].eks_deployment_tenants :
-      "archshare-${key}" => {
+    # Ioshare URLs (per deployment-tenant, queried from Kubernetes)
+    local.ioshare_enabled && local.compute_enabled ? {
+      for key, dc in module.ioshare[0].eks_deployment_tenants :
+      "ioshare-${key}" => {
         url = (
-          module.archshare[0].frontend_service_urls[key] != null &&
-          module.archshare[0].frontend_service_urls[key] != ""
-          ? "http://${module.archshare[0].frontend_service_urls[key]}"
+          module.ioshare[0].frontend_service_urls[key] != null &&
+          module.ioshare[0].frontend_service_urls[key] != ""
+          ? "http://${module.ioshare[0].frontend_service_urls[key]}"
           : null
         )
-        service    = "Archshare"
-        module     = "archshare"
+        service    = "Ioshare"
+        module     = "ioshare"
         tenants    = [dc.tenant]
         deployment = dc.deployment
         metadata = {
@@ -147,7 +147,7 @@ locals {
 
   # Pass service URLs to portal. EC2 entries are pre-filtered at the source
   # (service_instance_keys excludes classes with no ingress_ports).
-  # Remaining null URLs (e.g. lazy-eval Archshare) are handled gracefully by portal.
+  # Remaining null URLs (e.g. lazy-eval Ioshare) are handled gracefully by portal.
   service_urls_filtered = local.service_urls
 }
 

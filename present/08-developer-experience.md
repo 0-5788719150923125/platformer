@@ -18,9 +18,9 @@ flowchart LR
         DevAccount[Account: example-platform-dev<br/>Region: us-east-2]
 
         subgraph Matrix["CI Matrix Deployments"]
-            Acc1[Account: archpacs-dev<br/>Region: us-east-2]
-            Acc2[Account: archpacs-uat<br/>Region: us-east-1]
-            Acc3[Account: archpacs-prod<br/>Region: us-east-1]
+            Acc1[Account: iopacs-dev<br/>Region: us-east-2]
+            Acc2[Account: iopacs-uat<br/>Region: us-east-1]
+            Acc3[Account: iopacs-prod<br/>Region: us-east-1]
         end
     end
 

@@ -16,11 +16,11 @@ This bothers the research community because they understand the implications. Sy
 
 ## Part II: The Architecture Problem
 
-This is what deploying ArchShare looks like:
+This is what deploying IOShare looks like:
 
 ```mermaid
 graph LR
-    Start([Start: Deploy ArchShare]) --> Guess1{Guess which<br/>variables needed}
+    Start([Start: Deploy IOShare]) --> Guess1{Guess which<br/>variables needed}
     Guess1 --> Templates[Jinja2 Templates<br/>plt-idp-templates<br/>sandbox repo]
 
     Templates --> Render1[render_templates.py]
@@ -32,7 +32,7 @@ graph LR
     Wait1 --> Fail1{Failed?}
     Fail1 -->|Yes| Debug1[Debug networking<br/>Transit Gateway?<br/>CIDR conflict?<br/>Who knows?]
     Debug1 --> TF1
-    Fail1 -->|No| TF2[Terraform:<br/>aws-archshare]
+    Fail1 -->|No| TF2[Terraform:<br/>aws-ioshare]
 
     TF2 --> Wait2[Wait for pipeline...]
     Wait2 --> Fail2{Failed?}
@@ -43,7 +43,7 @@ graph LR
     Outputs --> Realize1[Realize you need<br/>container image]
     Realize1 --> Docker[infra-docker repo<br/>find image def]
     Docker --> Port1[Open Port.io]
-    Port1 --> Action1[Find self-service<br/>action for<br/>ArchShare rebuild]
+    Port1 --> Action1[Find self-service<br/>action for<br/>IOShare rebuild]
     Action1 --> Wait3[Wait for<br/>image build...]
     Wait3 --> Fail3{Failed?}
     Fail3 -->|Yes| Debug3[Debug Dockerfile<br/>base image outdated?<br/>dependencies broken?]
@@ -121,7 +121,7 @@ graph LR
 
 The [official documentation](https://example.atlassian.net/wiki/x/IoArog) shows 10 steps. The reality is 47 decision points, 13 failure modes, 6 repositories, 5 waiting periods, and 3 days of someone's life they'll never get back.
 
-The diagram doesn't capture: the Ansible deployment generator that was abandoned but whose patterns infected the Jinja2 templates; the fact that plt-idp-templates is in a "sandbox" organization, marked "WIP" and "under active development" in production deployment docs; the tribal knowledge required to know which Port.io self-service action rebuilds ArchShare images versus other images; the manual coordination across infra-terraform, plt-kubernetes, infra-docker, and plt-idp-templates repositories; the missing documentation for which variables are actually required (you discover this by rendering failing); the Parameter Store JSON with nested escaped quotes that breaks if you get a single character wrong; the ArgoCD directory structure that isn't documented anywhere current; the waiting - always waiting - for pipelines that might fail for reasons you can't predict; the debugging that requires correlating logs across six repositories, three AWS accounts, two clusters, and tribal knowledge of "how this tenant is special"; the fact that success is defined as "it deployed" not "it works correctly" because verifying correctness requires another layer of undocumented testing.
+The diagram doesn't capture: the Ansible deployment generator that was abandoned but whose patterns infected the Jinja2 templates; the fact that plt-idp-templates is in a "sandbox" organization, marked "WIP" and "under active development" in production deployment docs; the tribal knowledge required to know which Port.io self-service action rebuilds IOShare images versus other images; the manual coordination across infra-terraform, plt-kubernetes, infra-docker, and plt-idp-templates repositories; the missing documentation for which variables are actually required (you discover this by rendering failing); the Parameter Store JSON with nested escaped quotes that breaks if you get a single character wrong; the ArgoCD directory structure that isn't documented anywhere current; the waiting - always waiting - for pipelines that might fail for reasons you can't predict; the debugging that requires correlating logs across six repositories, three AWS accounts, two clusters, and tribal knowledge of "how this tenant is special"; the fact that success is defined as "it deployed" not "it works correctly" because verifying correctness requires another layer of undocumented testing.
 
 And this is considered normal.
 

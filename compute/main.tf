@@ -38,12 +38,19 @@ locals {
   # first created, so a *string* token only takes effect once the sentinel already
   # exists (bump it on a later apply). `true` sidesteps this because the nonce changes
   # every apply regardless.
-  taint_tokens = {
+  # Normalize first (try wraps the WHOLE chain: tostring(null) returns null
+  # without erroring, so trimspace would otherwise blow up on unset taints).
+  taint_raw = {
     for class_name, class_config in local.ec2_classes :
+    class_name => try(trimspace(tostring(class_config.taint)), "")
+  }
+
+  taint_tokens = {
+    for class_name, value in local.taint_raw :
     class_name => (
-      lower(trimspace(try(tostring(class_config.taint), ""))) == "true" ? local.taint_apply_nonce :
-      contains(["", "false"], lower(trimspace(try(tostring(class_config.taint), "")))) ? "" :
-      trimspace(tostring(class_config.taint))
+      lower(value) == "true" ? local.taint_apply_nonce :
+      contains(["", "false"], lower(value)) ? "" :
+      value
     )
   }
 
@@ -328,8 +335,8 @@ locals {
             ) : null
 
             # Targeting: Class tag for class-specific deployments (enables different configs per class)
-            # This allows ArchPACS depot/database servers to receive different playbooks
-            # and Archshare instances to share the same playbook (they share the same class)
+            # This allows IOPACS depot/database servers to receive different playbooks
+            # and Ioshare instances to share the same playbook (they share the same class)
             target_tag_key   = app.type == "ssm" || app.type == "ansible" ? "Class" : null
             target_tag_value = app.type == "ssm" || app.type == "ansible" ? class_name : null
 

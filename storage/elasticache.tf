@@ -33,7 +33,7 @@ locals {
   # Generate shortened IDs for AWS ElastiCache (limit: 40 chars)
   # Format: ${namespace}-${key} or ${namespace}-${prefix}-${hash} if too long
   # Keeps descriptive suffix + deterministic hash of full key for uniqueness
-  # Example: "archshare-training-services-cache" → "chimos-services-cache-38303"
+  # Example: "ioshare-training-services-cache" → "chimos-services-cache-38303"
   replication_group_ids = {
     for key in keys(local.valkey_redis_clusters) :
     key => (

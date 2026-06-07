@@ -15,12 +15,12 @@ locals {
     for class_name, class_config in local.localhost_classes : {
       for idx, app in class_config.applications :
       "${class_name}-${idx}" => {
-        class_name = class_name
-        app_index  = idx
-        type       = app.type
-        script     = app.script
-        params     = app.params
-        playbook   = app.playbook
+        class_name    = class_name
+        app_index     = idx
+        type          = app.type
+        script        = app.script
+        params        = app.params
+        playbook      = app.playbook
         playbook_file = coalesce(app.playbook_file, "playbook.yml")
       }
     }

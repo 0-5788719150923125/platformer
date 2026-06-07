@@ -144,8 +144,8 @@ Consumer modules pull from these outputs. Only modules that create **per-tenant 
 | Module | Uses entitlements | Why |
 |---|---|---|
 | compute | Yes | Creates instances per tenant × class |
-| archshare | Yes | Creates RDS/ElastiCache per tenant |
-| archpacs | Yes | Creates RDS/S3 per tenant |
+| ioshare | Yes | Creates RDS/ElastiCache per tenant |
+| iopacs | Yes | Creates RDS/S3 per tenant |
 | configuration-management | No | Global  -  applies to all instances via tags |
 | portal | No | Global  -  enabled/disabled via resolver |
 | networking | No | Infrastructure-level, no tenant concept |
@@ -269,11 +269,11 @@ Entitlements control which tenants receive which per-tenant resources. They live
 
 - `compute.*`  -  wildcard, tenant gets **all** compute classes
 - `compute.windows-server`  -  scoped, tenant gets **only** the `windows-server` class
-- `archshare`  -  bare service name (for services without class-level scoping)
+- `ioshare`  -  bare service name (for services without class-level scoping)
 
-Services with classes (like compute) use the wildcard `.*` or scoped `.class-name` syntax. Services without classes (like archshare, archpacs) use bare service names.
+Services with classes (like compute) use the wildcard `.*` or scoped `.class-name` syntax. Services without classes (like ioshare, iopacs) use bare service names.
 
-Entitlements only matter for modules that create per-tenant resources (compute, archshare, archpacs). Globally-scoped modules like portal and configuration-management are controlled by the resolver  -  include their service key in the config to enable them, omit it to disable.
+Entitlements only matter for modules that create per-tenant resources (compute, ioshare, iopacs). Globally-scoped modules like portal and configuration-management are controlled by the resolver  -  include their service key in the config to enable them, omit it to disable.
 
 ### Tenant Registry
 
@@ -304,7 +304,7 @@ Fragments merge left-to-right with deep merge semantics. Maps merge recursively,
 
 ## Next Steps
 
-- **Explore archshare/archpacs**: These modules use `tenants_by_service` for per-tenant database and storage provisioning
+- **Explore ioshare/iopacs**: These modules use `tenants_by_service` for per-tenant database and storage provisioning
 - **Layer configuration-management**: Add patch management or password rotation fragments alongside compute
 - **Create per-environment overrides**: Use `top.yaml` to give dev and prod accounts different fragment sets
 

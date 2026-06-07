@@ -34,8 +34,10 @@ run "compute_with_custom_vpc" {
   }
 
   assert {
-    condition     = length(regexall("^10\\.150\\..*", module.networks["shared"].vpc.cidr_block)) > 0
-    error_message = "VPC CIDR should be deterministically generated (10.150.x.x for account 555555555555)"
+    # Account-agnostic: the second octet is hashed from the real account ID,
+    # so assert the deterministic 10.x.0.0 shape rather than a pinned octet.
+    condition     = length(regexall("^10\\.\\d+\\.", module.networks["shared"].vpc.cidr_block)) > 0
+    error_message = "VPC CIDR should be deterministically allocated in 10.0.0.0/8"
   }
 
   assert {
@@ -329,31 +331,31 @@ run "patch_management_with_maintenance_windows" {
 }
 
 # =============================================================================
-# ArchOrchestrator (ECS + RDS + S3)
+# IOrchestrator (ECS + RDS + S3)
 # =============================================================================
 
-run "archorchestrator_full_stack" {
+run "iorchestrator_full_stack" {
   command = plan
 
   variables {
     aws_profile = "example-platform-dev"
-    states      = ["archorchestrator"]
+    states      = ["iorchestrator"]
   }
 
   assert {
-    condition     = length(module.archorchestrator) == 1
-    error_message = "ArchOrchestrator should be created"
+    condition     = length(module.iorchestrator) == 1
+    error_message = "IOrchestrator should be created"
   }
 
   # Auto-enables storage (RDS+S3) and compute (ECS)
   assert {
     condition     = length(module.storage) == 1
-    error_message = "Storage should auto-enable for ArchOrchestrator RDS+S3"
+    error_message = "Storage should auto-enable for IOrchestrator RDS+S3"
   }
 
   assert {
     condition     = length(module.compute) == 1
-    error_message = "Compute should auto-enable for ArchOrchestrator ECS"
+    error_message = "Compute should auto-enable for IOrchestrator ECS"
   }
 
   assert {

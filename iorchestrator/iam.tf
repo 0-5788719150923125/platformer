@@ -1,0 +1,252 @@
+# IOrchestrator IAM
+# IAM roles are created by the access module via access_requests (dependency inversion).
+# All values in access_requests are config/variable-derived (no module-internal resource
+# attributes) to avoid Terraform module-closure cycles.
+
+locals {
+  access_requests = [
+    # ECS Task Execution Role - pulls images, writes logs
+    {
+      module              = "iorchestrator"
+      type                = "iam-role"
+      purpose             = "ecs-execution"
+      description         = "ECS task execution role (pull images, write logs)"
+      trust_services      = ["ecs-tasks.amazonaws.com"]
+      trust_roles         = []
+      trust_actions       = ["sts:AssumeRole"]
+      trust_conditions    = "{}"
+      managed_policy_arns = ["arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy"]
+      inline_policies     = {} # ECR inline policy stays local below (references aws_ecr_repository.main.arn)
+      instance_profile    = false
+    },
+    # ECS Task Role - runtime application permissions
+    {
+      module              = "iorchestrator"
+      type                = "iam-role"
+      purpose             = "ecs-task"
+      description         = "ECS task role (runtime application permissions)"
+      trust_services      = ["ecs-tasks.amazonaws.com"]
+      trust_roles         = []
+      trust_actions       = ["sts:AssumeRole"]
+      trust_conditions    = "{}"
+      managed_policy_arns = []
+      instance_profile    = false
+      inline_policies = {
+        "iorchestrator-app-access" = jsonencode({
+          Version = "2012-10-17"
+          Statement = [
+            {
+              Sid    = "S3BucketAccess"
+              Effect = "Allow"
+              Action = [
+                "s3:GetObject",
+                "s3:PutObject",
+                "s3:DeleteObject",
+                "s3:ListBucket",
+              ]
+              Resource = flatten([
+                for purpose, bucket_name in var.s3_buckets : [
+                  "arn:aws:s3:::${bucket_name}",
+                  "arn:aws:s3:::${bucket_name}/*",
+                ]
+              ])
+            },
+            {
+              Sid    = "SSMParameterAccess"
+              Effect = "Allow"
+              Action = [
+                "ssm:GetParameter",
+                "ssm:GetParameters",
+                "ssm:GetParametersByPath",
+              ]
+              Resource = [
+                "arn:aws:ssm:${var.aws_region}:${var.aws_account_id}:parameter/${var.namespace}/iorchestrator/*",
+                "arn:aws:ssm:${var.aws_region}:${var.aws_account_id}:parameter/saasapp/*",
+              ]
+            },
+            {
+              Sid    = "CloudWatchLogs"
+              Effect = "Allow"
+              Action = [
+                "logs:CreateLogStream",
+                "logs:PutLogEvents",
+              ]
+              Resource = "arn:aws:logs:${var.aws_region}:${var.aws_account_id}:log-group:/ecs/${var.namespace}/*"
+            },
+            {
+              Sid    = "ServiceDiscovery"
+              Effect = "Allow"
+              Action = [
+                "servicediscovery:DiscoverInstances"
+              ]
+              Resource = "*"
+            },
+            {
+              Sid    = "STSAssumeRole"
+              Effect = "Allow"
+              Action = [
+                "sts:AssumeRole",
+                "sts:SetSourceIdentity"
+              ]
+              Resource = [
+                "arn:aws:iam::${var.aws_account_id}:role/${var.namespace}-iorchestrator-ecs-bootstrap",
+                "arn:aws:iam::${var.aws_account_id}:role/${var.namespace}-iorchestrator-ecs-app"
+              ]
+            }
+          ]
+        })
+      }
+    },
+    # ECS Bootstrap Role - SaaSApp credential isolation (assumed by task role)
+    {
+      module              = "iorchestrator"
+      type                = "iam-role"
+      purpose             = "ecs-bootstrap"
+      description         = "ECS bootstrap role (SaaSApp credential isolation)"
+      trust_services      = []
+      trust_roles         = ["iorchestrator-ecs-task"]
+      trust_actions       = ["sts:AssumeRole", "sts:SetSourceIdentity"]
+      trust_conditions    = "{}"
+      managed_policy_arns = []
+      instance_profile    = false
+      inline_policies = {
+        "bootstrap-ssm-access" = jsonencode({
+          Version = "2012-10-17"
+          Statement = [
+            {
+              Sid    = "SSMParameterAccess"
+              Effect = "Allow"
+              Action = [
+                "ssm:GetParameter",
+                "ssm:GetParameters",
+                "ssm:GetParametersByPath",
+              ]
+              Resource = [
+                "arn:aws:ssm:${var.aws_region}:${var.aws_account_id}:parameter/${var.namespace}/iorchestrator/*",
+                "arn:aws:ssm:${var.aws_region}:${var.aws_account_id}:parameter/saasapp/*",
+              ]
+            }
+          ]
+        })
+      }
+    },
+    # ECS Application Role - runtime operations (assumed by task role with source identity)
+    {
+      module              = "iorchestrator"
+      type                = "iam-role"
+      purpose             = "ecs-app"
+      description         = "ECS application role (S3, Secrets Manager, EventBridge, Bedrock)"
+      trust_services      = []
+      trust_roles         = ["iorchestrator-ecs-task"]
+      trust_actions       = ["sts:AssumeRole", "sts:SetSourceIdentity"]
+      managed_policy_arns = []
+      instance_profile    = false
+      trust_conditions = jsonencode({
+        StringEquals = {
+          "sts:SourceIdentity" = "saasapp-app-5259d757-1477-4786-ad8c-a498cba80499"
+        }
+      })
+      inline_policies = {
+        "app-runtime-access" = jsonencode({
+          Version = "2012-10-17"
+          Statement = [
+            {
+              Sid    = "S3BucketAccess"
+              Effect = "Allow"
+              Action = [
+                "s3:GetObject",
+                "s3:PutObject",
+                "s3:DeleteObject",
+                "s3:ListBucket",
+              ]
+              Resource = flatten([
+                for purpose, bucket_name in var.s3_buckets : [
+                  "arn:aws:s3:::${bucket_name}",
+                  "arn:aws:s3:::${bucket_name}/*",
+                ]
+              ])
+            },
+            {
+              Sid    = "SecretsManagerAccess"
+              Effect = "Allow"
+              Action = [
+                "secretsmanager:GetSecretValue",
+              ]
+              Resource = "arn:aws:secretsmanager:${var.aws_region}:${var.aws_account_id}:secret:/saasapp/*"
+            },
+            {
+              Sid    = "SSMParameterAccess"
+              Effect = "Allow"
+              Action = [
+                "ssm:GetParameter",
+                "ssm:PutParameter",
+                "ssm:DeleteParameter",
+              ]
+              Resource = [
+                "arn:aws:ssm:${var.aws_region}:${var.aws_account_id}:parameter/saasapp-app/*",
+              ]
+            },
+            {
+              Sid    = "EventBridgeScheduler"
+              Effect = "Allow"
+              Action = [
+                "scheduler:CreateSchedule",
+                "scheduler:CreateScheduleGroup",
+                "scheduler:TagResource",
+                "iam:PassRole",
+              ]
+              Resource = "*"
+            },
+            {
+              Sid    = "TranscribeAccess"
+              Effect = "Allow"
+              Action = [
+                "transcribe:StartMedicalStreamTranscription*",
+              ]
+              Resource = "*"
+            },
+            {
+              Sid    = "BedrockAccess"
+              Effect = "Allow"
+              Action = [
+                "bedrock:InvokeModel*",
+              ]
+              Resource = "*"
+            }
+          ]
+        })
+      }
+    }
+  ]
+}
+
+# ── Local ECR Pull Policy ──────────────────────────────────────────────────
+# Must stay local: references aws_ecr_repository.main.arn (module-internal resource)
+# Attached to the access-created execution role
+
+resource "aws_iam_role_policy" "ecs_execution_ecr" {
+  name = "ecr-local-pull"
+  role = var.access_iam_role_names["iorchestrator-ecs-execution"]
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Sid    = "ECRPull"
+        Effect = "Allow"
+        Action = [
+          "ecr:GetDownloadUrlForLayer",
+          "ecr:BatchGetImage",
+          "ecr:BatchCheckLayerAvailability",
+        ]
+        Resource = aws_ecr_repository.main.arn
+      },
+      {
+        Sid      = "ECRAuth"
+        Effect   = "Allow"
+        Action   = ["ecr:GetAuthorizationToken"]
+        Resource = "*"
+      }
+    ]
+  })
+}

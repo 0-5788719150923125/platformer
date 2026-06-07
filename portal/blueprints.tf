@@ -168,7 +168,7 @@ resource "port_blueprint" "tenant_entitlement" {
     array_props = {
       entitlements = {
         title       = "Entitlements"
-        description = "List of service entitlements (e.g., compute.*, archshare.*)"
+        description = "List of service entitlements (e.g., compute.*, ioshare.*)"
       }
     }
   }
@@ -207,22 +207,22 @@ resource "port_blueprint" "service_url" {
       }
       module = {
         title       = "Module"
-        description = "Source module (e.g., archorchestrator, archshare, compute)"
+        description = "Source module (e.g., iorchestrator, ioshare, compute)"
         enum = [
           "arcbot",
-          "archorchestrator",
-          "archshare",
+          "iorchestrator",
+          "ioshare",
           "compute",
-          "archpacs",
+          "iopacs",
           "observability"
         ]
         enum_colors = {
-          arcbot          = "red"
-          archorchestrator = "blue"
-          archshare        = "green"
-          compute          = "orange"
-          archpacs         = "purple"
-          observability    = "turquoise"
+          arcbot        = "red"
+          iorchestrator = "blue"
+          ioshare       = "green"
+          compute       = "orange"
+          iopacs        = "purple"
+          observability = "turquoise"
         }
       }
       deployment = {

@@ -12,7 +12,7 @@ terraform test -verbose                                 # detailed output
 
 ## Test Suites
 
-**integration.tftest.hcl**  -  Cross-module interaction tests (networking, compute, applications, config management, archorchestrator). Uses test-specific state fragments from `tests/states/`.
+**integration.tftest.hcl**  -  Cross-module interaction tests (networking, compute, applications, config management, iorchestrator). Uses test-specific state fragments from `tests/states/`.
 
 **all_module_tests.tftest.hcl**  -  Discovers and runs every module's own test suite via `local-exec`. Modules with a `tests/*.tftest.hcl` directory are picked up automatically.
 

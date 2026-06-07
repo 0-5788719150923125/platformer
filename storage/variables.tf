@@ -127,11 +127,11 @@ variable "elasticache_cluster_requests" {
 variable "volume_requests" {
   description = "EBS volume + attachment requests from other modules (storage owns both resources)"
   type = list(object({
-    purpose           = string         # Globally unique key (e.g. "{instance_key}-{volume_name}")
-    instance_id       = string         # EC2 instance to attach to
-    availability_zone = string         # AZ of the instance (volume must match)
-    device_name       = string         # AWS block device name (e.g. "/dev/sdf")
-    size              = number         # Size in GB
+    purpose           = string # Globally unique key (e.g. "{instance_key}-{volume_name}")
+    instance_id       = string # EC2 instance to attach to
+    availability_zone = string # AZ of the instance (volume must match)
+    device_name       = string # AWS block device name (e.g. "/dev/sdf")
+    size              = number # Size in GB
     type              = optional(string, "gp3")
     iops              = optional(number)
     throughput        = optional(number)
