@@ -383,18 +383,32 @@ def _execute_generate_image(loop, origin_channel, tool_input):
         return {"error": f"Image was generated but posting to Discord failed: {exc}"}
 
     logger.info("Generated and posted image %s (%d bytes)", filename, len(data))
-    return [
-        {"text": json.dumps({
-            "success": True,
-            "filename": filename,
-            "note": (
-                "The image below was generated and already posted to the channel "
-                "as an attachment - do NOT post it again. You may briefly caption "
-                "or describe it in your reply."
-            ),
-        })},
-        {"image": {"format": "png", "source": {"bytes": data}}},
-    ]
+
+    # Echo the image back to the model only when it fits Bedrock Converse's
+    # 5 MB per-image cap - large generations (common at landscape/portrait
+    # sizes) post to Discord fine but would fail the next Converse call.
+    if len(data) <= MAX_IMAGE_BYTES:
+        return [
+            {"text": json.dumps({
+                "success": True,
+                "filename": filename,
+                "note": (
+                    "The image below was generated and already posted to the channel "
+                    "as an attachment - do NOT post it again. You may briefly caption "
+                    "or describe it in your reply."
+                ),
+            })},
+            {"image": {"format": "png", "source": {"bytes": data}}},
+        ]
+    return {
+        "success": True,
+        "filename": filename,
+        "note": (
+            "The image was generated and posted to the channel as an attachment. "
+            "It is too large to show you here, so caption it from your own prompt "
+            "if needed - do NOT retry or post it again."
+        ),
+    }
 
 
 # ── Discord Bot ──────────────────────────────────────────────────────────────
