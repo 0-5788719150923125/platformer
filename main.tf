@@ -10,7 +10,7 @@ data "aws_caller_identity" "current" {
 locals {
   # Convenience aliases — fall back to variable values when AWS is not configured
   aws_account_id = local.aws_configured ? data.aws_caller_identity.current[0].account_id : "not-configured"
-  aws_region     = local.aws_configured ? data.aws_region.current[0].id : module.workspaces.aws_region
+  aws_region     = local.aws_configured ? data.aws_region.current[0].region : module.workspaces.aws_region
 
   # Module enable flags from resolver module
   # Resolver analyzes service configs and determines which modules to enable
@@ -456,6 +456,9 @@ module "compute" {
   namespace      = module.namespace.id
   aws_account_id = local.aws_account_id
   aws_profile    = module.workspaces.aws_profile
+
+  # Preflight tool validation (helm/kubectl for EKS); tests disable it
+  preflight_enabled = var.preflight_enabled
 
   # Service-specific configuration (defaults handled by module)
   # Merges top-level compute classes with module-emitted compute classes

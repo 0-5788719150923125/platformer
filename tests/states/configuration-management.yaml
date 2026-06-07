@@ -1,0 +1,5 @@
+# Test fixture: base configuration-management service (no schedule override).
+# Used by config/tests/resolver.tftest.hcl merge-order tests.
+services:
+  configuration-management:
+    max_concurrency: "20%"

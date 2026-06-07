@@ -21,8 +21,28 @@ locals {
   workspace_file_content = local.workspace_file_exists ? file(local.workspace_file_path) : ""
 
   # Parse aws_profile: extract value from pattern `aws_profile = "value"`
-  aws_profile_raw      = try(regex("aws_profile\\s*=\\s*\"([^\"]+)\"", local.workspace_file_content)[0], null)
-  resolved_aws_profile = local.aws_profile_raw != null ? local.aws_profile_raw : var.default_aws_profile
+  aws_profile_raw       = try(regex("aws_profile\\s*=\\s*\"([^\"]+)\"", local.workspace_file_content)[0], null)
+  requested_aws_profile = local.aws_profile_raw != null ? local.aws_profile_raw : var.default_aws_profile
+
+  # Fall back to "default" when the requested profile doesn't exist on this
+  # machine. Configs and tests may name profiles (e.g. "example-platform-dev")
+  # that only exist in some environments; without this, the AWS provider fails
+  # with "failed to get shared config profile" before it can do anything.
+  # Sections look like "[profile name]" in ~/.aws/config and "[name]" in
+  # ~/.aws/credentials. Honors AWS_CONFIG_FILE/AWS_SHARED_CREDENTIALS_FILE
+  # only implicitly (we read the conventional paths; a missing file just
+  # contributes nothing). null stays null - that means "AWS not configured".
+  aws_shared_config = join("\n", [
+    fileexists(pathexpand("~/.aws/config")) ? file(pathexpand("~/.aws/config")) : "",
+    fileexists(pathexpand("~/.aws/credentials")) ? file(pathexpand("~/.aws/credentials")) : "",
+  ])
+  requested_profile_exists = local.requested_aws_profile != null && can(
+    regex("\\[(profile )?${local.requested_aws_profile}\\]", local.aws_shared_config)
+  )
+  resolved_aws_profile = (
+    local.requested_aws_profile == null ? null :
+    local.requested_profile_exists ? local.requested_aws_profile : "default"
+  )
 
   # Parse aws_region: extract value from pattern `aws_region = "value"`
   aws_region_raw      = try(regex("aws_region\\s*=\\s*\"([^\"]+)\"", local.workspace_file_content)[0], null)

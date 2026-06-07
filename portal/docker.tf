@@ -32,7 +32,7 @@ resource "null_resource" "port_agent" {
     namespace           = var.namespace
     compose_path        = "${path.module}/port-agent"
     script_path         = "${path.module}/scripts/manage-docker-compose.sh"
-    aws_region          = data.aws_region.current.id
+    aws_region          = data.aws_region.current.region
     aws_profile         = var.aws_profile
     commands_hash       = md5(jsonencode(var.commands))
     terraform_workspace = terraform.workspace

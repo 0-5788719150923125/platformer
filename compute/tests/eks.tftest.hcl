@@ -5,8 +5,9 @@ run "eks_basic_cluster" {
   command = plan
 
   variables {
-    namespace      = "test-namespace"
-    aws_account_id = "123456789012"
+    namespace         = "test-namespace"
+    aws_account_id    = "123456789012"
+    preflight_enabled = false
     config = {
       test-eks = {
         type       = "eks"
@@ -101,8 +102,9 @@ run "eks_multiple_node_groups" {
   command = plan
 
   variables {
-    namespace      = "test-namespace"
-    aws_account_id = "123456789012"
+    namespace         = "test-namespace"
+    aws_account_id    = "123456789012"
+    preflight_enabled = false
     config = {
       multi-ng = {
         type       = "eks"
@@ -189,9 +191,10 @@ run "eks_empty_config" {
   command = plan
 
   variables {
-    namespace      = "test-namespace"
-    aws_account_id = "123456789012"
-    config         = {}
+    namespace         = "test-namespace"
+    aws_account_id    = "123456789012"
+    preflight_enabled = false
+    config            = {}
   }
 
   # Verify no EKS resources created with empty config

@@ -311,7 +311,7 @@ locals {
               {
                 TENANT               = tenant
                 DEPLOYMENT_NAMESPACE = var.namespace
-                AWS_REGION           = data.aws_region.current.id
+                AWS_REGION           = data.aws_region.current.region
               },
               # Inject HTTPS hostname: prefer alias FQDN, then per-instance ALB FQDN
               contains(keys(local.alias_fqdn_by_class), class_name) ? {
@@ -423,7 +423,7 @@ locals {
             {
               TENANT               = tenant
               DEPLOYMENT_NAMESPACE = var.namespace
-              AWS_REGION           = data.aws_region.current.id
+              AWS_REGION           = data.aws_region.current.region
             },
             # Inject swap size when configured on the class
             class_config.swap_size > 0 ? {
@@ -521,8 +521,9 @@ locals {
 module "preflight" {
   source = "../preflight"
 
-  # Only validate k8s tools when EKS classes exist
-  required_tools = length(local.eks_classes) > 0 ? {
+  # Only validate k8s tools when EKS classes exist (and the escape hatch is on -
+  # plan-only runs like tests disable it via preflight_enabled = false).
+  required_tools = var.preflight_enabled && length(local.eks_classes) > 0 ? {
     helm    = local.required_tools["helm"]
     kubectl = local.required_tools["kubectl"]
     aws     = local.required_tools["aws"]
@@ -956,7 +957,7 @@ resource "null_resource" "kubeconfig_manager" {
   # Add/update kubeconfig entry when cluster is created
   # Use target account profile for CLI commands (Terraform uses 'default' but CLI needs direct access)
   provisioner "local-exec" {
-    command = "${path.module}/scripts/add-eks-kubeconfig.sh ${aws_eks_cluster.cluster[each.key].name} ${data.aws_region.current.id} ${data.aws_caller_identity.current.account_id} ${each.key} example-platform-dev"
+    command = "${path.module}/scripts/add-eks-kubeconfig.sh ${aws_eks_cluster.cluster[each.key].name} ${data.aws_region.current.region} ${data.aws_caller_identity.current.account_id} ${each.key} ${coalesce(var.aws_profile, "default")}"
   }
 
   # Remove kubeconfig entry when cluster is destroyed

@@ -13,7 +13,7 @@ locals {
     name => templatefile(doc.iam_policy_file, {
       aws_account_id         = var.aws_account_id
       parameter_store_prefix = var.config.parameter_store_prefix
-      region                 = data.aws_region.current.id
+      region                 = data.aws_region.current.region
     })
   }
 }

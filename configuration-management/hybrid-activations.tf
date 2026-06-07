@@ -28,7 +28,7 @@ locals {
       "sudo /tmp/ssm/ssm-setup-cli -register -activation-code '%s' -activation-id '%s' -region '%s'%s",
       activation.activation_code,
       activation.id,
-      data.aws_region.current.id,
+      data.aws_region.current.region,
       length(local.hybrid_tags_by_activation[key]) > 0
       ? " -tags '${join(",", local.hybrid_tags_by_activation[key])}'"
       : ""

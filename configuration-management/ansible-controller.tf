@@ -243,7 +243,7 @@ resource "null_resource" "force_reboot" {
           for class_name, instances in var.instances_by_class :
           values(instances) if contains(keys(var.reboot_triggers), class_name)
         ]))
-        AWS_REGION = data.aws_region.current.id
+        AWS_REGION = data.aws_region.current.region
       },
       var.aws_profile != "" ? { AWS_PROFILE = var.aws_profile } : {}
     )
@@ -332,7 +332,7 @@ resource "null_resource" "trigger_ansible_controller" {
     environment = merge(
       {
         READY_INSTANCE_IDS = join(" ", flatten([for class_name, instances in var.instances_by_class : values(instances)]))
-        AWS_REGION         = data.aws_region.current.id
+        AWS_REGION         = data.aws_region.current.region
         PROJECT_NAME       = aws_codebuild_project.ansible_controller[0].name
       },
       var.aws_profile != "" ? { AWS_PROFILE = var.aws_profile } : {}

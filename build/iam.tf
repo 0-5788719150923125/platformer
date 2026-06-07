@@ -26,7 +26,7 @@ locals {
                   "secretsmanager:GetSecretValue",
                   "secretsmanager:DescribeSecret"
                 ]
-                Resource = "arn:aws:secretsmanager:${data.aws_region.current.id}:${data.aws_caller_identity.current.account_id}:secret:platformer/${var.namespace}/*"
+                Resource = "arn:aws:secretsmanager:${data.aws_region.current.region}:${data.aws_caller_identity.current.account_id}:secret:platformer/${var.namespace}/*"
               },
               {
                 Sid    = "SSMSessionBucketAccess"
@@ -39,8 +39,8 @@ locals {
                   "s3:GetBucketLocation"
                 ]
                 Resource = [
-                  "arn:aws:s3:::aws-ssm-${data.aws_region.current.id}",
-                  "arn:aws:s3:::aws-ssm-${data.aws_region.current.id}/*"
+                  "arn:aws:s3:::aws-ssm-${data.aws_region.current.region}",
+                  "arn:aws:s3:::aws-ssm-${data.aws_region.current.region}/*"
                 ]
               },
               {

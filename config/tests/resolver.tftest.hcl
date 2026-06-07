@@ -8,6 +8,8 @@ run "load_single_state" {
   variables {
     states     = ["configuration-management-hourly"]
     aws_region = "us-east-2"
+    # Test fixtures live in the repo-level tests/states dir (states/ is user config)
+    states_dirs = ["../tests/states"]
   }
 
   # Should load configuration-management from state
@@ -39,6 +41,8 @@ run "load_multiple_states_with_merge" {
       "configuration-management-hourly" # Adds schedule
     ]
     aws_region = "us-east-2"
+    # Test fixtures live in the repo-level tests/states dir (states/ is user config)
+    states_dirs = ["../tests/states"]
   }
 
   # Should load merged configuration-management service
@@ -61,6 +65,8 @@ run "empty_states_no_services" {
   variables {
     states     = []
     aws_region = "us-east-2"
+    # Test fixtures live in the repo-level tests/states dir (states/ is user config)
+    states_dirs = ["../tests/states"]
   }
 
   # Should work without states
@@ -86,6 +92,8 @@ run "states_merge_order" {
       "configuration-management-hourly" # Override: adds schedule_expression
     ]
     aws_region = "us-east-2"
+    # Test fixtures live in the repo-level tests/states dir (states/ is user config)
+    states_dirs = ["../tests/states"]
   }
 
   # Later state should override with schedule_expression
@@ -100,8 +108,10 @@ run "loaded_states_output" {
   command = plan
 
   variables {
-    states     = ["configuration-management-hourly", "compute-windows-test"]
+    states     = ["configuration-management-hourly", "windows-multi-tenant"]
     aws_region = "us-east-2"
+    # Test fixtures live in the repo-level tests/states dir (states/ is user config)
+    states_dirs = ["../tests/states"]
   }
 
   # Should track which states were loaded

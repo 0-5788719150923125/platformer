@@ -167,7 +167,7 @@ resource "local_file" "packer_template" {
   content = templatefile("${path.module}/templates/packer-build.pkr.hcl.tpl", {
     class_name       = each.key
     namespace        = var.namespace
-    region           = data.aws_region.current.id
+    region           = data.aws_region.current.region
     base_ami         = local.resolved_amis[each.key]
     instance_type    = each.value.instance_type
     volume_size      = each.value.volume_size
@@ -252,7 +252,7 @@ resource "null_resource" "build_upload_archives" {
     working_dir = path.root
     environment = {
       AWS_PROFILE = var.aws_profile
-      AWS_REGION  = data.aws_region.current.id
+      AWS_REGION  = data.aws_region.current.region
     }
   }
 }
@@ -273,7 +273,7 @@ resource "null_resource" "packer_build" {
     working_dir = path.root
     environment = {
       AWS_PROFILE = var.aws_profile
-      AWS_REGION  = data.aws_region.current.id
+      AWS_REGION  = data.aws_region.current.region
     }
   }
 

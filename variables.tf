@@ -1,4 +1,10 @@
 # Core Infrastructure Variables
+variable "preflight_enabled" {
+  description = "Validate locally required tools (helm/kubectl for EKS) before creating resources. Disable for plan-only runs (e.g. tests) on machines without the tooling."
+  type        = bool
+  default     = true
+}
+
 variable "aws_profile" {
   description = "AWS profile name for authentication. Set to null to disable AWS (for local dev without credentials)."
   type        = string

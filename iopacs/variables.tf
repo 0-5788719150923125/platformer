@@ -49,7 +49,7 @@ variable "config" {
       support_type = optional(string, "STANDARD")
       vpc_id       = optional(string)
       subnet_ids   = optional(list(string))
-      node_groups  = optional(map(object({
+      node_groups = optional(map(object({
         instance_types = list(string)
         min_size       = number
         max_size       = number

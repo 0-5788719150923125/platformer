@@ -65,7 +65,7 @@ output "config" {
     total_volumes         = length(aws_ebs_volume.requested)
     volume_purposes       = keys(local.volumes)
     access_logging        = local.needs_log_bucket
-    region                = data.aws_region.current.id
+    region                = data.aws_region.current.region
   }
 }
 
@@ -181,7 +181,7 @@ output "commands" {
         type                      = "state_taint"
         resource_address_template = "module.storage[0].aws_s3_bucket.requested[\"${k}\"]"
         workspace                 = terraform.workspace
-        region                    = data.aws_region.current.id
+        region                    = data.aws_region.current.region
       }
     }
   ]
@@ -200,7 +200,7 @@ output "inventory" {
       name             = bucket.bucket
       engine           = null
       description      = local.buckets[k].description
-      url              = "https://s3.console.aws.amazon.com/s3/buckets/${bucket.bucket}?region=${data.aws_region.current.id}"
+      url              = "https://s3.console.aws.amazon.com/s3/buckets/${bucket.bucket}?region=${data.aws_region.current.region}"
       resource_address = "module.storage[0].aws_s3_bucket.requested[\"${k}\"]"
     }],
     # RDS Aurora clusters
@@ -210,7 +210,7 @@ output "inventory" {
       name         = cluster.cluster_id
       engine       = local.rds_clusters[k].engine
       description  = ""
-      url          = "https://${data.aws_region.current.id}.console.aws.amazon.com/rds/home?region=${data.aws_region.current.id}#database:id=${cluster.cluster_id}"
+      url          = "https://${data.aws_region.current.region}.console.aws.amazon.com/rds/home?region=${data.aws_region.current.region}#database:id=${cluster.cluster_id}"
     }],
     # RDS standalone instances
     [for k, inst in aws_db_instance.requested : {
@@ -219,7 +219,7 @@ output "inventory" {
       name         = inst.identifier
       engine       = local.rds_instances[k].engine
       description  = ""
-      url          = "https://${data.aws_region.current.id}.console.aws.amazon.com/rds/home?region=${data.aws_region.current.id}#dbinstances:search=${inst.identifier}"
+      url          = "https://${data.aws_region.current.region}.console.aws.amazon.com/rds/home?region=${data.aws_region.current.region}#dbinstances:search=${inst.identifier}"
     }],
     # ElastiCache Valkey / Redis replication groups
     [for k, rg in aws_elasticache_replication_group.valkey_redis : {
@@ -228,7 +228,7 @@ output "inventory" {
       name         = rg.id
       engine       = local.elasticache_clusters[k].engine
       description  = ""
-      url          = "https://${data.aws_region.current.id}.console.aws.amazon.com/elasticache/home?region=${data.aws_region.current.id}#/redis/${rg.id}"
+      url          = "https://${data.aws_region.current.region}.console.aws.amazon.com/elasticache/home?region=${data.aws_region.current.region}#/redis/${rg.id}"
     }],
     # ElastiCache Memcached clusters
     [for k, cluster in aws_elasticache_cluster.memcached : {
@@ -237,7 +237,7 @@ output "inventory" {
       name         = cluster.id
       engine       = "memcached"
       description  = ""
-      url          = "https://${data.aws_region.current.id}.console.aws.amazon.com/elasticache/home?region=${data.aws_region.current.id}#/memcached/${cluster.id}"
+      url          = "https://${data.aws_region.current.region}.console.aws.amazon.com/elasticache/home?region=${data.aws_region.current.region}#/memcached/${cluster.id}"
     }],
     # CodeCommit repositories
     [for k, repo in aws_codecommit_repository.requested : {
@@ -246,7 +246,7 @@ output "inventory" {
       name         = repo.repository_name
       engine       = null
       description  = local.repositories[k].description
-      url          = "https://${data.aws_region.current.id}.console.aws.amazon.com/codesuite/codecommit/repositories/${repo.repository_name}/browse?region=${data.aws_region.current.id}"
+      url          = "https://${data.aws_region.current.region}.console.aws.amazon.com/codesuite/codecommit/repositories/${repo.repository_name}/browse?region=${data.aws_region.current.region}"
     }],
     # EBS volumes
     [for k, v in aws_ebs_volume.requested : {
@@ -255,7 +255,7 @@ output "inventory" {
       name         = v.tags["Name"]
       engine       = null
       description  = local.volumes[k].description
-      url          = "https://${data.aws_region.current.id}.console.aws.amazon.com/ec2/home?region=${data.aws_region.current.id}#VolumeDetails:volumeId=${v.id}"
+      url          = "https://${data.aws_region.current.region}.console.aws.amazon.com/ec2/home?region=${data.aws_region.current.region}#VolumeDetails:volumeId=${v.id}"
     }],
   )
 }

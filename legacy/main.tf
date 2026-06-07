@@ -52,7 +52,7 @@ resource "null_resource" "build_atlantis_ami" {
 
       echo "Starting Packer build - this will fail the deployment if unsuccessful..."
       packer build \
-        -var "region=${data.aws_region.current.id}" \
+        -var "region=${data.aws_region.current.region}" \
         -var "github_token=${nonsensitive(data.aws_secretsmanager_secret_version.github_token.secret_string)}" \
         -var "git_branch=PROJ-5045-research-implement-local-admin-password-rotation-for-windows" \
         -var "atlantis_port=${var.config.atlantis_port}" \

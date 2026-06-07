@@ -23,7 +23,7 @@ resource "null_resource" "eks_secrets" {
     memcached             = local.cache_endpoints[each.key].memcached_endpoint
     s3_bucket             = local.s3_buckets[each.key]
     ecr_registry          = var.config[each.value.deployment].ecr_registry
-    aws_region            = data.aws_region.current.id
+    aws_region            = data.aws_region.current.region
     script_hash           = filemd5("${path.module}/scripts/create-k8s-secrets.sh")
   }
 

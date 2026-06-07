@@ -419,3 +419,9 @@ variable "access_instance_profile_names" {
   type        = map(string)
   default     = {}
 }
+
+variable "preflight_enabled" {
+  description = "Validate locally required tools (helm/kubectl) before creating EKS resources. Disable for plan-only runs on machines without the tooling."
+  type        = bool
+  default     = true
+}

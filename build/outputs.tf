@@ -18,7 +18,7 @@ output "artifact_requests" {
       path       = ami.id
       source     = "build"
       created_at = ami.creation_date
-      url        = "https://${data.aws_region.current.id}.console.aws.amazon.com/ec2/home?region=${data.aws_region.current.id}#ImageDetails:imageId=${ami.id}"
+      url        = "https://${data.aws_region.current.region}.console.aws.amazon.com/ec2/home?region=${data.aws_region.current.region}#ImageDetails:imageId=${ami.id}"
     }
   ]
 }
@@ -45,7 +45,7 @@ output "commands" {
       action_config = {
         type          = "packer_build"
         template_path = template.filename
-        region        = data.aws_region.current.id
+        region        = data.aws_region.current.region
       }
     }
   ]

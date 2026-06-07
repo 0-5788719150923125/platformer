@@ -408,6 +408,7 @@ This module supports the following arguments:
 | `access_iam_role_arns` | `map` | No | IAM role ARNs from access module (keyed by module-purpose) | [./compute/variables.tf:405](./compute/variables.tf#L405) |
 | `access_iam_role_names` | `map` | No | IAM role names from access module (keyed by module-purpose) | [./compute/variables.tf:411](./compute/variables.tf#L411) |
 | `access_instance_profile_names` | `map` | No | Instance profile names from access module (keyed by module-purpose) | [./compute/variables.tf:417](./compute/variables.tf#L417) |
+| `preflight_enabled` | `bool` | No | Validate locally required tools (helm/kubectl) before creating EKS resources. Disable for plan-only runs on machines without the tooling. | [./compute/variables.tf:423](./compute/variables.tf#L423) |
 
 ### Attributes
 
@@ -1269,13 +1270,14 @@ This module supports the following arguments:
 
 | Variable | Type | Required | Description | Ref |
 |----------|------|----------|-------------|-----|
-| `aws_profile` | `string` | No | AWS profile name for authentication. Set to null to disable AWS (for local dev without credentials). | [./variables.tf:2](./variables.tf#L2) |
-| `aws_region` | `string` | No | AWS region where resources will be created | [./variables.tf:13](./variables.tf#L13) |
-| `cross_account_providers` | `map(object)` | No | Cross-account AWS provider configurations. Keys: 'prod', 'infrastructure'. | [./variables.tf:24](./variables.tf#L24) |
-| `owner` | `string` | No | Team or individual responsible for this infrastructure | [./variables.tf:38](./variables.tf#L38) |
-| `states` | `list` | No |  | [./variables.tf:45](./variables.tf#L45) |
-| `workspace_overrides` | `bool` | No | Whether to enable workspace-specific tfvars file overrides. Set to false in tests to ensure test variables are used directly. | [./variables.tf:70](./variables.tf#L70) |
-| `aws_sso_start_url` | `string` | No | AWS SSO start URL for console link wrapping (e.g., https://d-xxxxxxxxxx.awsapps.com/start) | [./variables.tf:76](./variables.tf#L76) |
+| `preflight_enabled` | `bool` | No | Validate locally required tools (helm/kubectl for EKS) before creating resources. Disable for plan-only runs (e.g. tests) on machines without the tooling. | [./variables.tf:2](./variables.tf#L2) |
+| `aws_profile` | `string` | No | AWS profile name for authentication. Set to null to disable AWS (for local dev without credentials). | [./variables.tf:8](./variables.tf#L8) |
+| `aws_region` | `string` | No | AWS region where resources will be created | [./variables.tf:19](./variables.tf#L19) |
+| `cross_account_providers` | `map(object)` | No | Cross-account AWS provider configurations. Keys: 'prod', 'infrastructure'. | [./variables.tf:30](./variables.tf#L30) |
+| `owner` | `string` | No | Team or individual responsible for this infrastructure | [./variables.tf:44](./variables.tf#L44) |
+| `states` | `list` | No |  | [./variables.tf:51](./variables.tf#L51) |
+| `workspace_overrides` | `bool` | No | Whether to enable workspace-specific tfvars file overrides. Set to false in tests to ensure test variables are used directly. | [./variables.tf:76](./variables.tf#L76) |
+| `aws_sso_start_url` | `string` | No | AWS SSO start URL for console link wrapping (e.g., https://d-xxxxxxxxxx.awsapps.com/start) | [./variables.tf:82](./variables.tf#L82) |
 
 ### Attributes
 

@@ -8,12 +8,12 @@ output "vpc" {
     id         = data.aws_vpc.default[0].id
     arn        = data.aws_vpc.default[0].arn
     cidr_block = data.aws_vpc.default[0].cidr_block
-    region     = data.aws_region.current.id
+    region     = data.aws_region.current.region
     } : {
     id         = aws_vpc.network[0].id
     arn        = aws_vpc.network[0].arn
     cidr_block = aws_vpc.network[0].cidr_block
-    region     = data.aws_region.current.id
+    region     = data.aws_region.current.region
   }
 }
 
@@ -162,7 +162,7 @@ output "network_summary" {
   value = var.config.allocation_method == "default" ? {
     vpc_id       = data.aws_vpc.default[0].id
     vpc_cidr     = data.aws_vpc.default[0].cidr_block
-    region       = data.aws_region.current.id
+    region       = data.aws_region.current.region
     az_count     = length(data.aws_subnets.default[0].ids)
     azs          = []
     subnet_tiers = ["public", "private"]
@@ -174,7 +174,7 @@ output "network_summary" {
     } : {
     vpc_id       = aws_vpc.network[0].id
     vpc_cidr     = local.vpc_cidr
-    region       = data.aws_region.current.id
+    region       = data.aws_region.current.region
     az_count     = length(local.selected_azs)
     azs          = local.selected_azs
     subnet_tiers = keys(var.config.subnet_topology)

@@ -163,6 +163,8 @@ run "eks_cluster" {
   variables {
     aws_profile = "example-platform-dev"
     states      = ["eks-cluster"]
+    # Plan-only test - skip local helm/kubectl preflight check
+    preflight_enabled = false
   }
 
   assert {
@@ -295,14 +297,23 @@ run "hybrid_activations" {
     error_message = "Configuration management should be created"
   }
 
+  # The raw activation map is intentionally not exported (see
+  # configuration-management/outputs.tf); registration is surfaced as
+  # "hybrid-register-<activation>" workflow commands instead.
   assert {
-    condition     = length(module.configuration_management[0].hybrid_activations) > 0
-    error_message = "Should create hybrid activations"
+    condition = length([
+      for cmd in module.configuration_management[0].commands :
+      cmd if startswith(cmd.category, "hybrid-register-")
+    ]) > 0
+    error_message = "Should surface hybrid activation registration commands"
   }
 
   assert {
-    condition     = contains(keys(module.configuration_management[0].hybrid_activations), "developer-workstations")
-    error_message = "Should have developer-workstations activation"
+    condition = contains(
+      [for cmd in module.configuration_management[0].commands : cmd.category],
+      "hybrid-register-developer-workstations"
+    )
+    error_message = "Should have developer-workstations activation workflow"
   }
 }
 

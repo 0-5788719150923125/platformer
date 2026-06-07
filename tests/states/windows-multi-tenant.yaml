@@ -5,7 +5,7 @@ matrix:
       entitlements: [compute.*]
     november:
       entitlements: [compute.*]
-    medvet:
+    mike:
       entitlements: [compute.*]
 
 services:

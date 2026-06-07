@@ -249,7 +249,7 @@ output "commands" {
           action_config = {
             type    = "cli_exec"
             context = key
-            region  = data.aws_region.current.id
+            region  = data.aws_region.current.region
           }
         },
         {
@@ -264,7 +264,7 @@ output "commands" {
           action_config = {
             type    = "cli_exec"
             context = key
-            region  = data.aws_region.current.id
+            region  = data.aws_region.current.region
           }
         },
         {
@@ -279,7 +279,7 @@ output "commands" {
           action_config = {
             type    = "cli_exec"
             context = key
-            region  = data.aws_region.current.id
+            region  = data.aws_region.current.region
           }
         }
       ]
@@ -290,7 +290,7 @@ output "commands" {
         {
           title       = "ECS Cluster Health: ${key}"
           description = "Show service health overview for cluster ${cluster.name} - shows which services are healthy vs unhealthy"
-          commands    = ["AWS_PROFILE=${var.aws_profile} AWS_REGION=${data.aws_region.current.id} aws ecs describe-services --cluster ${cluster.name} --services $(aws ecs list-services --cluster ${cluster.name} --query 'serviceArns' --output text) --query 'services[].{Service:serviceName,Status:status,Desired:desiredCount,Running:runningCount,Pending:pendingCount}' --output table 2>/dev/null || echo 'No services in cluster'"]
+          commands    = ["AWS_PROFILE=${var.aws_profile} AWS_REGION=${data.aws_region.current.region} aws ecs describe-services --cluster ${cluster.name} --services $(aws ecs list-services --cluster ${cluster.name} --query 'serviceArns' --output text) --query 'services[].{Service:serviceName,Status:status,Desired:desiredCount,Running:runningCount,Pending:pendingCount}' --output table 2>/dev/null || echo 'No services in cluster'"]
           service     = "compute"
           category    = "ecs-health"
           target_type = "cluster"
@@ -299,13 +299,13 @@ output "commands" {
           action_config = {
             type    = "cli_exec"
             cluster = cluster.name
-            region  = data.aws_region.current.id
+            region  = data.aws_region.current.region
           }
         },
         {
           title       = "ECS Recent Failures: ${key}"
           description = "Show recently stopped tasks and why they failed in cluster ${cluster.name}"
-          commands    = ["AWS_PROFILE=${var.aws_profile} AWS_REGION=${data.aws_region.current.id} aws ecs describe-tasks --cluster ${cluster.name} --tasks $(aws ecs list-tasks --cluster ${cluster.name} --desired-status STOPPED --query 'taskArns[0:10]' --output text) --query 'tasks[].{Task:taskArn,Service:group,StoppedAt:stoppedAt,Reason:stoppedReason,ExitCode:containers[0].exitCode}' --output table 2>/dev/null || echo 'No stopped tasks found'"]
+          commands    = ["AWS_PROFILE=${var.aws_profile} AWS_REGION=${data.aws_region.current.region} aws ecs describe-tasks --cluster ${cluster.name} --tasks $(aws ecs list-tasks --cluster ${cluster.name} --desired-status STOPPED --query 'taskArns[0:10]' --output text) --query 'tasks[].{Task:taskArn,Service:group,StoppedAt:stoppedAt,Reason:stoppedReason,ExitCode:containers[0].exitCode}' --output table 2>/dev/null || echo 'No stopped tasks found'"]
           service     = "compute"
           category    = "ecs-failures"
           target_type = "cluster"
@@ -314,13 +314,13 @@ output "commands" {
           action_config = {
             type    = "cli_exec"
             cluster = cluster.name
-            region  = data.aws_region.current.id
+            region  = data.aws_region.current.region
           }
         },
         {
           title       = "List ECS Services: ${key}"
           description = "List all services in ECS cluster ${cluster.name}"
-          commands    = ["AWS_PROFILE=${var.aws_profile} AWS_REGION=${data.aws_region.current.id} aws ecs list-services --cluster ${cluster.name}"]
+          commands    = ["AWS_PROFILE=${var.aws_profile} AWS_REGION=${data.aws_region.current.region} aws ecs list-services --cluster ${cluster.name}"]
           service     = "compute"
           category    = "ecs-services"
           target_type = "cluster"
@@ -329,13 +329,13 @@ output "commands" {
           action_config = {
             type    = "cli_exec"
             cluster = cluster.name
-            region  = data.aws_region.current.id
+            region  = data.aws_region.current.region
           }
         },
         {
           title       = "List ECS Tasks: ${key}"
           description = "List running tasks (containers) in ECS cluster ${cluster.name}"
-          commands    = ["AWS_PROFILE=${var.aws_profile} AWS_REGION=${data.aws_region.current.id} aws ecs list-tasks --cluster ${cluster.name}"]
+          commands    = ["AWS_PROFILE=${var.aws_profile} AWS_REGION=${data.aws_region.current.region} aws ecs list-tasks --cluster ${cluster.name}"]
           service     = "compute"
           category    = "ecs-tasks"
           target_type = "cluster"
@@ -344,13 +344,13 @@ output "commands" {
           action_config = {
             type    = "cli_exec"
             cluster = cluster.name
-            region  = data.aws_region.current.id
+            region  = data.aws_region.current.region
           }
         },
         {
           title       = "List Stopped ECS Tasks: ${key}"
           description = "List recently stopped task ARNs in ECS cluster ${cluster.name}"
-          commands    = ["AWS_PROFILE=${var.aws_profile} AWS_REGION=${data.aws_region.current.id} aws ecs list-tasks --cluster ${cluster.name} --desired-status STOPPED"]
+          commands    = ["AWS_PROFILE=${var.aws_profile} AWS_REGION=${data.aws_region.current.region} aws ecs list-tasks --cluster ${cluster.name} --desired-status STOPPED"]
           service     = "compute"
           category    = "ecs-stopped"
           target_type = "cluster"
@@ -359,7 +359,7 @@ output "commands" {
           action_config = {
             type    = "cli_exec"
             cluster = cluster.name
-            region  = data.aws_region.current.id
+            region  = data.aws_region.current.region
           }
         },
       ]
@@ -379,7 +379,7 @@ output "commands" {
           action_config = {
             type    = "cli_exec"
             context = v.triggers.context
-            region  = data.aws_region.current.id
+            region  = data.aws_region.current.region
           }
         },
         {
@@ -394,7 +394,7 @@ output "commands" {
           action_config = {
             type    = "cli_exec"
             context = v.triggers.context
-            region  = data.aws_region.current.id
+            region  = data.aws_region.current.region
           }
         }
       ]
@@ -414,7 +414,7 @@ output "commands" {
           type                      = "state_taint"
           resource_address_template = "module.compute[0].aws_instance.tenant[\"{{INSTANCE_KEY}}\"]"
           workspace                 = terraform.workspace
-          region                    = data.aws_region.current.id
+          region                    = data.aws_region.current.region
         }
       }
       if length(lookup(var.tenants_by_class, class_name, [])) > 0
@@ -434,7 +434,7 @@ output "commands" {
           type                      = "state_taint"
           resource_address_template = "module.compute[0].aws_eks_cluster.cluster[\"{{INSTANCE_KEY}}\"]"
           workspace                 = terraform.workspace
-          region                    = data.aws_region.current.id
+          region                    = data.aws_region.current.region
         }
       }
     ],
@@ -453,7 +453,7 @@ output "commands" {
           type                      = "state_taint"
           resource_address_template = "module.compute[0].aws_ecs_cluster.cluster[\"{{INSTANCE_KEY}}\"]"
           workspace                 = terraform.workspace
-          region                    = data.aws_region.current.id
+          region                    = data.aws_region.current.region
         }
       }
     ]
@@ -539,11 +539,11 @@ output "ecs_test_commands" {
     for key, cluster in aws_ecs_cluster.cluster :
     key => {
       cluster_name    = cluster.name
-      health_overview = "AWS_PROFILE=${var.aws_profile} AWS_REGION=${data.aws_region.current.id} aws ecs describe-services --cluster ${cluster.name} --services $(aws ecs list-services --cluster ${cluster.name} --query 'serviceArns' --output text) --query 'services[].{Service:serviceName,Status:status,Desired:desiredCount,Running:runningCount,Pending:pendingCount}' --output table 2>/dev/null || echo 'No services'"
-      recent_failures = "AWS_PROFILE=${var.aws_profile} AWS_REGION=${data.aws_region.current.id} aws ecs describe-tasks --cluster ${cluster.name} --tasks $(aws ecs list-tasks --cluster ${cluster.name} --desired-status STOPPED --query 'taskArns[0:10]' --output text) --query 'tasks[].{Service:group,StoppedAt:stoppedAt,Reason:stoppedReason,Exit:containers[0].exitCode}' --output table 2>/dev/null || echo 'No stopped tasks'"
-      list_services   = "AWS_PROFILE=${var.aws_profile} AWS_REGION=${data.aws_region.current.id} aws ecs list-services --cluster ${cluster.name}"
-      list_tasks      = "AWS_PROFILE=${var.aws_profile} AWS_REGION=${data.aws_region.current.id} aws ecs list-tasks --cluster ${cluster.name}"
-      stopped_tasks   = "AWS_PROFILE=${var.aws_profile} AWS_REGION=${data.aws_region.current.id} aws ecs list-tasks --cluster ${cluster.name} --desired-status STOPPED"
+      health_overview = "AWS_PROFILE=${var.aws_profile} AWS_REGION=${data.aws_region.current.region} aws ecs describe-services --cluster ${cluster.name} --services $(aws ecs list-services --cluster ${cluster.name} --query 'serviceArns' --output text) --query 'services[].{Service:serviceName,Status:status,Desired:desiredCount,Running:runningCount,Pending:pendingCount}' --output table 2>/dev/null || echo 'No services'"
+      recent_failures = "AWS_PROFILE=${var.aws_profile} AWS_REGION=${data.aws_region.current.region} aws ecs describe-tasks --cluster ${cluster.name} --tasks $(aws ecs list-tasks --cluster ${cluster.name} --desired-status STOPPED --query 'taskArns[0:10]' --output text) --query 'tasks[].{Service:group,StoppedAt:stoppedAt,Reason:stoppedReason,Exit:containers[0].exitCode}' --output table 2>/dev/null || echo 'No stopped tasks'"
+      list_services   = "AWS_PROFILE=${var.aws_profile} AWS_REGION=${data.aws_region.current.region} aws ecs list-services --cluster ${cluster.name}"
+      list_tasks      = "AWS_PROFILE=${var.aws_profile} AWS_REGION=${data.aws_region.current.region} aws ecs list-tasks --cluster ${cluster.name}"
+      stopped_tasks   = "AWS_PROFILE=${var.aws_profile} AWS_REGION=${data.aws_region.current.region} aws ecs list-tasks --cluster ${cluster.name} --desired-status STOPPED"
     }
   }
 }

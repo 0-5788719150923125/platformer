@@ -62,7 +62,7 @@ output "trigger_execution" {
   description = "Commands to manually trigger association execution immediately (bypasses schedule)"
   value = {
     for name, assoc in aws_ssm_association.document_association :
-    name => "AWS_REGION=${data.aws_region.current.id} AWS_PROFILE=${var.aws_profile} aws ssm start-associations-once --association-ids '${assoc.association_id}'"
+    name => "AWS_REGION=${data.aws_region.current.region} AWS_PROFILE=${var.aws_profile} aws ssm start-associations-once --association-ids '${assoc.association_id}'"
   }
 }
 
@@ -71,7 +71,7 @@ output "check_execution_status" {
   description = "Commands to view association execution history and status"
   value = {
     for name, assoc in aws_ssm_association.document_association :
-    name => "AWS_REGION=${data.aws_region.current.id} AWS_PROFILE=${var.aws_profile} aws ssm describe-association-executions --association-id '${assoc.association_id}' --max-results 5"
+    name => "AWS_REGION=${data.aws_region.current.region} AWS_PROFILE=${var.aws_profile} aws ssm describe-association-executions --association-id '${assoc.association_id}' --max-results 5"
   }
 }
 
@@ -181,11 +181,11 @@ output "commands" {
           description = "Trigger the ${name} SSM association and collect execution results"
           commands = [
             "# Step 1: Trigger association",
-            "AWS_REGION=${data.aws_region.current.id} AWS_PROFILE=${var.aws_profile} aws ssm start-associations-once --association-ids '${assoc.association_id}'",
+            "AWS_REGION=${data.aws_region.current.region} AWS_PROFILE=${var.aws_profile} aws ssm start-associations-once --association-ids '${assoc.association_id}'",
             "# Step 2: Check execution status (repeat until Status is Success/Failed)",
-            "AWS_REGION=${data.aws_region.current.id} AWS_PROFILE=${var.aws_profile} aws ssm describe-association-executions --association-id '${assoc.association_id}' --max-results 1",
+            "AWS_REGION=${data.aws_region.current.region} AWS_PROFILE=${var.aws_profile} aws ssm describe-association-executions --association-id '${assoc.association_id}' --max-results 1",
             "# Step 3: Get per-instance output (use ExecutionId from step 2)",
-            "AWS_REGION=${data.aws_region.current.id} AWS_PROFILE=${var.aws_profile} aws ssm describe-association-execution-targets --association-id '${assoc.association_id}' --execution-id '<ExecutionId>'",
+            "AWS_REGION=${data.aws_region.current.region} AWS_PROFILE=${var.aws_profile} aws ssm describe-association-execution-targets --association-id '${assoc.association_id}' --execution-id '<ExecutionId>'",
           ]
           service     = "configuration-management"
           category    = "doc-${name}"
@@ -195,7 +195,7 @@ output "commands" {
           action_config = {
             type           = "ssm_trigger_and_collect"
             association_id = assoc.association_id
-            region         = data.aws_region.current.id
+            region         = data.aws_region.current.region
           }
         }
       ]
@@ -207,11 +207,11 @@ output "commands" {
         description = "Trigger and collect results for ${local.ssm_application_requests[idx].class} application deployment"
         commands = [
           "# Step 1: Trigger association",
-          "AWS_REGION=${data.aws_region.current.id} AWS_PROFILE=${var.aws_profile} aws ssm start-associations-once --association-ids '${assoc.association_id}'",
+          "AWS_REGION=${data.aws_region.current.region} AWS_PROFILE=${var.aws_profile} aws ssm start-associations-once --association-ids '${assoc.association_id}'",
           "# Step 2: Check execution status (repeat until Status is Success/Failed)",
-          "AWS_REGION=${data.aws_region.current.id} AWS_PROFILE=${var.aws_profile} aws ssm describe-association-executions --association-id '${assoc.association_id}' --max-results 1",
+          "AWS_REGION=${data.aws_region.current.region} AWS_PROFILE=${var.aws_profile} aws ssm describe-association-executions --association-id '${assoc.association_id}' --max-results 1",
           "# Step 3: Get per-instance output (use ExecutionId from step 2)",
-          "AWS_REGION=${data.aws_region.current.id} AWS_PROFILE=${var.aws_profile} aws ssm describe-association-execution-targets --association-id '${assoc.association_id}' --execution-id '<ExecutionId>'",
+          "AWS_REGION=${data.aws_region.current.region} AWS_PROFILE=${var.aws_profile} aws ssm describe-association-execution-targets --association-id '${assoc.association_id}' --execution-id '<ExecutionId>'",
         ]
         service     = "configuration-management"
         category    = "app-${replace(local.ssm_application_requests[idx].script, "/", "-")}"
@@ -222,7 +222,7 @@ output "commands" {
           type           = "ssm_trigger_and_collect"
           association_id = assoc.association_id
           tenant         = local.ssm_application_requests[idx].tenant
-          region         = data.aws_region.current.id
+          region         = data.aws_region.current.region
         }
       }
     ],
@@ -236,7 +236,7 @@ output "commands" {
         commands = [
           "# Step 1: Bootstrap ssm-setup-cli (x86_64; swap linux_amd64 -> linux_arm64 for ARM hosts)",
           "mkdir -p /tmp/ssm",
-          "curl https://amazon-ssm-${data.aws_region.current.id}.s3.${data.aws_region.current.id}.amazonaws.com/latest/linux_amd64/ssm-setup-cli -o /tmp/ssm/ssm-setup-cli",
+          "curl https://amazon-ssm-${data.aws_region.current.region}.s3.${data.aws_region.current.region}.amazonaws.com/latest/linux_amd64/ssm-setup-cli -o /tmp/ssm/ssm-setup-cli",
           "chmod +x /tmp/ssm/ssm-setup-cli",
           "# Step 2: Register the host (tags auto-included when a maintenance window targets this activation)",
           local.activation_register_command[key],
@@ -250,7 +250,7 @@ output "commands" {
           type            = "hybrid_register"
           activation_id   = activation.id
           activation_code = activation.activation_code
-          region          = data.aws_region.current.id
+          region          = data.aws_region.current.region
         }
       }
     ],
@@ -261,11 +261,11 @@ output "commands" {
         description = "Trigger the Ansible controller CodeBuild project to run all playbooks"
         commands = [
           "# Step 1: Start CodeBuild build",
-          "AWS_REGION=${data.aws_region.current.id} AWS_PROFILE=${var.aws_profile} aws codebuild start-build --project-name '${aws_codebuild_project.ansible_controller[0].name}'",
+          "AWS_REGION=${data.aws_region.current.region} AWS_PROFILE=${var.aws_profile} aws codebuild start-build --project-name '${aws_codebuild_project.ansible_controller[0].name}'",
           "# Step 2: Check build status (use build ID from step 1)",
-          "AWS_REGION=${data.aws_region.current.id} AWS_PROFILE=${var.aws_profile} aws codebuild batch-get-builds --ids '<build-id>'",
+          "AWS_REGION=${data.aws_region.current.region} AWS_PROFILE=${var.aws_profile} aws codebuild batch-get-builds --ids '<build-id>'",
           "# Step 3: View build logs",
-          "AWS_REGION=${data.aws_region.current.id} AWS_PROFILE=${var.aws_profile} aws logs tail '/aws/codebuild/${aws_codebuild_project.ansible_controller[0].name}' --follow",
+          "AWS_REGION=${data.aws_region.current.region} AWS_PROFILE=${var.aws_profile} aws logs tail '/aws/codebuild/${aws_codebuild_project.ansible_controller[0].name}' --follow",
         ]
         service     = "configuration-management"
         category    = "ansible-controller"
@@ -275,7 +275,7 @@ output "commands" {
         action_config = {
           type         = "codebuild_trigger"
           project_name = aws_codebuild_project.ansible_controller[0].name
-          region       = data.aws_region.current.id
+          region       = data.aws_region.current.region
         }
       }
     ] : []
@@ -288,10 +288,10 @@ output "docker_test_commands" {
   value = {
     for key, activation in aws_ssm_activation.activation : key => {
       # Single command - starts container, installs agent, registers, stays alive
-      run = "docker compose run agent /scripts/ssm-entrypoint.sh '${activation.activation_code}' '${activation.id}' '${data.aws_region.current.id}'"
+      run = "docker compose run agent /scripts/ssm-entrypoint.sh '${activation.activation_code}' '${activation.id}' '${data.aws_region.current.region}'"
 
       # Verification and management commands
-      verify_in_aws = "AWS_REGION=${data.aws_region.current.id} AWS_PROFILE=${var.aws_profile} aws ssm describe-instance-information --filters 'Key=ActivationIds,Values=${activation.id}'"
+      verify_in_aws = "AWS_REGION=${data.aws_region.current.region} AWS_PROFILE=${var.aws_profile} aws ssm describe-instance-information --filters 'Key=ActivationIds,Values=${activation.id}'"
       shell_access  = "docker exec -it hybrid-activation-test bash"
       cleanup       = "docker compose down"
     }

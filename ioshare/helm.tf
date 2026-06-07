@@ -56,7 +56,7 @@ locals {
         values = templatefile("${path.module}/templates/storage-values.yaml.tpl", {
           tenant_namespace       = dt.tenant
           redis_storage_endpoint = local.cache_endpoints[key].redis_storage_endpoint
-          aws_region             = data.aws_region.current.id
+          aws_region             = data.aws_region.current.region
         })
         wait    = true
         timeout = 600

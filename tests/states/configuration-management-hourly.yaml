@@ -1,0 +1,6 @@
+# Test fixture: configuration-management with an hourly schedule.
+# Used by config/tests/resolver.tftest.hcl single-state and merge-order tests.
+services:
+  configuration-management:
+    schedule_expression: "rate(1 hour)"
+    max_concurrency: "20%"

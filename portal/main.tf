@@ -222,14 +222,14 @@ locals {
         publicIp               = instance.public_ip != "" ? instance.public_ip : null
         subnetId               = instance.subnet_id
         ami                    = instance.ami
-        region                 = data.aws_region.current.id
+        region                 = data.aws_region.current.region
         namespace              = var.subspace
         workspace              = var.namespace
         type                   = "ec2"
         status                 = "active"
-        awsUrl                 = "${local.sso_prefix}${urlencode("https://${data.aws_region.current.id}.console.aws.amazon.com/ec2/home?region=${data.aws_region.current.id}#InstanceDetails:instanceId=${instance.id}")}"
-        ssmUrl                 = "${local.sso_prefix}${urlencode("https://${data.aws_region.current.id}.console.aws.amazon.com/systems-manager/explore-nodes/${instance.id}?region=${data.aws_region.current.id}")}"
-        sessionManagerUrl      = "${local.sso_prefix}${urlencode("https://${data.aws_region.current.id}.console.aws.amazon.com/systems-manager/session-manager/${instance.id}?region=${data.aws_region.current.id}#:")}"
+        awsUrl                 = "${local.sso_prefix}${urlencode("https://${data.aws_region.current.region}.console.aws.amazon.com/ec2/home?region=${data.aws_region.current.region}#InstanceDetails:instanceId=${instance.id}")}"
+        ssmUrl                 = "${local.sso_prefix}${urlencode("https://${data.aws_region.current.region}.console.aws.amazon.com/systems-manager/explore-nodes/${instance.id}?region=${data.aws_region.current.region}")}"
+        sessionManagerUrl      = "${local.sso_prefix}${urlencode("https://${data.aws_region.current.region}.console.aws.amazon.com/systems-manager/session-manager/${instance.id}?region=${data.aws_region.current.region}#:")}"
         awsProfile             = var.aws_profile
         patchGroup             = try(var.patch_management_by_class[instance.class].patch_group, null)
         patchBaseline          = try(var.patch_management_by_class[instance.class].baseline, null)
@@ -260,12 +260,12 @@ locals {
         publicIp               = null
         subnetId               = null
         ami                    = null
-        region                 = data.aws_region.current.id
+        region                 = data.aws_region.current.region
         namespace              = var.subspace
         workspace              = var.namespace
         type                   = "eks"
         status                 = lower(cluster.status)
-        awsUrl                 = "${local.sso_prefix}${urlencode("https://${data.aws_region.current.id}.console.aws.amazon.com/eks/home?region=${data.aws_region.current.id}#/clusters/${cluster.id}")}"
+        awsUrl                 = "${local.sso_prefix}${urlencode("https://${data.aws_region.current.region}.console.aws.amazon.com/eks/home?region=${data.aws_region.current.region}#/clusters/${cluster.id}")}"
         ssmUrl                 = null
         sessionManagerUrl      = null
         awsProfile             = var.aws_profile
@@ -293,12 +293,12 @@ locals {
         publicIp               = null
         subnetId               = null
         ami                    = null
-        region                 = data.aws_region.current.id
+        region                 = data.aws_region.current.region
         namespace              = var.subspace
         workspace              = var.namespace
         type                   = "ecs"
         status                 = "active"
-        awsUrl                 = "${local.sso_prefix}${urlencode("https://${data.aws_region.current.id}.console.aws.amazon.com/ecs/v2/clusters/${cluster.name}?region=${data.aws_region.current.id}")}"
+        awsUrl                 = "${local.sso_prefix}${urlencode("https://${data.aws_region.current.region}.console.aws.amazon.com/ecs/v2/clusters/${cluster.name}?region=${data.aws_region.current.region}")}"
         ssmUrl                 = null
         sessionManagerUrl      = null
         awsProfile             = var.aws_profile

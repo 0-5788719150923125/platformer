@@ -12,13 +12,23 @@ locals {
     startswith(dir, "/") ? dir : "${path.module}/${dir}"
   ]
 
-  # Resolve each state name to the first directory that contains it
-  state_paths = {
+  # Resolve each state name to the first directory that contains it.
+  state_path_candidates = {
     for state in var.states :
-    state => coalesce([
+    state => [
       for dir in local.resolved_dirs :
       "${dir}/${state}.yaml" if fileexists("${dir}/${state}.yaml")
-    ]...)
+    ]
+  }
+
+  # A missing state fails with an explicit message (the tobool() of a non-bool
+  # string is a deliberate plan-time error carrying the text). The previous
+  # coalesce([]...) idiom errored too, but with a cryptic type message.
+  state_paths = {
+    for state, candidates in local.state_path_candidates :
+    state => length(candidates) > 0 ? candidates[0] : tobool(
+      "ERROR: state '${state}' not found in any states dir: ${join(", ", local.resolved_dirs)}"
+    )
   }
 
   # Load all state files
