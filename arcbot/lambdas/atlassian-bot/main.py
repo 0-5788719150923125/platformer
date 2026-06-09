@@ -52,7 +52,7 @@ from ai_backend import (
     load_env,
     load_system_prompt,
     retrieve_kb_context,
-    NO_RESPONSE_SENTINEL,
+    is_opt_out,
 )
 
 logger = logging.getLogger()
@@ -191,7 +191,7 @@ def process_event(payload):
         raise
 
     # The model can opt out of responding by returning the sentinel
-    if response_text.strip() == NO_RESPONSE_SENTINEL:
+    if is_opt_out(response_text):
         logger.info("AI opted out of responding to %s event=%s", ticket_key, event_type)
         return
 

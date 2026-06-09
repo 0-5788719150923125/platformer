@@ -67,6 +67,7 @@ services:
         - the-theater
         - the-lab
         - the-mirror
+        - the-tavern
       knowledge_base_enabled: true
       kb_chunking_strategy: "SEMANTIC"
       kb_document_paths:

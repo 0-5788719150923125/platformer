@@ -83,6 +83,19 @@ MAX_TOOL_ITERATIONS = 12
 # Sentinel the model returns to signal "I choose not to respond"
 NO_RESPONSE_SENTINEL = "[NO_RESPONSE]"
 
+
+def is_opt_out(text):
+    """True if the model is opting out of responding.
+
+    The model is instructed to reply with exactly the sentinel "and nothing
+    else", but it does not always comply - it sometimes emits the sentinel and
+    then keeps talking. An exact-equality check misses that case and leaks the
+    sentinel plus the trailing text into the channel. There is no legitimate
+    reason for this literal token to ever reach a user, so we suppress whenever
+    it appears anywhere in the response (or the response is empty)."""
+    stripped = (text or "").strip()
+    return not stripped or NO_RESPONSE_SENTINEL in stripped
+
 # Nudge appended when a turn is cut short by the output-token cap so the model
 # resumes its reply instead of leaving a truncated stub. Each continuation
 # consumes one MAX_TOOL_ITERATIONS slot; the partial text is stitched back

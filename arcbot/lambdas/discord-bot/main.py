@@ -36,7 +36,7 @@ from ai_backend import (
     load_system_prompt,
     retrieve_kb_context,
     IMAGE_ORIENTATIONS,
-    NO_RESPONSE_SENTINEL,
+    is_opt_out,
     TOOL_DEFINITIONS,
 )
 
@@ -473,7 +473,7 @@ class ArcbotDiscord:
         async with message.channel.typing() if is_direct else _noop_context():
             try:
                 response = await self._generate_response(message, is_direct=is_direct)
-                if not response or response.strip() == NO_RESPONSE_SENTINEL:
+                if is_opt_out(response):
                     logger.info("Bot opted out of responding (NO_RESPONSE or empty)")
                     return
 
