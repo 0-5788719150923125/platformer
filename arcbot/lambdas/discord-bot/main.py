@@ -134,9 +134,11 @@ READ_CHANNEL_MESSAGES_TOOL = {
     "toolSpec": {
         "name": "read_channel_messages",
         "description": (
-            "Read recent messages from a Discord channel. Use this to understand "
-            "what's being discussed before sending a message. Only whitelisted "
-            "channels are available."
+            "Read recent messages from a Discord channel, including each "
+            "message's ID (needed by edit_message). Use this to understand "
+            "what's being discussed before sending a message, or to find the "
+            "ID of one of your own messages. Omit channel_name to read the "
+            "current channel; otherwise only whitelisted channels are available."
         ),
         "inputSchema": {
             "json": {
@@ -144,14 +146,57 @@ READ_CHANNEL_MESSAGES_TOOL = {
                 "properties": {
                     "channel_name": {
                         "type": "string",
-                        "description": "Name of the Discord channel to read.",
+                        "description": (
+                            "Optional: name of the Discord channel to read. "
+                            "Omit to read the current channel/DM."
+                        ),
                     },
                     "limit": {
                         "type": "integer",
                         "description": "Number of recent messages to fetch (default 20, max 50).",
                     },
                 },
-                "required": ["channel_name"],
+                "required": [],
+            }
+        },
+    }
+}
+
+EDIT_MESSAGE_TOOL = {
+    "toolSpec": {
+        "name": "edit_message",
+        "description": (
+            "Edit one of your own previous Discord messages, replacing its text "
+            "with new content. Discord only allows you to edit messages you "
+            "sent yourself. Find the message_id of the target message with "
+            "read_channel_messages (your own messages are marked author_is_you). "
+            "By default the message is looked up in the current channel; pass "
+            "channel_name to edit a message in another whitelisted channel."
+        ),
+        "inputSchema": {
+            "json": {
+                "type": "object",
+                "properties": {
+                    "message_id": {
+                        "type": "string",
+                        "description": "ID of the message to edit (numeric Discord snowflake).",
+                    },
+                    "new_message": {
+                        "type": "string",
+                        "description": (
+                            "The replacement text. Replaces the entire message "
+                            "content (max 2000 characters)."
+                        ),
+                    },
+                    "channel_name": {
+                        "type": "string",
+                        "description": (
+                            "Optional: name of the whitelisted channel containing "
+                            "the message. Omit for the current channel/DM."
+                        ),
+                    },
+                },
+                "required": ["message_id", "new_message"],
             }
         },
     }
@@ -213,6 +258,27 @@ GENERATE_IMAGE_TOOL = {
 def _make_tool_executor(client, loop, allowed_channels, origin_channel=None):
     """Return a tool executor that handles Discord-specific tools and delegates the rest."""
 
+    def _resolve_channel(channel_name):
+        """Resolve a tool's channel argument to a channel object.
+
+        Empty/missing name means the originating channel/DM; a name must be on
+        the whitelist and exist on the server. Returns (channel, error_dict) -
+        exactly one is None.
+        """
+        if not channel_name:
+            if origin_channel is None:
+                return None, {"error": "No current channel available; pass channel_name."}
+            return origin_channel, None
+        if channel_name not in allowed_channels:
+            return None, {"error": f"Channel '{channel_name}' is not in the allowed list. Allowed: {allowed_channels}"}
+        channel = discord.utils.get(
+            (c for c in client.get_all_channels() if isinstance(c, discord.TextChannel)),
+            name=channel_name,
+        )
+        if channel is None:
+            return None, {"error": f"Channel '{channel_name}' not found on this server."}
+        return channel, None
+
     def executor(tool_name, tool_input):
         if tool_name == "generate_image":
             # Optional cross-channel posting, whitelist-gated like the channel
@@ -234,20 +300,23 @@ def _make_tool_executor(client, loop, allowed_channels, origin_channel=None):
                     return {"error": f"Channel '{channel_name}' not found on this server."}
             return _execute_generate_image(loop, target, tool_input)
 
+        if tool_name == "edit_message":
+            return _execute_edit_message(client, loop, _resolve_channel, tool_input)
+
         if tool_name not in ("send_channel_message", "read_channel_messages"):
             return execute_tool(tool_name, tool_input)
 
-        channel_name = tool_input.get("channel_name", "")
+        channel_name = (tool_input.get("channel_name") or "").strip()
 
-        if channel_name not in allowed_channels:
-            return {"error": f"Channel '{channel_name}' is not in the allowed list. Allowed: {allowed_channels}"}
+        # send_channel_message is for OTHER channels only (replying in the
+        # current one is just a normal response), so its channel_name stays
+        # mandatory; read may target the current channel by omitting it.
+        if tool_name == "send_channel_message" and not channel_name:
+            return {"error": "send_channel_message requires channel_name."}
 
-        channel = discord.utils.get(
-            (c for c in client.get_all_channels() if isinstance(c, discord.TextChannel)),
-            name=channel_name,
-        )
-        if channel is None:
-            return {"error": f"Channel '{channel_name}' not found on this server."}
+        channel, err = _resolve_channel(channel_name)
+        if err:
+            return err
 
         if tool_name == "send_channel_message":
             message = tool_input.get("message", "")
@@ -268,6 +337,7 @@ def _make_tool_executor(client, loop, allowed_channels, origin_channel=None):
         # Capped well below Bedrock's per-request 20-image total to leave
         # headroom for images already in the triggering conversation history.
         TOOL_MAX_IMAGES = 5
+        channel_label = channel_name or getattr(channel, "name", None) or "current channel"
         limit = min(tool_input.get("limit", 20), 50)
         try:
             async def _fetch_history_and_images():
@@ -310,16 +380,19 @@ def _make_tool_executor(client, loop, allowed_channels, origin_channel=None):
             total_images = sum(len(v) for v in fetched.values())
             logger.info(
                 "Channel-tool '%s': %d messages, %d total attachments, %d images sniffed",
-                channel_name, len(chronological), total_attachments, total_images,
+                channel_label, len(chronological), total_attachments, total_images,
             )
 
             formatted = []
             for m in chronological:
                 entry = {
+                    "message_id": str(m.id),
                     "author": m.author.display_name,
                     "content": m.content,
                     "timestamp": m.created_at.isoformat(),
                 }
+                if m.author == client.user:
+                    entry["author_is_you"] = True
                 if m.id in fetched:
                     entry["image_attachments"] = [name for name, _, _ in fetched[m.id]]
                 formatted.append(entry)
@@ -327,7 +400,7 @@ def _make_tool_executor(client, loop, allowed_channels, origin_channel=None):
             # Return a content-blocks list so the loop in bedrock_converse forwards
             # text + image blocks to Bedrock instead of JSON-wrapping the dict.
             blocks = [{"text": json.dumps(
-                {"channel": channel_name, "messages": formatted}, indent=2,
+                {"channel": channel_label, "messages": formatted}, indent=2,
             )}]
             for m in chronological:
                 for filename, fmt, data in fetched.get(m.id, []):
@@ -338,12 +411,12 @@ def _make_tool_executor(client, loop, allowed_channels, origin_channel=None):
                     blocks.append({"image": {"format": fmt, "source": {"bytes": data}}})
             logger.info(
                 "Channel-tool '%s' returning %d content blocks (%d image blocks)",
-                channel_name, len(blocks),
+                channel_label, len(blocks),
                 sum(1 for b in blocks if "image" in b),
             )
             return blocks
         except Exception as exc:
-            return {"error": f"Failed to read messages from '{channel_name}': {exc}"}
+            return {"error": f"Failed to read messages from '{channel_label}': {exc}"}
 
     return executor
 
@@ -409,6 +482,55 @@ def _execute_generate_image(loop, origin_channel, tool_input):
             "if needed - do NOT retry or post it again."
         ),
     }
+
+
+def _execute_edit_message(client, loop, resolve_channel, tool_input):
+    """Edit one of the bot's own messages in place (edit_message tool).
+
+    Discord's API only permits a bot to edit messages it authored; we check
+    authorship before calling edit so the model gets a clear error instead of
+    an opaque 403. Edits replace the whole message, and a single message cannot
+    be split, so over-length replacements are rejected rather than truncated.
+    """
+    message_id = str(tool_input.get("message_id") or "").strip()
+    if not message_id.isdigit():
+        return {"error": f"message_id must be a numeric Discord message ID, got: {message_id!r}"}
+    new_message = (tool_input.get("new_message") or "").strip()
+    if not new_message:
+        return {"error": "new_message must be non-empty."}
+    if len(new_message) > 2000:
+        return {"error": (
+            f"new_message is {len(new_message)} characters; Discord caps a "
+            "single message at 2000. Shorten the replacement text."
+        )}
+
+    channel, err = resolve_channel((tool_input.get("channel_name") or "").strip())
+    if err:
+        return err
+    channel_label = getattr(channel, "name", None) or "current channel"
+
+    try:
+        async def _edit():
+            try:
+                msg = await channel.fetch_message(int(message_id))
+            except discord.NotFound:
+                return {"error": f"Message {message_id} not found in '{channel_label}'."}
+            if msg.author != client.user:
+                return {"error": (
+                    f"Message {message_id} was sent by {msg.author.display_name}, "
+                    "not you. You can only edit your own messages."
+                )}
+            await msg.edit(content=new_message)
+            return {"success": True, "message_id": message_id, "channel": channel_label}
+
+        future = asyncio.run_coroutine_threadsafe(_edit(), loop)
+        result = future.result(timeout=30)
+        if result.get("success"):
+            logger.info("Edited message %s in '%s' (%d chars)",
+                        message_id, channel_label, len(new_message))
+        return result
+    except Exception as exc:
+        return {"error": f"Failed to edit message {message_id}: {exc}"}
 
 
 # ── Discord Bot ──────────────────────────────────────────────────────────────
@@ -620,6 +742,16 @@ class ArcbotDiscord:
             "images: when a user asks you to draw, render, or visualize something, "
             "call the generate_image tool with a rich visual prompt."
         )
+        system_text += (
+            "\n\n## Message Editing\n"
+            "You can revise your own previous messages with the edit_message "
+            "tool - useful when asked to fix a typo or correct a mistake in "
+            "something you already posted. First call read_channel_messages "
+            "(omitting channel_name reads the current channel) to find the "
+            "message_id of your message (yours are marked author_is_you), then "
+            "call edit_message with the full replacement text. You can only "
+            "edit messages you sent yourself."
+        )
         if ENV["knowledge_base_id"]:
             # Use the triggering message as the KB query
             kb_context = retrieve_kb_context(message.content, "")
@@ -630,11 +762,14 @@ class ArcbotDiscord:
         context_id = f"discord-{message.channel.id}-{message.id}"
 
         # Build tool list — shared defaults (whoami, query_iam_permissions, fetch_url)
-        # plus image generation (always) and cross-channel messaging when configured.
+        # plus image generation, channel reading, and self-message editing
+        # (always; read/edit default to the current channel) and cross-channel
+        # sending when whitelisted channels are configured.
         tools = list(TOOL_DEFINITIONS)
         tools.append(GENERATE_IMAGE_TOOL)
+        tools.append(READ_CHANNEL_MESSAGES_TOOL)
+        tools.append(EDIT_MESSAGE_TOOL)
         if DISCORD_TOOL_CHANNELS:
-            tools.append(READ_CHANNEL_MESSAGES_TOOL)
             tools.append(SEND_CHANNEL_MESSAGE_TOOL)
         loop = asyncio.get_event_loop()
         tool_executor = _make_tool_executor(
