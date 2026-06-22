@@ -8,9 +8,9 @@ These are the actual commands used to deploy and manage infrastructure with this
 
 ```bash
 # Clone the repository
-git clone https://github.com/acme-org/infra-terraform
+git clone https://github.com/0-5788719150923125/platformer
+cd platformer
 git checkout PROJ-5062-test-terraform-framework-in-limited-prod-password-rotation-patch-management
-cd infra-terraform/platformer
 
 # Configure which state fragments to load
 # Edit terraform.tfvars:

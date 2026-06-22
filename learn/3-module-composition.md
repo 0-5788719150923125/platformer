@@ -172,7 +172,7 @@ As requirements change, you can:
 
   Essential reading. Covers patterns for input variables, output values, and module composition strategies.
 
-- **Root Orchestrator (`main.tf`)**: `/home/rybrooks/infra-terraform/platformer/main.tf`
+- **Root Orchestrator (`main.tf`)**: `main.tf` (at the repository root)
 
   Read this file to see how modules are wired together. Pay attention to:
   - How `count` controls module creation

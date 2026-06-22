@@ -10,7 +10,7 @@ This walkthrough builds on the Getting Started document. You've deployed a basic
 
 - Completed the Getting Started walkthrough
 - Understanding of state fragments and local testing
-- Access to the infra-terraform GitHub repository with PR permissions
+- Access to the platformer GitHub repository with PR permissions
 
 ---
 

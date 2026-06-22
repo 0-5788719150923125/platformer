@@ -8,7 +8,7 @@ This walkthrough will guide you through the deployment of your first service usi
 
 ## Prerequisites
 
-- Git installed and configured with access to the infra-terraform repository
+- Git installed and configured with access to the platformer repository
 - Terraform 1.5+ installed
 - AWS credentials configured (profile management is handled automatically)
 
@@ -17,20 +17,16 @@ This walkthrough will guide you through the deployment of your first service usi
 ## Step 1: Clone and Checkout the Branch
 
 ```bash
-git clone https://github.com/acme-org/infra-terraform.git
-cd infra-terraform
+git clone https://github.com/0-5788719150923125/platformer.git
+cd platformer
 git checkout PROJ-5062-test-terraform-framework-in-limited-prod-password-rotation-patch-management
 ```
 
 ---
 
-## Step 2: Navigate to the Platformer Directory
+## Step 2: You're in the Platformer Directory
 
-```bash
-cd platformer
-```
-
-This is the root of our new infrastructure framework. Unlike the old `environment/*` structure with hundreds of directories, everything is managed from this single location.
+The repository root is the root of our new infrastructure framework. Unlike the old `environment/*` structure with hundreds of directories, everything is managed from this single location.
 
 ---
 
