@@ -52,19 +52,59 @@ def get_ssm_online_instances(region):
 
 
 def get_ec2_instances(region, filters):
-    """Query EC2 for running instances matching filters. Returns list of instance IDs."""
+    """Query EC2 for running instances matching filters. Returns list of instance IDs.
+
+    Deduplicates superseded instances. A create_before_destroy replacement (e.g.
+    AMI drift, instance_type change, or an explicit taint) briefly runs the new and
+    old instance side by side, and if any later step of the same terraform apply
+    fails - including this very controller build - the old instance is never
+    destroyed and lingers as an orphan. Both carry identical targeting tags, so a
+    naive tag query returns both. The orphan no longer owns its persistent EBS
+    volume(s), so config management against it fails forever, which keeps failing
+    the gating terraform apply, which never gets to destroy the orphan: a deadlock
+    that cannot self-heal.
+
+    A logical slot is identified by Class + Namespace + InstanceIndex. When two
+    running instances share a slot we keep only the newest by LaunchTime and skip
+    the rest, so the controller never touches a deposed duplicate. terraform then
+    destroys the orphan on the next apply once this build stops failing.
+    """
     ec2 = boto3.client("ec2", region_name=region)
     ec2_filters = [{"Name": "instance-state-name", "Values": ["running"]}]
     for key, values in filters.items():
         ec2_filters.append({"Name": key, "Values": values})
 
-    instance_ids = []
+    # Collect candidates with the metadata needed to detect duplicate slots.
+    candidates = []
     paginator = ec2.get_paginator("describe_instances")
     for page in paginator.paginate(Filters=ec2_filters):
         for reservation in page["Reservations"]:
             for instance in reservation["Instances"]:
-                instance_ids.append(instance["InstanceId"])
-    return instance_ids
+                iid = instance["InstanceId"]
+                tags = {t["Key"]: t["Value"] for t in instance.get("Tags", [])}
+                # Only collapse instances we can positively prove share a slot.
+                # If any slot tag is missing, key on the instance id so the
+                # instance is always kept (never deduped away by accident).
+                if all(k in tags for k in ("Class", "Namespace", "InstanceIndex")):
+                    slot = (tags["Class"], tags["Namespace"], tags["InstanceIndex"])
+                else:
+                    slot = ("_unkeyed_", iid)
+                candidates.append((slot, instance["LaunchTime"], iid))
+
+    # Keep the newest instance per slot (LaunchTime is a tz-aware datetime).
+    newest = {}
+    for slot, launch_time, iid in candidates:
+        if slot not in newest or launch_time > newest[slot][0]:
+            newest[slot] = (launch_time, iid)
+
+    kept = {iid for _, iid in newest.values()}
+    superseded = [iid for _, _, iid in candidates if iid not in kept]
+    if superseded:
+        print(f"  Skipping {len(superseded)} superseded duplicate instance(s) "
+              f"sharing a Class/Namespace/InstanceIndex slot with a newer "
+              f"instance: {', '.join(superseded)}")
+
+    return [iid for _, iid in newest.values()]
 
 
 def build_ec2_filters(targeting):

@@ -210,24 +210,37 @@ locals {
   volume_requests = flatten([
     for instance_key, instance_config in local.tenant_instances : [
       for idx, v in coalesce(local.ec2_classes[instance_config.class].volumes, []) : {
-        purpose           = "${instance_key}-${v.name}"
-        instance_id       = aws_instance.tenant[instance_key].id
-        availability_zone = aws_instance.tenant[instance_key].availability_zone
-        device_name       = local.volume_devices_per_class[instance_config.class][idx]
-        size              = v.size
-        type              = v.type
-        iops              = v.iops
-        throughput        = v.throughput
-        encrypted         = true
-        kms_key_id        = null
-        description       = "Persistent storage for ${instance_key} mounted at ${v.mount_path}"
+        purpose     = "${instance_key}-${v.name}"
+        instance_id = aws_instance.tenant[instance_key].id
+        # AZ sourced from the (stable) assigned subnet, NOT the instance. The
+        # instance's availability_zone is "(known after apply)" during a
+        # replacement (AMI drift, taint, instance_type/user_data change), which
+        # would make this volume's AZ unknown and - because AZ is immutable on an
+        # EBS volume - force-replace the volume, silently destroying its data.
+        # The subnet's AZ is fixed and known at plan time, so the persistent
+        # volume is never replaced just because the instance is. Falls back to the
+        # instance AZ for default-VPC instances that have no assigned subnet.
+        availability_zone = try(
+          data.aws_subnet.instance[instance_key].availability_zone,
+          aws_instance.tenant[instance_key].availability_zone
+        )
+        device_name = local.volume_devices_per_class[instance_config.class][idx]
+        size        = v.size
+        type        = v.type
+        iops        = v.iops
+        throughput  = v.throughput
+        encrypted   = true
+        kms_key_id  = null
+        description = "Persistent storage for ${instance_key} mounted at ${v.mount_path}"
         # Tags travel with the volume; the storage-mount ansible playbook reads
         # MountPath/FsType from the volume on the instance to know where to mount.
+        # Snapshot=daily is the target tag for storage's DLM backup policy.
         tags = {
           MountPath = v.mount_path
           FsType    = v.fs_type
           Class     = instance_config.class
           Tenant    = instance_config.tenant
+          Snapshot  = "daily"
         }
       }
     ]
@@ -550,6 +563,20 @@ resource "terraform_data" "taint" {
 # EC2 instances for tenants
 # DHMC (Default Host Management Configuration) automatically registers instances with SSM
 # IAM instance profile is conditionally attached when instances need S3 access (e.g., for application scripts)
+# AZ of each instance's assigned subnet. Used to pin persistent EBS volumes to a
+# stable AZ (see volume_requests) so an instance replacement does not cascade into
+# replacing - and wiping - the volume. Only instances with an assigned subnet
+# appear here; default-VPC instances (subnet_id == null) are excluded and fall
+# back to the instance AZ in volume_requests.
+data "aws_subnet" "instance" {
+  for_each = {
+    for k, subnet_id in local.instance_subnet_assignments : k => subnet_id
+    if subnet_id != null
+  }
+
+  id = each.value
+}
+
 resource "aws_instance" "tenant" {
   for_each = local.tenant_instances
 
