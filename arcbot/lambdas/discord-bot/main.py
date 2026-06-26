@@ -57,9 +57,17 @@ DISCORD_TOOL_CHANNELS = json.loads(os.environ.get("DISCORD_TOOL_CHANNELS", "[]")
 
 # ── Vision support ───────────────────────────────────────────────────────────
 
-# Bedrock Converse caps: 20 images per request, 5 MB per image.
+# Bedrock Converse caps: 20 images per request, and 5 MiB (5,242,880 bytes)
+# per image. Critically, that 5 MiB ceiling is enforced on the *base64-encoded*
+# payload, which is 4/3 the size of the raw bytes. So the largest raw image we
+# can safely send is 5,242,880 * 3/4 = 3,932,160 bytes. We compare raw sizes
+# (Discord attachment.size / generated len(data)) everywhere, so the threshold
+# must be the raw-equivalent, not 5 MB - otherwise a ~4 MB raw image passes our
+# check but Bedrock rejects it (base64 ~5.4 MB) with a ValidationException that
+# poisons every subsequent reply re-including that image.
 MAX_IMAGES_PER_CALL = 20
-MAX_IMAGE_BYTES = 5_000_000
+BEDROCK_IMAGE_B64_LIMIT = 5 * 1024 * 1024  # 5,242,880 bytes, base64-encoded
+MAX_IMAGE_BYTES = BEDROCK_IMAGE_B64_LIMIT * 3 // 4 - 16_384  # raw-byte ceiling, w/ margin
 
 # Filename extensions we treat as "probably an image" during the cheap pre-scan.
 # Discord's content_type is unreliable (sometimes None, sometimes wrong - e.g.
