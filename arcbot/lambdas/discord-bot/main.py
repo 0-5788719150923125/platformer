@@ -14,6 +14,8 @@ import json
 import logging
 import os
 import random
+import re
+import threading
 
 import discord
 
@@ -27,16 +29,22 @@ import io
 import time
 
 from ai_backend import (
+    annotate_image,
     bedrock_converse,
     compose_system_prompt,
     execute_tool,
     generate_image,
+    generate_overlay,
     merge_text_into_content,
     load_env,
     load_system_prompt,
     retrieve_kb_context,
     IMAGE_ORIENTATIONS,
     is_opt_out,
+    OVERLAY_MAX_DENSITY,
+    OVERLAY_MAX_ELEMENTS,
+    OVERLAY_MAX_REFERENCE_IMAGES,
+    OVERLAY_MAX_VARIANTS,
     TOOL_DEFINITIONS,
 )
 
@@ -108,6 +116,104 @@ def _sniff_image_format(data):
     if len(data) >= 12 and data[:4] == b"RIFF" and data[8:12] == b"WEBP":
         return "webp"
     return None
+
+# ── Document (PDF) support ───────────────────────────────────────────────────
+
+# Bedrock Converse caps: 5 documents per request, 4.5 MiB per document. As with
+# images (above), that ceiling is enforced on the *base64-encoded* payload - the
+# AWS docs even note metadata/encoding can push an apparently-sub-4.5 MB file
+# over - so the largest raw document we can safely send is 4.5 MiB * 3/4, minus
+# a margin. Sending an oversized document triggers the same ValidationException
+# that poisons every subsequent reply re-including it from history.
+MAX_DOCUMENTS_PER_CALL = 5
+BEDROCK_DOCUMENT_B64_LIMIT = 4_718_592  # 4.5 MiB (4.5 * 1024 * 1024), base64-encoded
+MAX_DOCUMENT_BYTES = BEDROCK_DOCUMENT_B64_LIMIT * 3 // 4 - 16_384  # raw-byte ceiling, w/ margin
+
+# Only PDF for now (Converse also accepts csv/doc/docx/xls/xlsx/html/txt/md).
+# Discord's content_type is unreliable, so this pre-scan is advisory; the real
+# format is confirmed by sniffing magic bytes in _sniff_document_format.
+DOCUMENT_EXTENSIONS = frozenset({".pdf"})
+
+# Bedrock document names allow only alphanumerics, single whitespace, hyphens,
+# parentheses and square brackets. Anything else is replaced with a space.
+_DOC_NAME_DISALLOWED = re.compile(r"[^A-Za-z0-9 ()\[\]-]+")
+
+
+def _looks_like_pdf(attachment):
+    """Loose pre-scan filter: is this attachment plausibly a PDF?"""
+    content_type = (attachment.content_type or "").split(";")[0].strip().lower()
+    if content_type == "application/pdf":
+        return True
+    filename = (attachment.filename or "").lower()
+    return any(filename.endswith(ext) for ext in DOCUMENT_EXTENSIONS)
+
+
+def _sniff_document_format(data):
+    """Detect a Bedrock-compatible document format from raw bytes.
+
+    Returns 'pdf' or None. Bedrock validates the declared format against the
+    actual bytes, so magic-byte sniffing is the authoritative source of truth -
+    filename and content_type can lie. The PDF spec allows a few leading bytes
+    before the "%PDF-" header, so we scan the first 1 KiB rather than byte 0.
+    """
+    if not data:
+        return None
+    if b"%PDF-" in data[:1024]:
+        return "pdf"
+    return None
+
+
+def _safe_document_name(filename, used_names, fallback="document"):
+    """Coerce a Discord filename into a unique, Bedrock-legal document name.
+
+    Drops the extension, replaces disallowed characters with spaces, collapses
+    whitespace runs, and disambiguates collisions with a " (n)" suffix so every
+    document in a request gets a distinct name. Mutates used_names.
+    """
+    base = (filename or "").rsplit(".", 1)[0]
+    cleaned = " ".join(_DOC_NAME_DISALLOWED.sub(" ", base).split()) or fallback
+    name = cleaned
+    n = 2
+    while name in used_names:
+        name = f"{cleaned} ({n})"
+        n += 1
+    used_names.add(name)
+    return name
+
+
+def _split_message(text, limit=2000):
+    """Split text into Discord-legal chunks, breaking at natural boundaries.
+
+    Prefers (in order) a blank line, a single newline, a sentence-ending
+    punctuation mark followed by whitespace, or a plain space - all searched
+    for backward from the limit so we never split mid-word if a better break
+    point exists. Falls back to a hard cut only when a single "word" (or the
+    first line) exceeds the limit on its own.
+    """
+    chunks = []
+    while len(text) > limit:
+        window = text[:limit]
+        break_at = None
+        for pattern in ("\n\n", "\n"):
+            idx = window.rfind(pattern)
+            if idx > 0:
+                break_at = idx + len(pattern)
+                break
+        if break_at is None:
+            matches = list(re.finditer(r"[.!?][\"')\]]?\s", window))
+            if matches:
+                break_at = matches[-1].end()
+        if break_at is None:
+            idx = window.rfind(" ")
+            if idx > 0:
+                break_at = idx + 1
+        if break_at is None:
+            break_at = limit
+        chunks.append(text[:break_at].rstrip("\n"))
+        text = text[break_at:].lstrip("\n")
+    if text:
+        chunks.append(text)
+    return chunks or [""]
 
 # ── Cross-channel messaging tool ─────────────────────────────────────────────
 
@@ -263,6 +369,197 @@ GENERATE_IMAGE_TOOL = {
 }
 
 
+ANNOTATE_IMAGE_TOOL = {
+    "toolSpec": {
+        "name": "annotate_image",
+        "description": (
+            "Draw one or more bright-green line segments over an image "
+            "already in this conversation, and post the annotated result to "
+            "Discord as a new attachment. Use this to visually point out a "
+            "shape, path, or set of connections on an image you've seen - "
+            "e.g. connecting stars into a constellation, tracing a route, "
+            "underlining a region. Coordinates are normalized to the "
+            "image's own width/height (0.0 to 1.0, origin at the top-left "
+            "corner) - read them off the image as you view it; they don't "
+            "need to be pixel-exact. By default this annotates the most "
+            "recent image attachment in the conversation; pass message_id "
+            "(from read_channel_messages) to target a different one."
+        ),
+        "inputSchema": {
+            "json": {
+                "type": "object",
+                "properties": {
+                    "lines": {
+                        "type": "array",
+                        "description": "Line segments to draw, in normalized 0.0-1.0 coordinates.",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "x1": {"type": "number", "description": "Start X, 0.0-1.0."},
+                                "y1": {"type": "number", "description": "Start Y, 0.0-1.0."},
+                                "x2": {"type": "number", "description": "End X, 0.0-1.0."},
+                                "y2": {"type": "number", "description": "End Y, 0.0-1.0."},
+                            },
+                            "required": ["x1", "y1", "x2", "y2"],
+                        },
+                    },
+                    "message_id": {
+                        "type": "string",
+                        "description": (
+                            "Optional: numeric Discord ID of the message whose "
+                            "image attachment should be annotated. Omit to use "
+                            "the most recent image attachment in this channel."
+                        ),
+                    },
+                },
+                "required": ["lines"],
+            }
+        },
+    }
+}
+
+
+GENERATE_OVERLAY_TOOL = {
+    "toolSpec": {
+        "name": "generate_overlay",
+        "description": (
+            "Generatively decorate an image already in this conversation with "
+            "small hand-drawn-style elements - e.g. scattering handwritten "
+            "poetry scribbles, geometric line patterns, or little doodle "
+            "icons/creatures across it. Each element type is independently "
+            "generated (several isolated variants, keyed to transparency) "
+            "then scattered across a region you specify with natural size, "
+            "rotation, and position variation. Any element can optionally be "
+            "conditioned on other image attachments in this conversation via "
+            "reference_message_ids, so its style/content matches a photo the "
+            "user pointed to instead of relying on the text description "
+            "alone. IMPORTANT: this runs multiple background image "
+            "generations and can take a while (well past a normal reply) - "
+            "it posts the finished image directly to the channel when done "
+            "rather than returning it through this tool call, so tell the "
+            "user it's in progress and do not call this tool again for the "
+            "same request while waiting. List elements background-to-"
+            "foreground (the first entry is drawn first, underneath the "
+            "rest)."
+        ),
+        "inputSchema": {
+            "json": {
+                "type": "object",
+                "properties": {
+                    "elements": {
+                        "type": "array",
+                        "description": (
+                            "One entry per distinct visual element type to "
+                            "generate and scatter, background-to-foreground."
+                        ),
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "description": {
+                                    "type": "string",
+                                    "description": (
+                                        "What this one element looks like, e.g. "
+                                        "'a short line of cursive handwritten "
+                                        "poetry', 'a simple geometric line "
+                                        "tessellation', 'a small doodle of a "
+                                        "cat'. Generated in isolation on a "
+                                        "white background, so describe just "
+                                        "the single subject/motif, not a scene."
+                                    ),
+                                },
+                                "region": {
+                                    "type": "array",
+                                    "items": {"type": "number"},
+                                    "description": (
+                                        "[x, y, width, height], normalized "
+                                        "0.0-1.0, the area of the base image "
+                                        "to scatter instances within. Defaults "
+                                        "to the whole image."
+                                    ),
+                                },
+                                "scale": {
+                                    "type": "number",
+                                    "description": (
+                                        "Target size of one instance, as a "
+                                        "fraction of the base image's shorter "
+                                        "dimension (default 0.15). Actual "
+                                        "instances vary +/-20% around this."
+                                    ),
+                                },
+                                "density": {
+                                    "type": "integer",
+                                    "description": (
+                                        f"How many scattered copies of this "
+                                        f"element to place (default 1, max "
+                                        f"{OVERLAY_MAX_DENSITY})."
+                                    ),
+                                },
+                                "variants": {
+                                    "type": "integer",
+                                    "description": (
+                                        "How many independent samples to "
+                                        f"generate for this element before "
+                                        f"scattering copies (default 3, max "
+                                        f"{OVERLAY_MAX_VARIANTS})."
+                                    ),
+                                },
+                                "blend_mode": {
+                                    "type": "string",
+                                    "enum": ["normal", "multiply", "screen"],
+                                    "description": (
+                                        "How each instance blends onto the "
+                                        "image below it (default normal)."
+                                    ),
+                                },
+                                "reference_message_ids": {
+                                    "type": "array",
+                                    "items": {"type": "string"},
+                                    "description": (
+                                        "Optional: numeric Discord message IDs "
+                                        "(1-{max} images total) whose image "
+                                        "attachments this element's generated "
+                                        "samples should be conditioned on - use "
+                                        "this when the user wants an element to "
+                                        "match the style or content of another "
+                                        "photo they shared (e.g. 'make the "
+                                        "doodles look like the sketch in that "
+                                        "other image'), rather than describing "
+                                        "the look in words alone. The "
+                                        "'description' field is still used as "
+                                        "the accompanying text prompt."
+                                    ).format(max=OVERLAY_MAX_REFERENCE_IMAGES),
+                                },
+                                "similarity_strength": {
+                                    "type": "number",
+                                    "description": (
+                                        "Only used with reference_message_ids: "
+                                        "how closely samples should follow the "
+                                        "reference image(s) vs. the text "
+                                        "description (0.2-1.0, default 0.7). "
+                                        "Lower is more random/text-driven, "
+                                        "higher stays closer to the reference."
+                                    ),
+                                },
+                            },
+                            "required": ["description"],
+                        },
+                    },
+                    "message_id": {
+                        "type": "string",
+                        "description": (
+                            "Optional: numeric Discord ID of the message "
+                            "whose image should be the base. Omit to use the "
+                            "most recent image attachment in this channel."
+                        ),
+                    },
+                },
+                "required": ["elements"],
+            }
+        },
+    }
+}
+
+
 def _make_tool_executor(client, loop, allowed_channels, origin_channel=None):
     """Return a tool executor that handles Discord-specific tools and delegates the rest."""
 
@@ -308,6 +605,12 @@ def _make_tool_executor(client, loop, allowed_channels, origin_channel=None):
                     return {"error": f"Channel '{channel_name}' not found on this server."}
             return _execute_generate_image(loop, target, tool_input)
 
+        if tool_name == "annotate_image":
+            return _execute_annotate_image(client, loop, origin_channel, tool_input)
+
+        if tool_name == "generate_overlay":
+            return _execute_generate_overlay(client, loop, origin_channel, tool_input)
+
         if tool_name == "edit_message":
             return _execute_edit_message(client, loop, _resolve_channel, tool_input)
 
@@ -329,8 +632,10 @@ def _make_tool_executor(client, loop, allowed_channels, origin_channel=None):
         if tool_name == "send_channel_message":
             message = tool_input.get("message", "")
             # Discord rejects messages over 2000 chars; with a large output
-            # budget the model can exceed that, so split into ordered chunks.
-            chunks = [message[i:i + 2000] for i in range(0, len(message), 2000)] or [""]
+            # budget the model can exceed that, so split into ordered chunks
+            # at natural boundaries (paragraph/line/sentence/word) instead of
+            # cutting mid-word.
+            chunks = _split_message(message)
             try:
                 async def _send_all():
                     for chunk in chunks:
@@ -492,6 +797,279 @@ def _execute_generate_image(loop, origin_channel, tool_input):
     }
 
 
+def _resolve_source_image(client, loop, origin_channel, message_id, timeout=20):
+    """Locate a base image attachment to operate on: by explicit message_id,
+    or (if omitted) the most recent qualifying image in the channel's recent
+    history. Shared by annotate_image and generate_overlay so both target
+    "the image the user/model is currently looking at" the same way.
+
+    When falling back to "most recent" (no message_id given), the bot's own
+    attachments are skipped - otherwise, once the bot has posted any image of
+    its own (a generate_image/annotate_image/generate_overlay result), that
+    becomes the newest image in the channel and every subsequent
+    default-target call silently re-targets it instead of the user's actual
+    photo. An explicit message_id is honored as given (the model may
+    legitimately want to re-annotate its own prior output), so this only
+    guards the auto-pick path, mirroring the same self-exclusion the vision
+    history pre-scan in _generate_response already applies.
+
+    Uses the same loose-filter-then-sniff pattern as that pre-scan. Returns
+    (data, source_message_id, None) on success, or (None, None, error_message)
+    on failure - callers can wrap the error directly into a tool-result dict.
+    """
+    if message_id and not message_id.isdigit():
+        return None, None, f"message_id must be a numeric Discord message ID, got: {message_id!r}"
+
+    try:
+        async def _find_source():
+            if message_id:
+                try:
+                    candidates = [await origin_channel.fetch_message(int(message_id))]
+                except discord.NotFound:
+                    return None, f"Message {message_id} not found in this channel."
+            else:
+                candidates = [
+                    m async for m in origin_channel.history(limit=DISCORD_HISTORY_LIMIT)
+                    if m.author != client.user
+                ]
+
+            for msg in candidates:
+                for attachment in msg.attachments:
+                    if not _looks_like_image(attachment):
+                        continue
+                    if attachment.size > MAX_IMAGE_BYTES:
+                        continue
+                    data = await attachment.read()
+                    fmt = _sniff_image_format(data)
+                    if fmt is None:
+                        continue
+                    return (data, msg.id), None
+            return None, "No suitable image attachment found in this conversation."
+
+        future = asyncio.run_coroutine_threadsafe(_find_source(), loop)
+        found, err = future.result(timeout=timeout)
+        if err:
+            logger.warning("Source-image lookup failed: %s", err)
+            return None, None, err
+        data, source_msg_id = found
+        logger.info(
+            "Resolved source image: message %s (%s)",
+            source_msg_id, "explicit message_id" if message_id else "most recent in history",
+        )
+        return data, source_msg_id, None
+    except Exception as exc:
+        logger.warning("Source-image lookup raised: %s", exc, exc_info=True)
+        return None, None, f"Failed to locate source image: {exc}"
+
+
+def _execute_annotate_image(client, loop, origin_channel, tool_input):
+    """Draw line-segment overlays on a recent image and post the result.
+
+    Returns a content-blocks list (text status + the annotated image) so the
+    model can see what it produced, mirroring generate_image.
+    """
+    if origin_channel is None:
+        return {"error": "No channel available to annotate an image in."}
+
+    lines = tool_input.get("lines")
+    if not isinstance(lines, list) or not lines:
+        return {"error": "annotate_image requires a non-empty 'lines' array."}
+
+    message_id = str(tool_input.get("message_id") or "").strip()
+    data, source_msg_id, err = _resolve_source_image(client, loop, origin_channel, message_id)
+    if err:
+        return {"error": err}
+
+    try:
+        result = annotate_image(data, lines)
+    except Exception as exc:
+        logger.warning("Image annotation failed: %s", exc)
+        return {"error": f"Image annotation failed: {type(exc).__name__}: {exc}"}
+
+    filename = f"arcbot-annotated-{int(time.time())}.png"
+    try:
+        async def _post():
+            await origin_channel.send(
+                file=discord.File(io.BytesIO(result), filename=filename)
+            )
+        future = asyncio.run_coroutine_threadsafe(_post(), loop)
+        future.result(timeout=30)
+    except Exception as exc:
+        logger.warning("Posting annotated image failed: %s", exc)
+        return {"error": f"Image was annotated but posting to Discord failed: {exc}"}
+
+    logger.info(
+        "Annotated image from message %s and posted %s (%d bytes)",
+        source_msg_id, filename, len(result),
+    )
+
+    # Echo back to the model only when it fits Bedrock Converse's 5 MB cap,
+    # same rationale as _execute_generate_image.
+    if len(result) <= MAX_IMAGE_BYTES:
+        return [
+            {"text": json.dumps({
+                "success": True,
+                "filename": filename,
+                "note": (
+                    "The annotated image below was generated and already "
+                    "posted to the channel as an attachment - do NOT post "
+                    "it again."
+                ),
+            })},
+            {"image": {"format": "png", "source": {"bytes": result}}},
+        ]
+    return {
+        "success": True,
+        "filename": filename,
+        "note": (
+            "The annotated image was posted to the channel as an "
+            "attachment. It is too large to show you here - do NOT retry "
+            "or post it again."
+        ),
+    }
+
+
+def _resolve_element_references(loop, origin_channel, elements, timeout=30):
+    """Resolve each element's optional reference_message_ids to raw image bytes.
+
+    Runs synchronously before the background pipeline starts (all Discord
+    fetches here are fast) so a bad reference ID fails the tool call
+    immediately with a normal error, the same way the base-image lookup
+    does, instead of surfacing deep inside a background job. Returns a new
+    elements list where each dict gains a "_reference_images" key (a list of
+    raw bytes, empty if the element had no reference_message_ids), or
+    (None, error_message) on failure.
+    """
+    for el in elements:
+        ref_ids = el.get("reference_message_ids") or []
+        if not isinstance(ref_ids, list):
+            return None, "reference_message_ids must be an array of message IDs."
+        if len(ref_ids) > OVERLAY_MAX_REFERENCE_IMAGES:
+            return None, (
+                f"reference_message_ids supports at most "
+                f"{OVERLAY_MAX_REFERENCE_IMAGES} images per element, got {len(ref_ids)}."
+            )
+        for rid in ref_ids:
+            if not str(rid).strip().isdigit():
+                return None, f"reference_message_ids must be numeric Discord message IDs, got: {rid!r}"
+
+    try:
+        async def _resolve_all():
+            resolved = []
+            for el in elements:
+                ref_ids = el.get("reference_message_ids") or []
+                images = []
+                for rid in ref_ids:
+                    try:
+                        msg = await origin_channel.fetch_message(int(rid))
+                    except discord.NotFound:
+                        return None, f"Reference message {rid} not found in this channel."
+                    found = None
+                    for attachment in msg.attachments:
+                        if not _looks_like_image(attachment):
+                            continue
+                        if attachment.size > MAX_IMAGE_BYTES:
+                            continue
+                        data = await attachment.read()
+                        if _sniff_image_format(data) is None:
+                            continue
+                        found = data
+                        break
+                    if found is None:
+                        return None, f"Reference message {rid} has no recognized image attachment."
+                    images.append(found)
+                resolved.append({**el, "_reference_images": images})
+            return resolved, None
+
+        future = asyncio.run_coroutine_threadsafe(_resolve_all(), loop)
+        resolved, err = future.result(timeout=timeout)
+        if err:
+            logger.warning("Reference-image lookup failed: %s", err)
+            return None, err
+        return resolved, None
+    except Exception as exc:
+        logger.warning("Reference-image lookup raised: %s", exc, exc_info=True)
+        return None, f"Failed to resolve reference images: {exc}"
+
+
+def _execute_generate_overlay(client, loop, origin_channel, tool_input):
+    """Validate input, resolve the base image, then run the (slow) generative
+    overlay pipeline in a background thread and return immediately.
+
+    Unlike every other tool here, this does NOT block until the work is
+    done: a request with several element types x several variants each is
+    many sequential Bedrock image-gen calls and can easily run past a minute,
+    well beyond what's reasonable to hold up a single Converse tool-call
+    turn for. The base image is still resolved synchronously (one cheap
+    Discord fetch) so a bad request fails fast with a normal tool error
+    instead of silently starting a background job for nothing; only the
+    actual generation/compositing runs in the background thread, posting
+    directly to Discord (success or failure) once finished.
+    """
+    if origin_channel is None:
+        return {"error": "No channel available to post the result to."}
+
+    elements = tool_input.get("elements")
+    if not isinstance(elements, list) or not elements:
+        return {"error": "generate_overlay requires a non-empty 'elements' array."}
+    if len(elements) > OVERLAY_MAX_ELEMENTS:
+        return {"error": f"Too many element types ({len(elements)}); max {OVERLAY_MAX_ELEMENTS}."}
+
+    message_id = str(tool_input.get("message_id") or "").strip()
+    data, source_msg_id, err = _resolve_source_image(client, loop, origin_channel, message_id)
+    if err:
+        return {"error": err}
+
+    elements, err = _resolve_element_references(loop, origin_channel, elements)
+    if err:
+        return {"error": err}
+
+    def _run_pipeline():
+        try:
+            result = generate_overlay(data, elements)
+        except Exception as exc:
+            logger.warning("Generative overlay pipeline failed: %s", exc)
+            async def _post_error():
+                await origin_channel.send(
+                    f"Sorry, the overlay generation failed: {type(exc).__name__}: {exc}"
+                )
+            asyncio.run_coroutine_threadsafe(_post_error(), loop)
+            return
+
+        filename = f"arcbot-overlay-{int(time.time())}.png"
+        try:
+            async def _post_result():
+                await origin_channel.send(
+                    file=discord.File(io.BytesIO(result), filename=filename)
+                )
+            future = asyncio.run_coroutine_threadsafe(_post_result(), loop)
+            future.result(timeout=30)
+            logger.info(
+                "Overlay pipeline finished (source message %s), posted %s (%d bytes)",
+                source_msg_id, filename, len(result),
+            )
+        except Exception as exc:
+            logger.warning("Posting overlay result failed: %s", exc)
+
+    threading.Thread(target=_run_pipeline, daemon=True, name="generate-overlay").start()
+
+    total_calls = sum(
+        max(1, min(OVERLAY_MAX_VARIANTS, int(el.get("variants", 3))))
+        for el in elements
+    )
+    return {
+        "success": True,
+        "status": "started",
+        "note": (
+            f"Started generating {len(elements)} overlay element type(s) "
+            f"(~{total_calls} image generations) in the background - this "
+            "can take a while. The finished image will be posted directly "
+            "to this channel when ready. Do not call this tool again for "
+            "the same request; just let the user know it's in progress."
+        ),
+    }
+
+
 def _execute_edit_message(client, loop, resolve_channel, tool_input):
     """Edit one of the bot's own messages in place (edit_message tool).
 
@@ -607,10 +1185,10 @@ class ArcbotDiscord:
                     logger.info("Bot opted out of responding (NO_RESPONSE or empty)")
                     return
 
-                # Split long messages (Discord limit is 2000 chars)
+                # Split long messages (Discord limit is 2000 chars), breaking
+                # at natural boundaries instead of cutting mid-word.
                 use_reply = random.random() < 0.33
-                for i in range(0, len(response), 2000):
-                    chunk = response[i:i + 2000]
+                for chunk in _split_message(response):
                     if use_reply:
                         await message.reply(chunk)
                     else:
@@ -662,8 +1240,32 @@ class ArcbotDiscord:
                 allowed_attachment_ids.add(attachment.id)
                 image_count += 1
 
+        # Same pre-scan for PDF documents (independent cap; documents only attach
+        # to user messages, so the bot's own attachments are skipped as above).
+        allowed_document_ids = set()
+        document_count = 0
+        for msg in reversed(history):
+            if document_count >= MAX_DOCUMENTS_PER_CALL:
+                break
+            if msg.author == self.client.user:
+                continue
+            for attachment in msg.attachments:
+                if document_count >= MAX_DOCUMENTS_PER_CALL:
+                    break
+                if not _looks_like_pdf(attachment):
+                    continue
+                if attachment.size > MAX_DOCUMENT_BYTES:
+                    logger.info(
+                        "Skipping oversized document attachment %s (%d bytes)",
+                        attachment.filename, attachment.size,
+                    )
+                    continue
+                allowed_document_ids.add(attachment.id)
+                document_count += 1
+
         # Build Bedrock Converse messages from channel history
         messages = []
+        used_doc_names = set()
         for msg in history:
             if msg.author == self.client.user:
                 role = "assistant"
@@ -698,18 +1300,51 @@ class ArcbotDiscord:
                     continue
                 image_blocks.append({"image": {"format": fmt, "source": {"bytes": data}}})
 
-            if not text and not image_blocks:
+            document_blocks = []
+            for attachment in msg.attachments:
+                if attachment.id not in allowed_document_ids:
+                    continue
+                try:
+                    data = await attachment.read()
+                except Exception as exc:
+                    logger.warning(
+                        "Failed to fetch document attachment %s: %s",
+                        attachment.filename, exc,
+                    )
+                    continue
+                fmt = _sniff_document_format(data)
+                if fmt is None:
+                    logger.warning(
+                        "Skipping attachment %s: unrecognized document format "
+                        "(Discord content_type=%r, %d bytes)",
+                        attachment.filename, attachment.content_type, len(data),
+                    )
+                    continue
+                name = _safe_document_name(attachment.filename, used_doc_names)
+                document_blocks.append(
+                    {"document": {"format": fmt, "name": name, "source": {"bytes": data}}}
+                )
+
+            if not text and not image_blocks and not document_blocks:
                 continue
 
             # Merge consecutive same-role messages: text concatenates into the
             # first text block (which is NOT necessarily content[0] - an
-            # image-only message has no text block); images accumulate at the end.
+            # image-only message has no text block); images and documents
+            # accumulate at the end. Bedrock requires any content array holding
+            # a document to also hold a text block, so synthesize one if the
+            # message had no text (user-message text always carries the author
+            # prefix, so this is a belt-and-suspenders guard).
             if messages and messages[-1]["role"] == role:
                 merge_text_into_content(messages[-1]["content"], text)
                 messages[-1]["content"].extend(image_blocks)
+                messages[-1]["content"].extend(document_blocks)
             else:
                 new_content = [{"text": text}] if text else []
                 new_content.extend(image_blocks)
+                new_content.extend(document_blocks)
+                if document_blocks and not any("text" in b for b in new_content):
+                    new_content.insert(0, {"text": f"{msg.author.display_name} attached a document."})
                 messages.append({"role": role, "content": new_content})
 
         if not messages:
@@ -748,7 +1383,16 @@ class ArcbotDiscord:
             "Treat them as part of the conversation - describe, reason about, or quote "
             "text from them when relevant to the discussion. You can also CREATE "
             "images: when a user asks you to draw, render, or visualize something, "
-            "call the generate_image tool with a rich visual prompt."
+            "call the generate_image tool with a rich visual prompt. You can "
+            "ANNOTATE an image already in the conversation: when a user asks you to "
+            "point out, circle, connect, or trace something on an image they shared "
+            "(e.g. drawing lines between stars to form a constellation), call the "
+            "annotate_image tool with normalized line coordinates read off the image. "
+            "You can also generatively DECORATE an image with scattered hand-drawn-"
+            "style elements (poetry scribbles, geometric patterns, small doodles) "
+            "using the generate_overlay tool - it runs in the background and posts "
+            "the result to the channel itself, so tell the user it's working on it "
+            "rather than waiting for a return value."
         )
         system_text += (
             "\n\n## Message Editing\n"
@@ -775,6 +1419,8 @@ class ArcbotDiscord:
         # sending when whitelisted channels are configured.
         tools = list(TOOL_DEFINITIONS)
         tools.append(GENERATE_IMAGE_TOOL)
+        tools.append(ANNOTATE_IMAGE_TOOL)
+        tools.append(GENERATE_OVERLAY_TOOL)
         tools.append(READ_CHANNEL_MESSAGES_TOOL)
         tools.append(EDIT_MESSAGE_TOOL)
         if DISCORD_TOOL_CHANNELS:
