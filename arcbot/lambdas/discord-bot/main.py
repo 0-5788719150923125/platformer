@@ -552,6 +552,23 @@ GENERATE_OVERLAY_TOOL = {
                             "most recent image attachment in this channel."
                         ),
                     },
+                    "replace_message_id": {
+                        "type": "string",
+                        "description": (
+                            "Optional: numeric Discord ID of a PREVIOUS "
+                            "generate_overlay result (one of this bot's own "
+                            "messages) to replace in place with the new "
+                            "result, instead of posting a new message. Use "
+                            "this for revision requests like 'redo that with "
+                            "bigger doodles' so the old result gets replaced "
+                            "rather than leaving both in the channel. This is "
+                            "separate from message_id: message_id picks the "
+                            "*base photo* to decorate (normally the user's "
+                            "original image, unchanged across revisions), "
+                            "while replace_message_id picks which of the "
+                            "bot's own *previous outputs* to overwrite."
+                        ),
+                    },
                 },
                 "required": ["elements"],
             }
@@ -992,6 +1009,42 @@ def _resolve_element_references(loop, origin_channel, elements, timeout=30):
         return None, f"Failed to resolve reference images: {exc}"
 
 
+def _validate_replace_target(client, loop, origin_channel, replace_message_id, timeout=15):
+    """Confirm replace_message_id (if given) refers to an existing message
+    authored by this bot, before committing to the slow background pipeline.
+
+    Discord's API only lets a bot edit messages it authored anyway, so this
+    can never let the model overwrite a user's message - but checking now
+    means a bad ID (typo'd, already deleted, or someone else's message)
+    surfaces as an immediate tool error instead of a silent fallback
+    discovered a minute later when the pipeline finishes. Returns None on
+    success, or an error string.
+    """
+    if not replace_message_id:
+        return None
+    if not replace_message_id.isdigit():
+        return f"replace_message_id must be a numeric Discord message ID, got: {replace_message_id!r}"
+
+    async def _check():
+        try:
+            msg = await origin_channel.fetch_message(int(replace_message_id))
+        except discord.NotFound:
+            return f"replace_message_id {replace_message_id} not found in this channel."
+        if msg.author != client.user:
+            return (
+                f"replace_message_id {replace_message_id} was not posted by "
+                "this bot - only the bot's own previous generate_overlay "
+                "results can be replaced."
+            )
+        return None
+
+    future = asyncio.run_coroutine_threadsafe(_check(), loop)
+    try:
+        return future.result(timeout=timeout)
+    except Exception as exc:
+        return f"Failed to validate replace_message_id: {exc}"
+
+
 def _execute_generate_overlay(client, loop, origin_channel, tool_input):
     """Validate input, resolve the base image, then run the (slow) generative
     overlay pipeline in a background thread and return immediately.
@@ -1000,11 +1053,12 @@ def _execute_generate_overlay(client, loop, origin_channel, tool_input):
     done: a request with several element types x several variants each is
     many sequential Bedrock image-gen calls and can easily run past a minute,
     well beyond what's reasonable to hold up a single Converse tool-call
-    turn for. The base image is still resolved synchronously (one cheap
-    Discord fetch) so a bad request fails fast with a normal tool error
-    instead of silently starting a background job for nothing; only the
-    actual generation/compositing runs in the background thread, posting
-    directly to Discord (success or failure) once finished.
+    turn for. The base image and (if given) replace_message_id are still
+    resolved synchronously (cheap Discord fetches) so a bad request fails
+    fast with a normal tool error instead of silently starting a background
+    job for nothing; only the actual generation/compositing runs in the
+    background thread, delivering to Discord (success or failure) once
+    finished.
     """
     if origin_channel is None:
         return {"error": "No channel available to post the result to."}
@@ -1024,6 +1078,11 @@ def _execute_generate_overlay(client, loop, origin_channel, tool_input):
     if err:
         return {"error": err}
 
+    replace_message_id = str(tool_input.get("replace_message_id") or "").strip()
+    err = _validate_replace_target(client, loop, origin_channel, replace_message_id)
+    if err:
+        return {"error": err}
+
     def _run_pipeline():
         try:
             result = generate_overlay(data, elements)
@@ -1037,19 +1096,39 @@ def _execute_generate_overlay(client, loop, origin_channel, tool_input):
             return
 
         filename = f"arcbot-overlay-{int(time.time())}.png"
+
+        async def _deliver():
+            # Replacing can still fail even after the earlier check (the
+            # message may have been deleted in the minute-plus this took,
+            # or Discord may reject the edit for some other reason) - fall
+            # back to posting a new message rather than losing the result.
+            if replace_message_id:
+                try:
+                    target = await origin_channel.fetch_message(int(replace_message_id))
+                    await target.edit(
+                        attachments=[discord.File(io.BytesIO(result), filename=filename)]
+                    )
+                    return "replaced", target.id
+                except Exception as exc:
+                    logger.warning(
+                        "Replacing message %s failed, posting new instead: %s",
+                        replace_message_id, exc,
+                    )
+            sent = await origin_channel.send(
+                file=discord.File(io.BytesIO(result), filename=filename)
+            )
+            return "posted", sent.id
+
         try:
-            async def _post_result():
-                await origin_channel.send(
-                    file=discord.File(io.BytesIO(result), filename=filename)
-                )
-            future = asyncio.run_coroutine_threadsafe(_post_result(), loop)
-            future.result(timeout=30)
+            future = asyncio.run_coroutine_threadsafe(_deliver(), loop)
+            action, result_msg_id = future.result(timeout=30)
             logger.info(
-                "Overlay pipeline finished (source message %s), posted %s (%d bytes)",
-                source_msg_id, filename, len(result),
+                "Overlay pipeline finished (source message %s), %s message %s "
+                "with %s (%d bytes)",
+                source_msg_id, action, result_msg_id, filename, len(result),
             )
         except Exception as exc:
-            logger.warning("Posting overlay result failed: %s", exc)
+            logger.warning("Delivering overlay result failed: %s", exc)
 
     threading.Thread(target=_run_pipeline, daemon=True, name="generate-overlay").start()
 
@@ -1057,17 +1136,21 @@ def _execute_generate_overlay(client, loop, origin_channel, tool_input):
         max(1, min(OVERLAY_MAX_VARIANTS, int(el.get("variants", 3))))
         for el in elements
     )
-    return {
-        "success": True,
-        "status": "started",
-        "note": (
-            f"Started generating {len(elements)} overlay element type(s) "
-            f"(~{total_calls} image generations) in the background - this "
-            "can take a while. The finished image will be posted directly "
-            "to this channel when ready. Do not call this tool again for "
-            "the same request; just let the user know it's in progress."
-        ),
-    }
+    note = (
+        f"Started generating {len(elements)} overlay element type(s) "
+        f"(~{total_calls} image generations) in the background - this can "
+        "take a while. "
+    )
+    if replace_message_id:
+        note += (
+            f"The result will replace message {replace_message_id} in "
+            "place (falling back to posting a new message if that fails). "
+        )
+    else:
+        note += "The finished image will be posted to this channel as a new message. "
+    note += "Do not call this tool again for the same request; just let the user know it's in progress."
+
+    return {"success": True, "status": "started", "note": note}
 
 
 def _execute_edit_message(client, loop, resolve_channel, tool_input):
@@ -1392,7 +1475,11 @@ class ArcbotDiscord:
             "style elements (poetry scribbles, geometric patterns, small doodles) "
             "using the generate_overlay tool - it runs in the background and posts "
             "the result to the channel itself, so tell the user it's working on it "
-            "rather than waiting for a return value."
+            "rather than waiting for a return value. If the user asks you to revise "
+            "or redo a generate_overlay result you already posted (e.g. 'make the "
+            "doodles bigger'), pass replace_message_id (the ID of that previous "
+            "result message, from read_channel_messages) so the new version replaces "
+            "it in place instead of posting a second image."
         )
         system_text += (
             "\n\n## Message Editing\n"
