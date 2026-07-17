@@ -249,10 +249,16 @@ READ_CHANNEL_MESSAGES_TOOL = {
         "name": "read_channel_messages",
         "description": (
             "Read recent messages from a Discord channel, including each "
-            "message's ID (needed by edit_message). Use this to understand "
-            "what's being discussed before sending a message, or to find the "
-            "ID of one of your own messages. Omit channel_name to read the "
-            "current channel; otherwise only whitelisted channels are available."
+            "message's ID (usable by edit_message, annotate_image, and "
+            "generate_overlay). Use this to understand what's being discussed "
+            "before sending a message, or to find the ID of one of your own "
+            "messages when you don't already have it. This only returns the "
+            "most recent messages (max 50) - it will NOT surface an older "
+            "message. If a message ID was already given to you directly (e.g. "
+            "a user pasted a numeric ID), use that ID as-is; do not call this "
+            "tool to look it up, and never substitute a different ID than the "
+            "one you were given. Omit channel_name to read the current "
+            "channel; otherwise only whitelisted channels are available."
         ),
         "inputSchema": {
             "json": {
@@ -282,10 +288,15 @@ EDIT_MESSAGE_TOOL = {
         "description": (
             "Edit one of your own previous Discord messages, replacing its text "
             "with new content. Discord only allows you to edit messages you "
-            "sent yourself. Find the message_id of the target message with "
-            "read_channel_messages (your own messages are marked author_is_you). "
-            "By default the message is looked up in the current channel; pass "
-            "channel_name to edit a message in another whitelisted channel."
+            "sent yourself. If you were given the target message_id directly "
+            "(e.g. a user pasted a numeric ID and told you to edit that "
+            "message), use it exactly as given - do not substitute a "
+            "different message. Only fall back to read_channel_messages "
+            "(your own messages are marked author_is_you) when you don't "
+            "already have an ID; note it only sees the most recent messages, "
+            "so it cannot find an older message's ID. By default the message "
+            "is looked up in the current channel; pass channel_name to edit a "
+            "message in another whitelisted channel."
         ),
         "inputSchema": {
             "json": {
@@ -383,7 +394,9 @@ ANNOTATE_IMAGE_TOOL = {
             "corner) - read them off the image as you view it; they don't "
             "need to be pixel-exact. By default this annotates the most "
             "recent image attachment in the conversation; pass message_id "
-            "(from read_channel_messages) to target a different one."
+            "to target a different one - use an ID given to you directly "
+            "as-is, or look one up with read_channel_messages if you don't "
+            "have one (note it only sees recent messages)."
         ),
         "inputSchema": {
             "json": {
@@ -566,7 +579,11 @@ GENERATE_OVERLAY_TOOL = {
                             "*base photo* to decorate (normally the user's "
                             "original image, unchanged across revisions), "
                             "while replace_message_id picks which of the "
-                            "bot's own *previous outputs* to overwrite."
+                            "bot's own *previous outputs* to overwrite. Use "
+                            "an ID given to you directly as-is; only look one "
+                            "up with read_channel_messages if you don't "
+                            "already have it (note it only sees recent "
+                            "messages, so it cannot find an older result)."
                         ),
                     },
                 },
@@ -1189,8 +1206,14 @@ def _execute_edit_message(client, loop, resolve_channel, tool_input):
                     f"Message {message_id} was sent by {msg.author.display_name}, "
                     "not you. You can only edit your own messages."
                 )}
+            previous_content = msg.content
             await msg.edit(content=new_message)
-            return {"success": True, "message_id": message_id, "channel": channel_label}
+            return {
+                "success": True,
+                "message_id": message_id,
+                "channel": channel_label,
+                "previous_content": previous_content[:200],
+            }
 
         future = asyncio.run_coroutine_threadsafe(_edit(), loop)
         result = future.result(timeout=30)
@@ -1261,25 +1284,34 @@ class ArcbotDiscord:
             return
 
         # Don't show typing indicator for ambient messages (model will usually opt out)
-        async with message.channel.typing() if is_direct else _noop_context():
-            try:
-                response = await self._generate_response(message, is_direct=is_direct)
-                if is_opt_out(response):
-                    logger.info("Bot opted out of responding (NO_RESPONSE or empty)")
-                    return
+        try:
+            typing_context = message.channel.typing() if is_direct else _noop_context()
+            await typing_context.__aenter__()
+        except discord.HTTPException as exc:
+            logger.warning("Typing indicator failed (%s); responding without it", exc)
+            typing_context = None
 
-                # Split long messages (Discord limit is 2000 chars), breaking
-                # at natural boundaries instead of cutting mid-word.
-                use_reply = random.random() < 0.33
-                for chunk in _split_message(response):
-                    if use_reply:
-                        await message.reply(chunk)
-                    else:
-                        await message.channel.send(chunk)
+        try:
+            response = await self._generate_response(message, is_direct=is_direct)
+            if is_opt_out(response):
+                logger.info("Bot opted out of responding (NO_RESPONSE or empty)")
+                return
 
-            except Exception as exc:
-                logger.error("Error generating response: %s", exc, exc_info=True)
-                await message.channel.send("Sorry, I encountered an error generating a response.")
+            # Split long messages (Discord limit is 2000 chars), breaking
+            # at natural boundaries instead of cutting mid-word.
+            use_reply = random.random() < 0.33
+            for chunk in _split_message(response):
+                if use_reply:
+                    await message.reply(chunk)
+                else:
+                    await message.channel.send(chunk)
+
+        except Exception as exc:
+            logger.error("Error generating response: %s", exc, exc_info=True)
+            await message.channel.send("Sorry, I encountered an error generating a response.")
+        finally:
+            if typing_context is not None:
+                await typing_context.__aexit__(None, None, None)
 
     async def _generate_response(self, message, is_direct=True):
         """Generate a response using Bedrock Converse via the shared backend."""
@@ -1485,11 +1517,17 @@ class ArcbotDiscord:
             "\n\n## Message Editing\n"
             "You can revise your own previous messages with the edit_message "
             "tool - useful when asked to fix a typo or correct a mistake in "
-            "something you already posted. First call read_channel_messages "
-            "(omitting channel_name reads the current channel) to find the "
-            "message_id of your message (yours are marked author_is_you), then "
-            "call edit_message with the full replacement text. You can only "
-            "edit messages you sent yourself."
+            "something you already posted. If a message ID was given to you "
+            "directly (e.g. someone pasted a numeric Discord message ID and "
+            "told you to edit that message), use it exactly as given - do "
+            "NOT substitute a different message, even one you're more "
+            "confident about. Only call read_channel_messages (omitting "
+            "channel_name reads the current channel) when you don't already "
+            "have the ID, to find one of your own messages (marked "
+            "author_is_you) - it only returns the most recent messages, so "
+            "it cannot find an older message; for those, trust an ID given "
+            "to you directly instead. You can only edit messages you sent "
+            "yourself."
         )
         if ENV["knowledge_base_id"]:
             # Use the triggering message as the KB query
