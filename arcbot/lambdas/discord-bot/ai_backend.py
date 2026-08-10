@@ -216,6 +216,36 @@ TOOL_DEFINITIONS = [
     },
 ]
 
+# Knowledge base search tool. Not included in TOOL_DEFINITIONS since not every
+# bot has a KB configured - callers append this themselves when knowledge_base_id
+# is set (see discord-bot/main.py and atlassian-bot/main.py).
+SEARCH_KB_TOOL = {
+    "toolSpec": {
+        "name": "search_knowledge_base",
+        "description": (
+            "Search the knowledge base for content relevant to a query. Call "
+            "this before answering questions that depend on KB content, and "
+            "feel free to call it more than once in a turn - broaden a query "
+            "that came up empty, narrow one that returned too much, or look "
+            "up a follow-up detail. Returns the most relevant chunks with "
+            "their source and relevance score, or an empty result if nothing "
+            "matched."
+        ),
+        "inputSchema": {
+            "json": {
+                "type": "object",
+                "properties": {
+                    "query": {
+                        "type": "string",
+                        "description": "Natural-language search query.",
+                    },
+                },
+                "required": ["query"],
+            }
+        },
+    }
+}
+
 
 # ── URL fetching (fetch_url tool) ────────────────────────────────────────────
 
@@ -1178,6 +1208,13 @@ def retrieve_kb_context(query_summary, query_detail, knowledge_base_id=None, max
         return ""
 
 
+def _tool_search_knowledge_base(query):
+    context = retrieve_kb_context(query, "")
+    if not context:
+        return {"result": "No relevant documents found."}
+    return {"result": context}
+
+
 # ── Tool execution ───────────────────────────────────────────────────────────
 
 
@@ -1196,6 +1233,8 @@ def execute_tool(tool_name, tool_input):
                 url=tool_input["url"],
                 raw=bool(tool_input.get("raw", False)),
             )
+        if tool_name == "search_knowledge_base":
+            return _tool_search_knowledge_base(query=tool_input["query"])
         return {"error": f"Unknown tool: {tool_name}"}
     except Exception as exc:
         logger.warning("Tool %s failed: %s", tool_name, exc)

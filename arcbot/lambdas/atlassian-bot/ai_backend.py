@@ -40,6 +40,17 @@ def load_env():
         # Titan Image are both marked Legacy (provider-locked).
         "image_model_id": os.environ.get("IMAGE_MODEL_ID", "stability.stable-image-core-v1:1"),
         "image_model_region": os.environ.get("IMAGE_MODEL_REGION", "us-west-2"),
+        # Image-to-image / style-reference generation (generate_overlay's
+        # reference_message_ids). Stability Core/Ultra has no multi-image
+        # conditioning mode on Bedrock, so this always goes through Titan
+        # Image Generator's IMAGE_VARIATION task type regardless of what
+        # IMAGE_MODEL_ID is set to. IMAGE_VARIATION is an "editing" task per
+        # AWS's own task table, which per the comment above is what's
+        # actually available in us-east-1 for this account.
+        "image_variation_model_id": os.environ.get(
+            "IMAGE_VARIATION_MODEL_ID", "amazon.titan-image-generator-v2:0"
+        ),
+        "image_variation_model_region": os.environ.get("IMAGE_VARIATION_MODEL_REGION", "us-east-1"),
     }
 
 
@@ -204,6 +215,36 @@ TOOL_DEFINITIONS = [
         }
     },
 ]
+
+# Knowledge base search tool. Not included in TOOL_DEFINITIONS since not every
+# bot has a KB configured - callers append this themselves when knowledge_base_id
+# is set (see discord-bot/main.py and atlassian-bot/main.py).
+SEARCH_KB_TOOL = {
+    "toolSpec": {
+        "name": "search_knowledge_base",
+        "description": (
+            "Search the knowledge base for content relevant to a query. Call "
+            "this before answering questions that depend on KB content, and "
+            "feel free to call it more than once in a turn - broaden a query "
+            "that came up empty, narrow one that returned too much, or look "
+            "up a follow-up detail. Returns the most relevant chunks with "
+            "their source and relevance score, or an empty result if nothing "
+            "matched."
+        ),
+        "inputSchema": {
+            "json": {
+                "type": "object",
+                "properties": {
+                    "query": {
+                        "type": "string",
+                        "description": "Natural-language search query.",
+                    },
+                },
+                "required": ["query"],
+            }
+        },
+    }
+}
 
 
 # ── URL fetching (fetch_url tool) ────────────────────────────────────────────
@@ -485,6 +526,440 @@ def generate_image(prompt, negative_prompt=None, orientation="square"):
     return base64.b64decode(images[0])
 
 
+# Titan's IMAGE_VARIATION task caps input images at 1408px on the longer
+# side and accepts 1-5 reference images per call.
+IMAGE_VARIATION_MAX_DIMENSION = 1408
+IMAGE_VARIATION_MAX_REFERENCE_IMAGES = 5
+
+
+def generate_image_variation(prompt, reference_images, negative_prompt=None, similarity_strength=0.7):
+    """Generate one PNG image conditioned on 1-5 reference images.
+
+    Uses Bedrock's Titan Image Generator IMAGE_VARIATION task type - the
+    only model wired into this bot that accepts image input for style/
+    content conditioning. Stability Core/Ultra (this bot's default
+    text-to-image backend, via generate_image) has no equivalent
+    multi-image conditioning mode on Bedrock, so this always targets Titan
+    regardless of IMAGE_MODEL_ID.
+
+    `reference_images` is a list of 1-5 raw image byte strings.
+    `similarity_strength` (0.2-1.0, Titan's own accepted range) controls how
+    closely the result follows the references vs. the text prompt; lower
+    values introduce more randomness. Returns decoded PNG bytes; raises on
+    failure - callers wrap errors into tool results.
+    """
+    import base64
+    import random as _random
+    from io import BytesIO
+
+    from PIL import Image
+
+    if not reference_images or not (1 <= len(reference_images) <= IMAGE_VARIATION_MAX_REFERENCE_IMAGES):
+        raise ValueError(
+            f"generate_image_variation requires 1-{IMAGE_VARIATION_MAX_REFERENCE_IMAGES} "
+            f"reference images, got {len(reference_images) if reference_images else 0}"
+        )
+
+    env = load_env()
+    model_id = env["image_variation_model_id"]
+
+    # Downscale oversized references rather than erroring - Discord photos
+    # routinely exceed Titan's 1408px cap.
+    encoded_refs = []
+    for img_bytes in reference_images:
+        img = Image.open(BytesIO(img_bytes))
+        img.load()
+        img = img.convert("RGB")
+        if max(img.size) > IMAGE_VARIATION_MAX_DIMENSION:
+            ratio = IMAGE_VARIATION_MAX_DIMENSION / max(img.size)
+            img = img.resize(
+                (max(1, round(img.width * ratio)), max(1, round(img.height * ratio))),
+                Image.LANCZOS,
+            )
+        buf = BytesIO()
+        img.save(buf, format="PNG")
+        encoded_refs.append(base64.b64encode(buf.getvalue()).decode("ascii"))
+
+    body = {
+        "taskType": "IMAGE_VARIATION",
+        "imageVariationParams": {
+            "text": prompt[:512],
+            "images": encoded_refs,
+            "similarityStrength": max(0.2, min(1.0, similarity_strength)),
+        },
+        "imageGenerationConfig": {
+            "numberOfImages": 1,
+            "height": 1024,
+            "width": 1024,
+            "cfgScale": 8.0,
+            "seed": _random.randint(0, 858993459),
+        },
+    }
+    if negative_prompt:
+        body["imageVariationParams"]["negativeText"] = negative_prompt[:512]
+
+    client = boto3.client("bedrock-runtime", region_name=env["image_variation_model_region"])
+    response = client.invoke_model(
+        modelId=model_id,
+        body=json.dumps(body),
+        contentType="application/json",
+        accept="application/json",
+    )
+    payload = json.loads(response["body"].read())
+    if payload.get("error"):
+        raise RuntimeError(f"Image variation error: {payload['error']}")
+    images = payload.get("images") or []
+    if not images:
+        raise RuntimeError("Image variation returned no images")
+    logger.info(
+        "Generated image variation via %s from %d reference image(s)",
+        model_id, len(reference_images),
+    )
+    return base64.b64decode(images[0])
+
+
+# ── Image annotation (annotate_image tool) ──────────────────────────────────
+
+ANNOTATION_LINE_COLOR = (0, 255, 0, 255)  # bright green, fully opaque
+ANNOTATION_LINE_WIDTH = 3  # px, in output image space
+# Pillow's ImageDraw has no native anti-aliasing for lines, so we draw on a
+# layer this many times larger, then downsample with LANCZOS - the standard
+# supersampling trick for AA'd vector overlays in Pillow.
+ANNOTATION_SUPERSAMPLE = 4
+MAX_ANNOTATION_LINES = 200
+
+
+def annotate_image(image_bytes, lines):
+    """Draw bright-green line segments over an image and return PNG bytes.
+
+    `lines` is a list of {"x1","y1","x2","y2"} dicts, coordinates normalized
+    to [0, 1] with origin top-left - i.e. what a model reads off an image it
+    viewed via vision. Coordinates are clamped into range rather than
+    rejected, since visually-estimated positions will rarely land exactly on
+    0/1. The original image is never modified in place; a supersampled
+    overlay is composited onto a copy. Raises ValueError on malformed input,
+    and PIL's own errors (including its decompression-bomb guard) on
+    undecodable or absurdly large images - callers wrap these into tool
+    results.
+    """
+    from io import BytesIO
+
+    from PIL import Image, ImageDraw
+
+    if not lines:
+        raise ValueError("annotate_image requires at least one line segment")
+    if len(lines) > MAX_ANNOTATION_LINES:
+        raise ValueError(f"Too many line segments ({len(lines)}); max {MAX_ANNOTATION_LINES}")
+
+    base = Image.open(BytesIO(image_bytes))
+    base.load()  # forces full decode now, which is also where Pillow's
+                 # decompression-bomb guard (Image.MAX_IMAGE_PIXELS) fires
+    original_mode = base.mode
+    width, height = base.size
+    if width < 1 or height < 1:
+        raise ValueError(f"Invalid image dimensions: {width}x{height}")
+    base = base.convert("RGBA")
+
+    scale = ANNOTATION_SUPERSAMPLE
+    overlay = Image.new("RGBA", (width * scale, height * scale), (0, 0, 0, 0))
+    draw = ImageDraw.Draw(overlay)
+
+    for i, seg in enumerate(lines):
+        try:
+            x1, y1, x2, y2 = seg["x1"], seg["y1"], seg["x2"], seg["y2"]
+            x1, y1, x2, y2 = float(x1), float(y1), float(x2), float(y2)
+        except (KeyError, TypeError, ValueError):
+            raise ValueError(f"Line {i} must have numeric x1, y1, x2, y2 fields")
+        x1 = max(0.0, min(1.0, x1)) * width * scale
+        y1 = max(0.0, min(1.0, y1)) * height * scale
+        x2 = max(0.0, min(1.0, x2)) * width * scale
+        y2 = max(0.0, min(1.0, y2)) * height * scale
+        draw.line(
+            [(x1, y1), (x2, y2)],
+            fill=ANNOTATION_LINE_COLOR,
+            width=ANNOTATION_LINE_WIDTH * scale,
+        )
+
+    overlay = overlay.resize((width, height), Image.LANCZOS)
+    result = Image.alpha_composite(base, overlay)
+
+    # Only keep an alpha channel in the output if the source image had one -
+    # otherwise a plain JPEG would silently gain a channel it never had.
+    if original_mode not in ("RGBA", "LA", "PA"):
+        result = result.convert("RGB")
+
+    out = BytesIO()
+    result.save(out, format="PNG")
+    return out.getvalue()
+
+
+# ── Generative overlay pipeline (generate_overlay tool) ─────────────────────
+
+# Per-request bounds. Each element type costs `variants` sequential Bedrock
+# image-gen calls (a few seconds each) before any compositing happens, so
+# these are kept small enough that a worst-case request (max elements x max
+# variants) is merely slow rather than unbounded - callers run the whole
+# pipeline off the Discord event loop specifically because even the bounded
+# worst case can run past a normal tool-call timeout.
+OVERLAY_MAX_ELEMENTS = 6          # distinct element *types* per request
+OVERLAY_MAX_DENSITY = 12          # scattered instances of a single element type
+OVERLAY_MIN_VARIANTS = 1
+OVERLAY_MAX_VARIANTS = 5
+OVERLAY_DEFAULT_VARIANTS = 3
+OVERLAY_ASSET_TARGET_SIZE = 256   # long edge, px, of an extracted isolated asset
+
+# Alpha ramp thresholds for keying a near-white generated background to
+# transparency: per-pixel min(R,G,B) at/above HIGH is fully transparent,
+# at/below LOW is fully opaque, with a linear ramp between (so anti-aliased
+# edges in the source render don't produce a hard, jagged cutout).
+OVERLAY_WHITE_THRESHOLD_LOW = 200
+OVERLAY_WHITE_THRESHOLD_HIGH = 245
+
+OVERLAY_BLEND_MODES = frozenset({"normal", "multiply", "screen"})
+# Titan's own IMAGE_VARIATION limit (see generate_image_variation).
+OVERLAY_MAX_REFERENCE_IMAGES = IMAGE_VARIATION_MAX_REFERENCE_IMAGES
+
+
+def _sample_isolated_asset(description, variants, reference_images=None, similarity_strength=0.7):
+    """Generate `variants` isolated sketch renders of one visual element.
+
+    Each is prompted onto a plain white background so a later step can key
+    the background out to alpha - the generator itself never needs to
+    support transparency. One Bedrock call per variant; a single variant's
+    failure is logged and skipped rather than aborting the batch, since a
+    partial set is still usable. Raises RuntimeError only if every variant
+    fails.
+
+    When `reference_images` (1-5 raw image byte strings) is given, sampling
+    goes through generate_image_variation instead of plain generate_image,
+    so the element's style/content is conditioned on those images rather
+    than text alone - e.g. "match the sketch style of this other photo".
+    """
+    prompt = (
+        f"isolated {description}, single subject, centered, loose sketch "
+        "style, black ink line art, no shading, no gradient, no background "
+        "scenery, plain solid white background, generous white space margin "
+        "around the subject"
+    )
+    negative_prompt = (
+        "colored background, gradient background, photo, scenery, "
+        "watermark, text caption, frame, border, drop shadow, multiple "
+        "subjects, collage"
+    )
+    samples = []
+    errors = []
+    for _ in range(variants):
+        try:
+            if reference_images:
+                samples.append(generate_image_variation(
+                    prompt, reference_images,
+                    negative_prompt=negative_prompt,
+                    similarity_strength=similarity_strength,
+                ))
+            else:
+                samples.append(
+                    generate_image(prompt, negative_prompt=negative_prompt, orientation="square")
+                )
+        except Exception as exc:
+            errors.append(str(exc))
+    if not samples:
+        raise RuntimeError(
+            f"All {variants} sample generations failed for '{description}': {errors[:1]}"
+        )
+    return samples
+
+
+def _extract_alpha_asset(image_bytes, target_size=OVERLAY_ASSET_TARGET_SIZE):
+    """Key a near-white background out to alpha and return a tightly-cropped RGBA asset.
+
+    Alpha is a soft ramp on "distance from white" (per-pixel min channel
+    value) rather than a hard threshold, so anti-aliased edges in the source
+    render don't leave a jagged cutout. Partial-alpha edge pixels are then
+    color-decontaminated - unpremultiplied against the known white
+    background - so they don't carry a pale halo once composited onto a
+    non-white base; this is the standard fix for the white fringing that a
+    naive "just threshold it" keying step produces. The result is cropped to
+    its opaque content's bounding box (plus a small margin to avoid clipping
+    edge strokes) and downscaled so its long edge is target_size.
+    """
+    from io import BytesIO
+
+    import numpy as np
+    from PIL import Image
+
+    img = Image.open(BytesIO(image_bytes)).convert("RGB")
+    arr = np.asarray(img, dtype=np.float32)  # (H, W, 3)
+
+    min_channel = arr.min(axis=2)  # (H, W); closer to 255 == closer to white
+    alpha = (OVERLAY_WHITE_THRESHOLD_HIGH - min_channel) / (
+        OVERLAY_WHITE_THRESHOLD_HIGH - OVERLAY_WHITE_THRESHOLD_LOW
+    )
+    alpha = np.clip(alpha, 0.0, 1.0)
+
+    alpha_safe = np.clip(alpha, 1e-3, 1.0)[..., None]
+    decontaminated = np.clip((arr - (1.0 - alpha_safe) * 255.0) / alpha_safe, 0, 255)
+
+    rgba = np.dstack([decontaminated, alpha[..., None] * 255.0]).astype(np.uint8)
+    asset = Image.fromarray(rgba, mode="RGBA")
+
+    bbox = asset.getbbox()
+    if bbox is None:
+        raise ValueError("Extracted asset is fully transparent (no ink detected against white)")
+    left, top, right, bottom = bbox
+    margin = max(2, int(0.03 * max(right - left, bottom - top)))
+    left = max(0, left - margin)
+    top = max(0, top - margin)
+    right = min(asset.width, right + margin)
+    bottom = min(asset.height, bottom + margin)
+    asset = asset.crop((left, top, right, bottom))
+
+    long_edge = max(asset.size)
+    if long_edge > target_size:
+        ratio = target_size / long_edge
+        new_size = (max(1, round(asset.width * ratio)), max(1, round(asset.height * ratio)))
+        asset = asset.resize(new_size, Image.LANCZOS)
+
+    return asset
+
+
+def _composite_element_instances(base_rgba, assets, region, scale, density, blend_mode="normal"):
+    """Scatter `density` randomly-picked copies of `assets` within `region` onto base_rgba.
+
+    `region` is (x, y, w, h) normalized 0-1. Each instance independently
+    varies scale (+/-20% around `scale`, a fraction of the base image's
+    shorter edge) and rotation, and is placed at a jittered position within
+    the region - "normal" blending is a straight alpha composite; "multiply"/
+    "screen" additionally darken/lighten against the image beneath, blended
+    back in proportion to the instance's own alpha so partially-transparent
+    edges don't over- or under-apply the effect.
+    """
+    import random
+
+    from PIL import Image, ImageChops
+
+    width, height = base_rgba.size
+    short_edge = min(width, height)
+    rx, ry, rw, rh = region
+    region_px = (rx * width, ry * height, rw * width, rh * height)
+
+    result = base_rgba
+    for _ in range(density):
+        asset = random.choice(assets)
+        inst_scale = scale * random.uniform(0.8, 1.2)
+        target_w = max(4, round(inst_scale * short_edge))
+        aspect = (asset.height / asset.width) if asset.width else 1.0
+        target_h = max(4, round(target_w * aspect))
+        instance = asset.resize((target_w, target_h), Image.LANCZOS)
+        instance = instance.rotate(random.uniform(-15, 15), expand=True, resample=Image.BICUBIC)
+
+        max_x = max(region_px[0], region_px[0] + region_px[2] - instance.width)
+        max_y = max(region_px[1], region_px[1] + region_px[3] - instance.height)
+        px = round(random.uniform(region_px[0], max_x)) if max_x > region_px[0] else round(region_px[0])
+        py = round(random.uniform(region_px[1], max_y)) if max_y > region_px[1] else round(region_px[1])
+        px = min(max(px, 0), max(0, width - instance.width))
+        py = min(max(py, 0), max(0, height - instance.height))
+
+        layer = Image.new("RGBA", base_rgba.size, (0, 0, 0, 0))
+        layer.paste(instance, (px, py), instance)
+        mask = layer.split()[3]
+
+        if blend_mode in ("multiply", "screen"):
+            blend_fn = ImageChops.multiply if blend_mode == "multiply" else ImageChops.screen
+            blended_rgb = blend_fn(result.convert("RGB"), layer.convert("RGB"))
+            blended = Image.merge("RGBA", (*blended_rgb.split(), mask))
+            result = Image.composite(blended, result, mask)
+        else:
+            result = Image.alpha_composite(result, layer)
+    return result
+
+
+def generate_overlay(base_image_bytes, elements):
+    """Run the full generative-overlay pipeline and return finished PNG bytes.
+
+    `elements` is a list of dicts, each describing one visual element type:
+      description (str, required), region ([x, y, w, h] normalized 0-1,
+      default whole image), scale (float, fraction of the base image's short
+      edge for one instance, default 0.15), density (int instance count,
+      default 1), variants (int samples to generate before scattering,
+      default OVERLAY_DEFAULT_VARIANTS), blend_mode (normal/multiply/screen).
+      Elements are composited in list order, background-to-foreground.
+
+      Optionally, an element may carry "_reference_images" (a list of 1-5
+      raw image byte strings, already resolved from Discord attachments by
+      the caller) and "similarity_strength" (0.2-1.0, default 0.7). When
+      present, that element's samples are conditioned on those images via
+      generate_image_variation instead of plain text-to-image, so its
+      style/content follows the references - e.g. "match the doodle style
+      of this other photo" - rather than the text description alone.
+
+    This is deliberately synchronous and can take a while (multiple
+    sequential image generations per element) - callers should run it off
+    whatever event loop / request thread is waiting on a timely response,
+    not inline in it.
+    """
+    from io import BytesIO
+
+    from PIL import Image
+
+    if not elements:
+        raise ValueError("generate_overlay requires at least one element")
+    if len(elements) > OVERLAY_MAX_ELEMENTS:
+        raise ValueError(f"Too many element types ({len(elements)}); max {OVERLAY_MAX_ELEMENTS}")
+
+    base = Image.open(BytesIO(base_image_bytes))
+    base.load()
+    result = base.convert("RGBA")
+
+    for i, el in enumerate(elements):
+        description = (el.get("description") or "").strip()
+        if not description:
+            raise ValueError(f"Element {i} is missing a description")
+
+        region = el.get("region") or [0.0, 0.0, 1.0, 1.0]
+        if len(region) != 4:
+            raise ValueError(f"Element {i} region must be [x, y, width, height]")
+        region = [max(0.0, min(1.0, float(v))) for v in region]
+
+        scale = max(0.01, min(1.0, float(el.get("scale", 0.15))))
+        density = max(1, min(OVERLAY_MAX_DENSITY, int(el.get("density", 1))))
+        variants = max(
+            OVERLAY_MIN_VARIANTS,
+            min(OVERLAY_MAX_VARIANTS, int(el.get("variants", OVERLAY_DEFAULT_VARIANTS))),
+        )
+        blend_mode = el.get("blend_mode", "normal")
+        if blend_mode not in OVERLAY_BLEND_MODES:
+            blend_mode = "normal"
+
+        reference_images = el.get("_reference_images") or None
+        similarity_strength = max(0.2, min(1.0, float(el.get("similarity_strength", 0.7))))
+
+        samples = _sample_isolated_asset(
+            description, variants,
+            reference_images=reference_images,
+            similarity_strength=similarity_strength,
+        )
+        assets = []
+        for sample in samples:
+            try:
+                assets.append(_extract_alpha_asset(sample))
+            except Exception as exc:
+                logger.warning("Alpha extraction failed for element %d ('%s'): %s", i, description, exc)
+        if not assets:
+            raise RuntimeError(f"Element {i} ('{description}'): all variants failed alpha extraction")
+
+        result = _composite_element_instances(result, assets, region, scale, density, blend_mode)
+        logger.info(
+            "Overlay element %d ('%s'): %d/%d usable variants, %d instances scattered%s",
+            i, description, len(assets), len(samples), density,
+            f" (conditioned on {len(reference_images)} reference image(s), "
+            f"similarity={similarity_strength})" if reference_images else "",
+        )
+
+    out = BytesIO()
+    result.save(out, format="PNG")
+    return out.getvalue()
+
+
 # ── Message sanitization ─────────────────────────────────────────────────────
 
 
@@ -733,6 +1208,13 @@ def retrieve_kb_context(query_summary, query_detail, knowledge_base_id=None, max
         return ""
 
 
+def _tool_search_knowledge_base(query):
+    context = retrieve_kb_context(query, "")
+    if not context:
+        return {"result": "No relevant documents found."}
+    return {"result": context}
+
+
 # ── Tool execution ───────────────────────────────────────────────────────────
 
 
@@ -751,6 +1233,8 @@ def execute_tool(tool_name, tool_input):
                 url=tool_input["url"],
                 raw=bool(tool_input.get("raw", False)),
             )
+        if tool_name == "search_knowledge_base":
+            return _tool_search_knowledge_base(query=tool_input["query"])
         return {"error": f"Unknown tool: {tool_name}"}
     except Exception as exc:
         logger.warning("Tool %s failed: %s", tool_name, exc)

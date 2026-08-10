@@ -306,6 +306,11 @@ resource "null_resource" "kb_ingestion" {
 }
 
 # -- Lambda IAM - KB Retrieve permission --------------------------------------
+# Only Atlassian bots run as Lambdas under access_iam_role_names["arcbot-lambda"]
+# (main.tf, for_each = local.atlassian_bots) - that role doesn't exist otherwise.
+# Discord bots (discord.tf) run as local Docker containers authenticating as the
+# host's own AWS_PROFILE (~/.aws mounted read-only), so their bedrock-agent-
+# runtime:Retrieve permission is granted outside this module entirely.
 
 resource "aws_iam_role_policy" "lambda_kb_retrieve" {
   count = local.kb_enabled && local.has_atlassian_bots ? 1 : 0

@@ -53,6 +53,8 @@ from ai_backend import (
     load_system_prompt,
     retrieve_kb_context,
     is_opt_out,
+    SEARCH_KB_TOOL,
+    TOOL_DEFINITIONS,
 )
 
 logger = logging.getLogger()
@@ -254,6 +256,7 @@ def _test_backend(prompt, ticket_key, event_type="issue_created"):
 def _bedrock_backend(messages, ticket_key):
     # Build system prompt, optionally enriched with KB context.
     system_text = EFFECTIVE_SYSTEM_PROMPT or ""
+    tools = list(TOOL_DEFINITIONS)
     if KNOWLEDGE_BASE_ID:
         first_text = messages[0]["content"][0]["text"]
         summary, description = _extract_summary_description(first_text)
@@ -261,8 +264,9 @@ def _bedrock_backend(messages, ticket_key):
         if kb_context:
             separator = "\n\n" if system_text else ""
             system_text = f"{system_text}{separator}## Knowledge Base Context\n{kb_context}"
+        tools.append(SEARCH_KB_TOOL)
 
-    return bedrock_converse(messages, ticket_key, system_text=system_text)
+    return bedrock_converse(messages, ticket_key, system_text=system_text, tools=tools)
 
 
 def _extract_summary_description(prompt):

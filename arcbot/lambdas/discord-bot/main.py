@@ -45,6 +45,7 @@ from ai_backend import (
     OVERLAY_MAX_ELEMENTS,
     OVERLAY_MAX_REFERENCE_IMAGES,
     OVERLAY_MAX_VARIANTS,
+    SEARCH_KB_TOOL,
     TOOL_DEFINITIONS,
 )
 
@@ -1550,6 +1551,8 @@ class ArcbotDiscord:
         tools.append(EDIT_MESSAGE_TOOL)
         if DISCORD_TOOL_CHANNELS:
             tools.append(SEND_CHANNEL_MESSAGE_TOOL)
+        if ENV["knowledge_base_id"]:
+            tools.append(SEARCH_KB_TOOL)
         loop = asyncio.get_event_loop()
         tool_executor = _make_tool_executor(
             self.client, loop, DISCORD_TOOL_CHANNELS,
