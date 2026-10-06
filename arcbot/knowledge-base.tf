@@ -1,6 +1,7 @@
 # Knowledge Base (RAG) infrastructure for arcbot.
 # Provisions an S3 document store, S3 Vectors index, Bedrock Knowledge Base
-# with data source, and an ingestion pipeline triggered at apply-time.
+# with data source, and an ingestion pipeline triggered at apply-time - or,
+# when kb_sync_interval is set, a local sync daemon instead (kb-sync.tf).
 #
 # KB is shared across all KB-enabled bots. Document paths are merged from
 # all bots with knowledge_base_enabled = true.
@@ -19,6 +20,19 @@ locals {
   kb_document_abs_paths = [
     for p in local.all_kb_document_paths : "${path.root}/${p}"
   ]
+
+  # S3 key prefix per source ("../praxis" -> "praxis", "./" -> ""). Shared by
+  # the apply-time upload and the sync daemon so both map files to the same keys.
+  kb_document_prefixes = [
+    for p in local.all_kb_document_paths : trimsuffix(trimprefix(replace(p, "../", ""), "."), "/")
+  ]
+
+  # Sync daemon (kb-sync.tf): the shortest interval any KB bot asks for wins.
+  # While it runs, it owns document upload and ingestion, so the apply-time
+  # sync below is skipped.
+  kb_sync_intervals = [for n, b in local.kb_bots : b.kb_sync_interval if b.kb_sync_interval > 0]
+  kb_sync_enabled   = local.kb_enabled && length(local.kb_sync_intervals) > 0
+  kb_sync_interval  = local.kb_sync_enabled ? min(local.kb_sync_intervals...) : 0
 
   # Use the first KB bot's embedding model (KB is shared, all should use the same)
   kb_embedding_model_id = local.kb_enabled ? values(local.kb_bots)[0].embedding_model_id : ""
@@ -39,9 +53,10 @@ locals {
 # and var.kb_documents_bucket_arn from root main.tf.
 
 # -- Document upload ----------------------------------------------------------
+# Apply-time path, skipped while the sync daemon owns the bucket.
 
 data "external" "kb_documents_hash" {
-  count   = local.kb_enabled ? 1 : 0
+  count   = local.kb_enabled && !local.kb_sync_enabled ? 1 : 0
   program = ["bash", "${path.module}/scripts/hash-documents.sh"]
 
   query = {
@@ -50,7 +65,7 @@ data "external" "kb_documents_hash" {
 }
 
 resource "null_resource" "kb_document_sync" {
-  count = local.kb_enabled ? 1 : 0
+  count = local.kb_enabled && !local.kb_sync_enabled ? 1 : 0
 
   triggers = {
     content_hash    = data.external.kb_documents_hash[0].result.hash
@@ -65,7 +80,7 @@ resource "null_resource" "kb_document_sync" {
       AWS_PROFILE    = var.aws_profile
       AWS_REGION     = local.aws_region
       BUCKET         = var.kb_documents_bucket_name
-      SOURCE_PATHS   = jsonencode([for p in local.all_kb_document_paths : ["${path.root}/${p}", trimsuffix(trimprefix(replace(p, "../", ""), "."), "/")]])
+      SOURCE_PATHS   = jsonencode([for i, p in local.kb_document_abs_paths : [p, local.kb_document_prefixes[i]]])
       SUPPORTED_EXTS = jsonencode(local.all_kb_supported_extensions)
       REMAP_EXTS     = jsonencode(local.all_kb_remap_to_txt_extensions)
     }
@@ -276,7 +291,7 @@ resource "aws_lambda_function" "kb_ingestion_reporter" {
 # -- Ingestion trigger --------------------------------------------------------
 
 resource "null_resource" "kb_ingestion" {
-  count = local.kb_enabled ? 1 : 0
+  count = local.kb_enabled && !local.kb_sync_enabled ? 1 : 0
 
   triggers = {
     content_hash    = data.external.kb_documents_hash[0].result.hash

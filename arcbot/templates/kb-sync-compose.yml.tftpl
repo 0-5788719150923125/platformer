@@ -1,0 +1,26 @@
+services:
+  kb-sync:
+    build:
+      context: ${build_context}
+    container_name: arcbot-kb-sync-${namespace}
+    restart: unless-stopped
+    volumes:
+      - ~/.aws:/root/.aws:ro
+      # Document sources use the long syntax so a missing directory fails the
+      # deploy instead of being created empty on the host.
+%{ for i, source in sources ~}
+      - type: bind
+        source: ${source}
+        target: /docs/${i}
+        read_only: true
+%{ endfor ~}
+    environment:
+      AWS_PROFILE: "${aws_profile}"
+      AWS_REGION: "${aws_region}"
+      BUCKET: "${bucket}"
+      KNOWLEDGE_BASE_ID: "${knowledge_base_id}"
+      DATA_SOURCE_ID: "${data_source_id}"
+      SYNC_INTERVAL: "${sync_interval}"
+      SOURCE_PATHS: '${source_paths}'
+      SUPPORTED_EXTS: '${supported_exts}'
+      REMAP_EXTS: '${remap_exts}'

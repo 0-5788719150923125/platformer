@@ -46,6 +46,11 @@ variable "config" {
     kb_document_paths          = optional(list(string), [])
     kb_supported_extensions    = optional(list(string), [".md", ".txt", ".pdf", ".html", ".htm", ".docx", ".doc", ".csv"])
     kb_remap_to_txt_extensions = optional(list(string), [".tf", ".hcl", ".yml", ".yaml"])
+
+    # Seconds between scans by the local KB sync daemon, which uploads changed
+    # documents and re-indexes on its own. 0 = no daemon: documents upload and
+    # re-index during terraform apply instead.
+    kb_sync_interval = optional(number, 0)
   }))
   description = "Map of bot configurations keyed by bot name, with target type discriminator"
 
@@ -68,6 +73,13 @@ variable "config" {
       for n, b in var.config : contains(["SEMANTIC", "FIXED_SIZE", "NONE", "HIERARCHICAL"], b.kb_chunking_strategy)
     ])
     error_message = "kb_chunking_strategy must be one of: SEMANTIC, FIXED_SIZE, NONE, HIERARCHICAL"
+  }
+
+  validation {
+    condition = alltrue([
+      for n, b in var.config : b.kb_sync_interval == 0 || b.kb_sync_interval >= 60
+    ])
+    error_message = "kb_sync_interval must be 0 (disabled) or at least 60 seconds"
   }
 }
 

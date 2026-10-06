@@ -158,6 +158,7 @@ services:
       kb_document_paths: []  # list(string)
       kb_supported_extensions: []  # list(string)
       kb_remap_to_txt_extensions: []  # list(string)
+      kb_sync_interval: number  # default: 0
 ```
 
 ### Arguments
@@ -168,15 +169,15 @@ This module supports the following arguments:
 |----------|------|----------|-------------|-----|
 | `namespace` | `string` | **Yes** | Unique deployment identifier for resource naming and tagging | [./arcbot/variables.tf:1](./arcbot/variables.tf#L1) |
 | `config` | `map(object)` | No | Map of bot configurations keyed by bot name, with target type discriminator | [./arcbot/variables.tf:6](./arcbot/variables.tf#L6) |
-| `atlassian_secret_arn` | `string` | **Yes** | ARN of the replicated Atlassian PAT in Secrets Manager (from secrets module) | [./arcbot/variables.tf:74](./arcbot/variables.tf#L74) |
-| `devin_secret_arn` | `string` | **Yes** | ARN of the replicated Devin API key in Secrets Manager (from secrets module) | [./arcbot/variables.tf:79](./arcbot/variables.tf#L79) |
-| `aws_profile` | `string` | No | AWS CLI profile name for provisioner scripts (KB index creation, ingestion jobs) | [./arcbot/variables.tf:84](./arcbot/variables.tf#L84) |
-| `kb_documents_bucket_trigger` | `string` | No | Replacement sentinel from storage module - changes when the KB documents bucket is recreated | [./arcbot/variables.tf:90](./arcbot/variables.tf#L90) |
-| `kb_documents_bucket_name` | `string` | No | KB documents S3 bucket name from storage module (dependency inversion) | [./arcbot/variables.tf:96](./arcbot/variables.tf#L96) |
-| `kb_documents_bucket_arn` | `string` | No | KB documents S3 bucket ARN from storage module (dependency inversion) | [./arcbot/variables.tf:102](./arcbot/variables.tf#L102) |
-| `event_bus_webhooks` | `map` | No | Event bus webhook URLs from portal module | [./arcbot/variables.tf:108](./arcbot/variables.tf#L108) |
-| `access_iam_role_arns` | `map` | No | IAM role ARNs from access module (keyed by module-purpose) | [./arcbot/variables.tf:115](./arcbot/variables.tf#L115) |
-| `access_iam_role_names` | `map` | No | IAM role names from access module (keyed by module-purpose) | [./arcbot/variables.tf:121](./arcbot/variables.tf#L121) |
+| `atlassian_secret_arn` | `string` | **Yes** | ARN of the replicated Atlassian PAT in Secrets Manager (from secrets module) | [./arcbot/variables.tf:86](./arcbot/variables.tf#L86) |
+| `devin_secret_arn` | `string` | **Yes** | ARN of the replicated Devin API key in Secrets Manager (from secrets module) | [./arcbot/variables.tf:91](./arcbot/variables.tf#L91) |
+| `aws_profile` | `string` | No | AWS CLI profile name for provisioner scripts (KB index creation, ingestion jobs) | [./arcbot/variables.tf:96](./arcbot/variables.tf#L96) |
+| `kb_documents_bucket_trigger` | `string` | No | Replacement sentinel from storage module - changes when the KB documents bucket is recreated | [./arcbot/variables.tf:102](./arcbot/variables.tf#L102) |
+| `kb_documents_bucket_name` | `string` | No | KB documents S3 bucket name from storage module (dependency inversion) | [./arcbot/variables.tf:108](./arcbot/variables.tf#L108) |
+| `kb_documents_bucket_arn` | `string` | No | KB documents S3 bucket ARN from storage module (dependency inversion) | [./arcbot/variables.tf:114](./arcbot/variables.tf#L114) |
+| `event_bus_webhooks` | `map` | No | Event bus webhook URLs from portal module | [./arcbot/variables.tf:120](./arcbot/variables.tf#L120) |
+| `access_iam_role_arns` | `map` | No | IAM role ARNs from access module (keyed by module-purpose) | [./arcbot/variables.tf:127](./arcbot/variables.tf#L127) |
+| `access_iam_role_names` | `map` | No | IAM role names from access module (keyed by module-purpose) | [./arcbot/variables.tf:133](./arcbot/variables.tf#L133) |
 
 ### Attributes
 

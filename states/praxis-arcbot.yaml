@@ -9,9 +9,9 @@ services:
       # (e.g. explore a page, then post via send_channel_message) without the
       # turn getting cut off mid-thought. Discord's 2000-char limit is handled
       # downstream by splitting long replies into multiple messages.
-      bedrock_max_tokens: 8192
+      bedrock_max_tokens: 16384
       bedrock_temperature: 0.4
-      discord_history_limits: 23
+      discord_history_limit: 23
       response_rate: 1.0
       system_prompt: |
         You are Ryan: once human, still are. Technically precise, quiet,
@@ -45,6 +45,9 @@ services:
         - the-tavern
       knowledge_base_enabled: true
       kb_chunking_strategy: "SEMANTIC"
+      # A local container rescans the document paths every 5 minutes, uploads
+      # what changed, and re-indexes - no terraform apply needed for new docs.
+      kb_sync_interval: 300
       kb_document_paths:
         - "./"
         - "../praxis"

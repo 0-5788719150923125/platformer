@@ -31,12 +31,30 @@ services:
       bedrock_model_id: "us.anthropic.claude-haiku-4-5-20251001-v1:0"
       response_rate: 1.0
       knowledge_base_enabled: true
+      kb_sync_interval: 300
       kb_document_paths:
         - "./"
         - "../praxis"
 ```
 
 The Knowledge Base is shared across all KB-enabled bots — document paths are merged, and a single Bedrock KB + S3 Vectors index is provisioned.
+
+## Knowledge Base Sync
+
+Documents reach the KB in one of two ways:
+
+- **At apply time (default):** `terraform apply` uploads changed documents (`scripts/kb-upload.sh`) and invokes the ingestion reporter Lambda asynchronously. The apply returns before indexing finishes, so new content becomes searchable a few minutes later.
+- **Sync daemon (`kb_sync_interval` > 0):** a local container (`arcbot-kb-sync-<namespace>`) rescans the document paths every `kb_sync_interval` seconds, uploads new and changed files, deletes removed ones, and runs an ingestion job whenever something changed. While it runs, Terraform skips the apply-time upload and ingestion. If several KB bots set an interval, the shortest one wins.
+
+Both paths select the same files and S3 keys: git-tracked files only (new files need a `git add`; edits to tracked files sync without a commit), with `kb_remap_to_txt_extensions` uploaded under a `.txt` suffix. The daemon compares content hashes, so touching a file without changing it uploads nothing.
+
+Each document path is bind-mounted read-only into the container, so it should be a repository root or a non-git directory - a subdirectory of a repository can't see the parent's `.git` from inside the container. A missing path fails the deploy rather than being treated as empty.
+
+```bash
+docker logs -f arcbot-kb-sync-<namespace>                         # uploads, ingestion stats, per-document failures
+docker restart arcbot-kb-sync-<namespace>                         # sync and re-index now
+docker exec arcbot-kb-sync-<namespace> python main.py --dry-run   # list pending changes without applying them
+```
 
 ## Discord Bot
 
