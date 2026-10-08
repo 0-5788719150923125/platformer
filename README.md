@@ -2,6 +2,12 @@
 
 Self-service framework for {{ .user.firstName }}.
 
+---
+
+![Apply](./static/apply.webp)
+
+---
+
 A **Platformer** combines Platform Architecture + Terraform(er), reflecting a team identity and technical approach. Like the game genre, we build foundations for others to rely upon. The "-former" suffix is a nod to modern AI (transformers) and the technological singularity within us all.
 
 ## Architecture
@@ -49,6 +55,7 @@ platformer/
 ├── scripts/                    # Documentation
 ├── secrets/                    # Service module
 ├── states/                     # Documentation
+├── static/                     # Documentation
 ├── storage/                    # Service module
 ├── tenants/                    # Service module
 ├── tests/                      # Test automation
