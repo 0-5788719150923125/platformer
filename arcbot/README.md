@@ -28,7 +28,7 @@ services:
       target: discord
       discord_nickname: "Ryan"
       ai_backend: bedrock
-      bedrock_model_id: "us.anthropic.claude-haiku-4-5-20251001-v1:0"
+      bedrock_model_id: "us.anthropic.claude-haiku-5-5"
       response_rate: 1.0
       knowledge_base_enabled: true
       kb_sync_interval: 300
@@ -46,7 +46,9 @@ Documents reach the KB in one of two ways:
 - **At apply time (default):** `terraform apply` uploads changed documents (`scripts/kb-upload.sh`) and invokes the ingestion reporter Lambda asynchronously. The apply returns before indexing finishes, so new content becomes searchable a few minutes later.
 - **Sync daemon (`kb_sync_interval` > 0):** a local container (`arcbot-kb-sync-<namespace>`) rescans the document paths every `kb_sync_interval` seconds, uploads new and changed files, deletes removed ones, and runs an ingestion job whenever something changed. While it runs, Terraform skips the apply-time upload and ingestion. If several KB bots set an interval, the shortest one wins.
 
-Both paths select the same files and S3 keys: git-tracked files only (new files need a `git add`; edits to tracked files sync without a commit), with `kb_remap_to_txt_extensions` uploaded under a `.txt` suffix. The daemon compares content hashes, so touching a file without changing it uploads nothing.
+Both paths select the same files and S3 keys: git-tracked files only (new files need a `git add`; edits to tracked files sync without a commit). Files in `kb_supported_extensions` upload as-is. Any other file is checked by content: text (valid UTF-8 with no NUL bytes in its first 8000 bytes, git's binary test) uploads under a `.txt` suffix so Bedrock parses it, and binary files are skipped. The daemon compares content hashes, so touching a file without changing it uploads nothing.
+
+Lockfiles and minified bundles (`*.min.js`, `*.min.css`) are always skipped. Add more with `kb_exclude_patterns`: a glob containing `/` matches the S3 key (`ghost-notes/data/*.json`; files from `./` have no prefix), any other glob matches the file name in any directory (`*.svg`). Bedrock rejects text files over 1 MB under semantic chunking, so large data files are worth excluding.
 
 Each document path is bind-mounted read-only into the container, so it should be a repository root or a non-git directory - a subdirectory of a repository can't see the parent's `.git` from inside the container. A missing path fails the deploy rather than being treated as empty.
 

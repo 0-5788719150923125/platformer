@@ -292,12 +292,14 @@ resource "aws_lambda_function" "atlassian_bot" {
         DEVIN_MAX_WAIT      = tostring(each.value.devin_max_wait)
         BEDROCK_MODEL_ID    = each.value.bedrock_model_id
         BEDROCK_MAX_TOKENS  = tostring(each.value.bedrock_max_tokens)
-        BEDROCK_TEMPERATURE = tostring(each.value.bedrock_temperature)
         DEBUG_MODE          = tostring(each.value.debug)
         SYSTEM_PROMPT_PARAM = aws_ssm_parameter.system_prompt[each.key].name
         DENY_LIST           = jsonencode(each.value.deny_list)
         RESPONSE_RATE       = tostring(each.value.response_rate)
       },
+      each.value.bedrock_temperature != null ? {
+        BEDROCK_TEMPERATURE = tostring(each.value.bedrock_temperature)
+      } : {},
       each.value.knowledge_base_enabled ? {
         KNOWLEDGE_BASE_ID = aws_bedrockagent_knowledge_base.arcbot[0].id
         KB_MAX_RESULTS    = tostring(each.value.kb_max_results)

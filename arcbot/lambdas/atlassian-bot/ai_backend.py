@@ -25,9 +25,10 @@ def load_env():
     """Load common environment variables into a config dict."""
     return {
         "ai_backend": os.environ.get("AI_BACKEND", "bedrock"),
-        "bedrock_model_id": os.environ.get("BEDROCK_MODEL_ID", "us.anthropic.claude-haiku-4-5-20251001-v1:0"),
-        "bedrock_max_tokens": int(os.environ.get("BEDROCK_MAX_TOKENS", "512")),
-        "bedrock_temperature": float(os.environ.get("BEDROCK_TEMPERATURE", "0.3")),
+        "bedrock_model_id": os.environ.get("BEDROCK_MODEL_ID", "us.anthropic.claude-haiku-5-5"),
+        "bedrock_max_tokens": int(os.environ.get("BEDROCK_MAX_TOKENS", "4096")),
+        # Unset or empty keeps the model's default (Claude Haiku 5.5 rejects any other).
+        "bedrock_temperature": float(os.environ["BEDROCK_TEMPERATURE"]) if os.environ.get("BEDROCK_TEMPERATURE") else None,
         "debug": os.environ.get("DEBUG_MODE", "false").lower() == "true",
         "deny_list": json.loads(os.environ.get("DENY_LIST", "[]")),
         "response_rate": float(os.environ.get("RESPONSE_RATE", "0.25")),
@@ -1022,6 +1023,11 @@ def sanitize_messages(messages, context_id):
 
 # ── Bedrock Converse loop ────────────────────────────────────────────────────
 
+# Stop reasons for a request Claude's safety classifiers or a Bedrock guardrail
+# declined. The Converse reference lists content_filtered while Bedrock's Claude
+# docs say refusal, so both are handled.
+DECLINED_STOP_REASONS = {"refusal", "content_filtered", "guardrail_intervened"}
+
 
 def bedrock_converse(messages, context_id, system_text="", model_id=None,
                      max_tokens=None, temperature=None, tools=None,
@@ -1038,6 +1044,9 @@ def bedrock_converse(messages, context_id, system_text="", model_id=None,
     tool_executor = tool_executor or execute_tool
 
     client = boto3.client("bedrock-runtime")
+    inference_config = {"maxTokens": max_tokens}
+    if temperature is not None:
+        inference_config["temperature"] = temperature
     kwargs = {}
     if tools:
         kwargs["toolConfig"] = {"tools": tools, "toolChoice": {"auto": {}}}
@@ -1063,7 +1072,7 @@ def bedrock_converse(messages, context_id, system_text="", model_id=None,
         response = client.converse(
             modelId=model_id,
             messages=current_messages,
-            inferenceConfig={"maxTokens": max_tokens, "temperature": temperature},
+            inferenceConfig=inference_config,
             **kwargs,
         )
         stop_reason = response["stopReason"]
@@ -1082,6 +1091,12 @@ def bedrock_converse(messages, context_id, system_text="", model_id=None,
                 context_id, len(text), len(text_prefix_parts), len(current_messages), iteration, model_id,
             )
             return text
+
+        if stop_reason in DECLINED_STOP_REASONS:
+            # Partial output from a declined turn isn't safe to post. An empty
+            # reply makes both bots stay silent.
+            logger.warning("Request declined for %s (stopReason=%s)", context_id, stop_reason)
+            return ""
 
         has_tool_use = any("toolUse" in block for block in output_message["content"])
 

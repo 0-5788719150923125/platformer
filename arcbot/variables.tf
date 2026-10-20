@@ -7,14 +7,16 @@ variable "config" {
   type = map(object({
     target = string # "atlassian" or "discord"
 
-    # Common fields
+    # Common fields. The default model, Claude Haiku 5.5, thinks by default
+    # (thinking counts toward bedrock_max_tokens) and rejects any non-default
+    # temperature, so bedrock_temperature defaults to null (not sent).
     ai_backend          = optional(string, "bedrock")
     debug               = optional(bool, false)
     system_prompt       = optional(string, "")
     response_rate       = optional(number, 0.25)
-    bedrock_model_id    = optional(string, "us.anthropic.claude-haiku-4-5-20251001-v1:0")
-    bedrock_max_tokens  = optional(number, 512)
-    bedrock_temperature = optional(number, 0.3)
+    bedrock_model_id    = optional(string, "us.anthropic.claude-haiku-5-5")
+    bedrock_max_tokens  = optional(number, 4096)
+    bedrock_temperature = optional(number)
     deny_list           = optional(list(string), [])
 
     # Image generation (generate_image tool). Separate region knob because the
@@ -39,13 +41,19 @@ variable "config" {
     discord_tool_channels = optional(list(string), [])
 
     # Knowledge Base (RAG) configuration
-    knowledge_base_enabled     = optional(bool, false)
-    embedding_model_id         = optional(string, "amazon.titan-embed-text-v2:0")
-    kb_max_results             = optional(number, 5)
-    kb_chunking_strategy       = optional(string, "SEMANTIC")
-    kb_document_paths          = optional(list(string), [])
-    kb_supported_extensions    = optional(list(string), [".md", ".txt", ".pdf", ".html", ".htm", ".docx", ".doc", ".csv"])
-    kb_remap_to_txt_extensions = optional(list(string), [".tf", ".hcl", ".yml", ".yaml"])
+    knowledge_base_enabled  = optional(bool, false)
+    embedding_model_id      = optional(string, "amazon.titan-embed-text-v2:0")
+    kb_max_results          = optional(number, 5)
+    kb_chunking_strategy    = optional(string, "SEMANTIC")
+    kb_document_paths       = optional(list(string), [])
+    kb_supported_extensions = optional(list(string), [".md", ".txt", ".pdf", ".html", ".htm", ".docx", ".doc", ".csv"])
+
+    # Files outside kb_supported_extensions upload as .txt when their content
+    # is text, and are skipped when it's binary. These globs skip files on top
+    # of the built-in lockfile and minified-bundle patterns: one containing '/'
+    # matches the S3 key ("praxis/docs/x.md"; "./" sources have no prefix), any
+    # other matches the file name in any directory.
+    kb_exclude_patterns = optional(list(string), [])
 
     # Seconds between scans by the local KB sync daemon, which uploads changed
     # documents and re-indexes on its own. 0 = no daemon: documents upload and

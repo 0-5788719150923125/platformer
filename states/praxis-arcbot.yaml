@@ -4,13 +4,12 @@ services:
       target: discord
       ai_backend: bedrock
       discord_nickname: "Ryan"
-      bedrock_model_id: "us.anthropic.claude-haiku-4-5-20251001-v1:0"
+      bedrock_model_id: "us.anthropic.claude-haiku-5-5"
       # Generous output budget so the model can finish tool-chained replies
       # (e.g. explore a page, then post via send_channel_message) without the
       # turn getting cut off mid-thought. Discord's 2000-char limit is handled
       # downstream by splitting long replies into multiple messages.
       bedrock_max_tokens: 16384
-      bedrock_temperature: 0.4
       discord_history_limit: 23
       response_rate: 1.0
       system_prompt: |
@@ -56,11 +55,9 @@ services:
         - "../l.ink"
         - "../eliza"
         - "../rift"
-      kb_remap_to_txt_extensions:
-        - ".tf"
-        - ".hcl"
-        - ".yml"
-        - ".yaml"
-        - ".py"
-        - ".js"
-        - ".ts"
+        - "../ghost-notes"
+        - "../cv"
+      # Any text file is indexed; these vendored datasets are just noise.
+      kb_exclude_patterns:
+        - "ghost-notes/data/cmudict.dict"
+        - "ghost-notes/data/libritts_speakers.json"

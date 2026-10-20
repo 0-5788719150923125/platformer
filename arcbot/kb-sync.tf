@@ -27,9 +27,9 @@ resource "local_file" "kb_sync_compose" {
     sync_interval     = tostring(local.kb_sync_interval)
     sources           = [for p in local.kb_document_abs_paths : abspath(p)]
     # Source i is mounted at /docs/i; prefixes match the apply-time upload.
-    source_paths   = jsonencode([for i, p in local.kb_document_prefixes : ["/docs/${i}", p]])
-    supported_exts = jsonencode(local.all_kb_supported_extensions)
-    remap_exts     = jsonencode(local.all_kb_remap_to_txt_extensions)
+    source_paths     = jsonencode([for i, p in local.kb_document_prefixes : ["/docs/${i}", p]])
+    supported_exts   = jsonencode(local.all_kb_supported_extensions)
+    exclude_patterns = jsonencode(local.all_kb_exclude_patterns)
   })
 }
 

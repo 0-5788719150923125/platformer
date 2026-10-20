@@ -42,9 +42,19 @@ locals {
   all_kb_supported_extensions = local.kb_enabled ? distinct(flatten([
     for n, b in local.kb_bots : b.kb_supported_extensions
   ])) : []
-  all_kb_remap_to_txt_extensions = local.kb_enabled ? distinct(flatten([
-    for n, b in local.kb_bots : b.kb_remap_to_txt_extensions
-  ])) : []
+
+  # Generated text files that only add noise to retrieval, and secret-bearing
+  # files that should never be quotable by a bot. Bots exclude more with
+  # kb_exclude_patterns.
+  kb_default_exclude_patterns = [
+    "package-lock.json", "npm-shrinkwrap.json", "yarn.lock", "pnpm-lock.yaml", "bun.lock",
+    "poetry.lock", "uv.lock", "Pipfile.lock", "Cargo.lock", "Gemfile.lock", "composer.lock",
+    "go.sum", ".terraform.lock.hcl", "*.min.js", "*.min.css",
+    ".env", "*.pem", "*.key", "*.p12", "*.tfstate", "*.tfstate.*", ".npmrc", ".netrc", "id_rsa", "id_ed25519",
+  ]
+  all_kb_exclude_patterns = local.kb_enabled ? distinct(concat(local.kb_default_exclude_patterns, flatten([
+    for n, b in local.kb_bots : b.kb_exclude_patterns
+  ]))) : []
 }
 
 # -- S3 document store --------------------------------------------------------
@@ -77,12 +87,12 @@ resource "null_resource" "kb_document_sync" {
     command = "bash ${path.module}/scripts/kb-upload.sh"
 
     environment = {
-      AWS_PROFILE    = var.aws_profile
-      AWS_REGION     = local.aws_region
-      BUCKET         = var.kb_documents_bucket_name
-      SOURCE_PATHS   = jsonencode([for i, p in local.kb_document_abs_paths : [p, local.kb_document_prefixes[i]]])
-      SUPPORTED_EXTS = jsonencode(local.all_kb_supported_extensions)
-      REMAP_EXTS     = jsonencode(local.all_kb_remap_to_txt_extensions)
+      AWS_PROFILE      = var.aws_profile
+      AWS_REGION       = local.aws_region
+      BUCKET           = var.kb_documents_bucket_name
+      SOURCE_PATHS     = jsonencode([for i, p in local.kb_document_abs_paths : [p, local.kb_document_prefixes[i]]])
+      SUPPORTED_EXTS   = jsonencode(local.all_kb_supported_extensions)
+      EXCLUDE_PATTERNS = jsonencode(local.all_kb_exclude_patterns)
     }
   }
 }
@@ -111,9 +121,13 @@ resource "aws_s3vectors_index" "kb" {
   dimension          = 1024
   distance_metric    = "cosine"
 
+  # Bedrock stores each chunk's text under AMAZON_BEDROCK_TEXT. Filterable
+  # metadata is capped at 2 KB per vector, so the text must be non-filterable
+  # or any chunk over 2 KB fails, and its document is re-embedded on every
+  # ingestion job. Changing this replaces the index (and so the KB).
   metadata_configuration {
     non_filterable_metadata_keys = [
-      "AMAZON_BEDROCK_TEXT_CHUNK",
+      "AMAZON_BEDROCK_TEXT",
       "AMAZON_BEDROCK_METADATA",
     ]
   }

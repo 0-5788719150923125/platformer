@@ -25,7 +25,7 @@ resource "local_file" "discord_compose" {
     ai_backend            = each.value.ai_backend
     bedrock_model_id      = each.value.bedrock_model_id
     bedrock_max_tokens    = tostring(each.value.bedrock_max_tokens)
-    bedrock_temperature   = tostring(each.value.bedrock_temperature)
+    bedrock_temperature   = each.value.bedrock_temperature != null ? tostring(each.value.bedrock_temperature) : ""
     image_model_id        = each.value.image_model_id
     image_model_region    = each.value.image_model_region
     debug                 = tostring(each.value.debug)

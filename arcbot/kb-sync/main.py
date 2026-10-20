@@ -11,8 +11,10 @@ path used when the daemon is off), so either one can own the bucket without
 re-uploading everything:
   - git checkouts contribute tracked files only ('git ls-files'); other
     directories are walked, skipping .git/ and .terraform/
-  - SUPPORTED_EXTS upload as-is, REMAP_EXTS upload with a .txt suffix so
-    Bedrock parses them as text, and everything else is skipped
+  - files matching EXCLUDE_PATTERNS are skipped
+  - SUPPORTED_EXTS upload as-is; any other file that reads as UTF-8 text
+    uploads with a .txt suffix so Bedrock parses it as text, and binary
+    files are skipped
   - keys are "<prefix>/<path relative to the source root>"
 
 Changes are detected by comparing local MD5s against S3 ETags (the bucket uses
@@ -23,7 +25,7 @@ Environment variables (set by the Terraform-generated compose file):
     BUCKET             KB documents bucket name
     SOURCE_PATHS       JSON array of [source_dir, s3_prefix] pairs
     SUPPORTED_EXTS     JSON array of extensions uploaded as-is
-    REMAP_EXTS         JSON array of extensions uploaded with a .txt suffix
+    EXCLUDE_PATTERNS   JSON array of globs for files never uploaded
     KNOWLEDGE_BASE_ID  Bedrock Knowledge Base to re-index
     DATA_SOURCE_ID     Bedrock data source backed by BUCKET
     SYNC_INTERVAL      Seconds between passes (default 300)
@@ -31,6 +33,8 @@ Environment variables (set by the Terraform-generated compose file):
 
 import argparse
 import base64
+import codecs
+import fnmatch
 import hashlib
 import json
 import logging
@@ -58,15 +62,16 @@ ACTIVE_JOB_STATUSES = {"STARTING", "IN_PROGRESS", "STOPPING"}
 BUCKET = os.environ["BUCKET"]
 SOURCE_PATHS = json.loads(os.environ["SOURCE_PATHS"])
 SUPPORTED_EXTS = set(json.loads(os.environ["SUPPORTED_EXTS"]))
-REMAP_EXTS = set(json.loads(os.environ["REMAP_EXTS"]))
+EXCLUDE_PATTERNS = json.loads(os.environ.get("EXCLUDE_PATTERNS", "[]"))
 KNOWLEDGE_BASE_ID = os.environ["KNOWLEDGE_BASE_ID"]
 DATA_SOURCE_ID = os.environ["DATA_SOURCE_ID"]
 SYNC_INTERVAL = int(os.environ.get("SYNC_INTERVAL", "300"))
 
 mimetypes.add_type("text/markdown", ".md")
 
-# path -> (size, mtime_ns, md5 hex), so unchanged files are never re-read.
+# path -> (size, mtime_ns, value), so unchanged files are never re-read.
 _md5_cache = {}
+_text_cache = {}
 
 
 # ── Local sources ────────────────────────────────────────────────────────────
@@ -106,8 +111,8 @@ def list_source(root):
 def scan_sources():
     """Map every file that belongs in the bucket as {s3_key: full_path}.
 
-    The second value is False when any source couldn't be enumerated, which
-    makes deletions unsafe for this pass.
+    The second value is False when any source couldn't be enumerated or any
+    file couldn't be classified, which makes deletions unsafe for this pass.
     """
     desired = {}
     complete = True
@@ -117,27 +122,69 @@ def scan_sources():
             complete = False
             continue
         for rel, full in files.items():
-            ext = os.path.splitext(rel)[1].lower()
             key = f"{prefix}/{rel}".lstrip("/")
-            if ext not in SUPPORTED_EXTS:
-                if ext not in REMAP_EXTS:
+            if is_excluded(key):
+                continue
+            if os.path.splitext(rel)[1].lower() not in SUPPORTED_EXTS:
+                try:
+                    if not is_text(full):
+                        continue
+                except OSError as exc:
+                    # Its key depends on the answer, so keep whatever object
+                    # it already has by skipping deletions this pass.
+                    logger.warning("Skipping %s this pass: %s", full, exc)
+                    complete = False
                     continue
                 key = f"{key}.txt"
             desired[key] = full
     return desired, complete
 
 
-def file_md5(path):
+def is_excluded(key):
+    """Match EXCLUDE_PATTERNS like .gitignore: a pattern containing '/' matches
+    the whole key, any other pattern matches the file name in any directory."""
+    name = key.rsplit("/", 1)[-1]
+    return any(fnmatch.fnmatchcase(key if "/" in p else name, p) for p in EXCLUDE_PATTERNS)
+
+
+def _cached(cache, path, compute):
     st = os.stat(path)
-    cached = _md5_cache.get(path)
-    if cached and cached[:2] == (st.st_size, st.st_mtime_ns):
-        return cached[2]
+    hit = cache.get(path)
+    if hit and hit[:2] == (st.st_size, st.st_mtime_ns):
+        return hit[2]
+    value = compute(path)
+    cache[path] = (st.st_size, st.st_mtime_ns, value)
+    return value
+
+
+def _sniff_text(path):
+    # git's binary test (a NUL in the first 8000 bytes), plus the sample must
+    # decode as UTF-8. A character cut off by the sample limit doesn't count.
+    with open(path, "rb") as f:
+        head = f.read(8000)
+    if b"\0" in head:
+        return False
+    try:
+        codecs.getincrementaldecoder("utf-8")().decode(head, final=len(head) < 8000)
+    except UnicodeDecodeError:
+        return False
+    return True
+
+
+def _md5(path):
     digest = hashlib.md5(usedforsecurity=False)
     with open(path, "rb") as f:
         for chunk in iter(lambda: f.read(1 << 20), b""):
             digest.update(chunk)
-    _md5_cache[path] = (st.st_size, st.st_mtime_ns, digest.hexdigest())
     return digest.hexdigest()
+
+
+def is_text(path):
+    return _cached(_text_cache, path, _sniff_text)
+
+
+def file_md5(path):
+    return _cached(_md5_cache, path, _md5)
 
 
 # ── S3 ───────────────────────────────────────────────────────────────────────

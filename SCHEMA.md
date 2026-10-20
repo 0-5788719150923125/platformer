@@ -134,9 +134,9 @@ services:
       debug: bool  # default: false
       system_prompt: string
       response_rate: number  # default: 0
-      bedrock_model_id: string  # default: us.anthropic.claude-haiku-4-5-20251001-v1:0
-      bedrock_max_tokens: number  # default: 512
-      bedrock_temperature: number  # default: 0
+      bedrock_model_id: string  # default: us.anthropic.claude-haiku-5-5
+      bedrock_max_tokens: number  # default: 4096
+      bedrock_temperature: number
       deny_list: []  # list(string)
       image_model_id: string  # default: stability.stable-image-core-v1:1
       image_model_region: string  # default: us-west-2
@@ -157,7 +157,7 @@ services:
       kb_chunking_strategy: string  # default: SEMANTIC
       kb_document_paths: []  # list(string)
       kb_supported_extensions: []  # list(string)
-      kb_remap_to_txt_extensions: []  # list(string)
+      kb_exclude_patterns: []  # list(string)
       kb_sync_interval: number  # default: 0
 ```
 
@@ -169,15 +169,15 @@ This module supports the following arguments:
 |----------|------|----------|-------------|-----|
 | `namespace` | `string` | **Yes** | Unique deployment identifier for resource naming and tagging | [./arcbot/variables.tf:1](./arcbot/variables.tf#L1) |
 | `config` | `map(object)` | No | Map of bot configurations keyed by bot name, with target type discriminator | [./arcbot/variables.tf:6](./arcbot/variables.tf#L6) |
-| `atlassian_secret_arn` | `string` | **Yes** | ARN of the replicated Atlassian PAT in Secrets Manager (from secrets module) | [./arcbot/variables.tf:86](./arcbot/variables.tf#L86) |
-| `devin_secret_arn` | `string` | **Yes** | ARN of the replicated Devin API key in Secrets Manager (from secrets module) | [./arcbot/variables.tf:91](./arcbot/variables.tf#L91) |
-| `aws_profile` | `string` | No | AWS CLI profile name for provisioner scripts (KB index creation, ingestion jobs) | [./arcbot/variables.tf:96](./arcbot/variables.tf#L96) |
-| `kb_documents_bucket_trigger` | `string` | No | Replacement sentinel from storage module - changes when the KB documents bucket is recreated | [./arcbot/variables.tf:102](./arcbot/variables.tf#L102) |
-| `kb_documents_bucket_name` | `string` | No | KB documents S3 bucket name from storage module (dependency inversion) | [./arcbot/variables.tf:108](./arcbot/variables.tf#L108) |
-| `kb_documents_bucket_arn` | `string` | No | KB documents S3 bucket ARN from storage module (dependency inversion) | [./arcbot/variables.tf:114](./arcbot/variables.tf#L114) |
-| `event_bus_webhooks` | `map` | No | Event bus webhook URLs from portal module | [./arcbot/variables.tf:120](./arcbot/variables.tf#L120) |
-| `access_iam_role_arns` | `map` | No | IAM role ARNs from access module (keyed by module-purpose) | [./arcbot/variables.tf:127](./arcbot/variables.tf#L127) |
-| `access_iam_role_names` | `map` | No | IAM role names from access module (keyed by module-purpose) | [./arcbot/variables.tf:133](./arcbot/variables.tf#L133) |
+| `atlassian_secret_arn` | `string` | **Yes** | ARN of the replicated Atlassian PAT in Secrets Manager (from secrets module) | [./arcbot/variables.tf:94](./arcbot/variables.tf#L94) |
+| `devin_secret_arn` | `string` | **Yes** | ARN of the replicated Devin API key in Secrets Manager (from secrets module) | [./arcbot/variables.tf:99](./arcbot/variables.tf#L99) |
+| `aws_profile` | `string` | No | AWS CLI profile name for provisioner scripts (KB index creation, ingestion jobs) | [./arcbot/variables.tf:104](./arcbot/variables.tf#L104) |
+| `kb_documents_bucket_trigger` | `string` | No | Replacement sentinel from storage module - changes when the KB documents bucket is recreated | [./arcbot/variables.tf:110](./arcbot/variables.tf#L110) |
+| `kb_documents_bucket_name` | `string` | No | KB documents S3 bucket name from storage module (dependency inversion) | [./arcbot/variables.tf:116](./arcbot/variables.tf#L116) |
+| `kb_documents_bucket_arn` | `string` | No | KB documents S3 bucket ARN from storage module (dependency inversion) | [./arcbot/variables.tf:122](./arcbot/variables.tf#L122) |
+| `event_bus_webhooks` | `map` | No | Event bus webhook URLs from portal module | [./arcbot/variables.tf:128](./arcbot/variables.tf#L128) |
+| `access_iam_role_arns` | `map` | No | IAM role ARNs from access module (keyed by module-purpose) | [./arcbot/variables.tf:135](./arcbot/variables.tf#L135) |
+| `access_iam_role_names` | `map` | No | IAM role names from access module (keyed by module-purpose) | [./arcbot/variables.tf:141](./arcbot/variables.tf#L141) |
 
 ### Attributes
 
