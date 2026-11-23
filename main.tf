@@ -53,6 +53,37 @@ locals {
     class_name => try(lower(trimspace(tostring(class_config.redeploy))), "")
   }
 
+  # services.applications with environment values made strings, so apps can
+  # set them in YAML as strings, numbers, bools or lists (lists of URLs, say)
+  # and the applications module can still type them as map(string). Lists are
+  # joined with commas; null values are dropped. Applies to each app's
+  # `environment` and each of its hosts' `environment`.
+  applications_config = {
+    for name, app in lookup(module.config.service_configs, "applications", {}) :
+    name => merge(app,
+      try(app.environment, null) != null ? {
+        environment = {
+          for k, v in app.environment :
+          k => can(tolist(v)) ? join(",", [for x in v : tostring(x)]) : tostring(v)
+          if v != null
+        }
+      } : {},
+      try(app.hosts, null) != null ? {
+        hosts = {
+          for host, host_config in app.hosts : host => merge(host_config,
+            try(host_config.environment, null) != null ? {
+              environment = {
+                for k, v in host_config.environment :
+                k => can(tolist(v)) ? join(",", [for x in v : tostring(x)]) : tostring(v)
+                if v != null
+              }
+            } : {}
+          )
+        }
+      } : {}
+    )
+  }
+
   # Per-apply nonce: only used for forced-ON ("true") classes, so the trigger value
   # changes every apply and the controller re-fires. Evaluating it here is harmless;
   # it only produces a perpetual diff when actually referenced by a "true" class.
@@ -617,10 +648,14 @@ module "configuration_management" {
 
   # Whether application deployments exist (computed from config, no runtime dependency)
   # Drives the application-scripts bucket request without creating a cycle through compute
+  # compose applications embed their script in an SSM document and need no bucket
   has_application_deployments = anytrue([
     for class_name, class_config in local.effective_compute_config :
     length(try(class_config.applications, [])) > 0
-  ]) || length(lookup(module.config.service_configs, "applications", {})) > 0
+    ]) || anytrue([
+    for app_name, app_config in lookup(module.config.service_configs, "applications", {}) :
+    try(app_config.type, "") != "compose"
+  ])
 
   # Pass bucket names from storage module (dependency inversion)
   ssm_association_log_bucket = local.storage_enabled && contains(keys(module.storage[0].bucket_names), "ssm-association-logs") ? module.storage[0].bucket_names["ssm-association-logs"] : ""
@@ -697,8 +732,9 @@ module "applications" {
     local.node_exporter_external_helm_requests
   )
 
-  # Standalone applications config (declared directly under services.applications)
-  config = lookup(module.config.service_configs, "applications", {})
+  # Standalone applications config (declared directly under services.applications),
+  # with list values in `environment` joined (see local.applications_config)
+  config = local.applications_config
 }
 
 # Legacy Module

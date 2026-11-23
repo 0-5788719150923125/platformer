@@ -7,21 +7,26 @@
 
 locals {
   # Filter application requests by type
-  # Configuration-management handles SSM and Ansible deployment types
-  ssm_application_requests = [
-    for req in var.application_requests : req
-    if req.type == "ssm"
-  ]
+  # Configuration-management handles SSM (incl. compose) and Ansible deployment types.
+  # SSM requests are keyed for for_each: class (+ tenant) (+ script stem for plain
+  # ssm scripts, since one class can run several). Compose classes are unique.
+  ssm_application_requests = {
+    for req in var.application_requests :
+    (req.type == "compose" ? req.class : join("-", compact([
+      req.class, req.tenant, replace(trimsuffix(coalesce(req.script, "script"), ".sh"), "/", "-")
+    ]))) => req
+    if contains(["ssm", "compose"], req.type)
+  }
 
   ansible_application_requests = [
     for req in var.application_requests : req
     if req.type == "ansible"
   ]
 
-  # Detect if any application targets instances outside compute (wildcard or tag-based)
-  # Used to broaden S3 bucket policy so non-compute instances can download playbooks/scripts
+  # Detect if any Ansible application targets instances outside compute (wildcard or tag-based)
+  # Used to broaden S3 bucket policy so non-compute instances can download playbooks
   has_non_compute_targets = anytrue([
-    for req in var.application_requests :
+    for req in local.ansible_application_requests :
     coalesce(req.targeting_mode, "compute") != "compute"
   ])
 
@@ -76,92 +81,14 @@ resource "aws_ssm_association" "generic" {
   max_errors      = each.value.max_errors
 }
 
-# Application Associations
-# Consumes application requests from applications module (dependency inversion)
-# Creates SSM associations for application installation
-#
-# Why here instead of applications module?
-# - Centralized SSM orchestration (all SSM associations in one place)
-# - Consistent rate controls and compliance settings
-# - Unified logging and monitoring
-# - Separation of concerns: applications defines WHAT, configuration-management defines HOW
-# - Applications module is deployment-agnostic (no SSM knowledge)
-
-# Upload application scripts to S3
-# Configuration-management owns the deployment mechanism (S3 + SSM)
-resource "aws_s3_object" "application_scripts" {
-  count = length(local.ssm_application_requests)
-
-  bucket = var.application_scripts_bucket
-  key    = "applications/${local.ssm_application_requests[count.index].script}"
-  source = local.ssm_application_requests[count.index].script_source_path
-  etag   = filemd5(local.ssm_application_requests[count.index].script_source_path)
-
-  tags = {
-    Namespace = var.namespace
-    Module    = "configuration-management"
-  }
-}
-
-# SSM State Manager Associations for application installation
-# Using count instead of for_each to avoid dynamic map key issues with namespace
-# Builds SSM-specific structures from deployment-agnostic application requests
-resource "aws_ssm_association" "applications" {
-  count = length(local.ssm_application_requests)
-
-  name                = "AWS-RunShellScript"
-  association_name    = "app-${local.ssm_application_requests[count.index].class}-${replace(local.ssm_application_requests[count.index].script, "/", "-")}-${var.namespace}"
-  schedule_expression = "rate(30 minutes)"
-
-  # Build commands parameter dynamically with scripts bucket
-  parameters = {
-    commands = <<-EOT
-      set -e
-      echo 'Downloading application script from S3...'
-      aws s3 cp s3://${var.application_scripts_bucket}/applications/${local.ssm_application_requests[count.index].script} /tmp/${local.ssm_application_requests[count.index].script}
-      chmod +x /tmp/${local.ssm_application_requests[count.index].script}
-      echo 'Executing application script...'
-      ${join("\n", [for k, v in local.ssm_application_requests[count.index].params : "export ${k}='${v}'"])}
-      /tmp/${local.ssm_application_requests[count.index].script}
-    EOT
-  }
-
-  # Targets configuration - use tag-based targeting from application request
-  # Multiple targets blocks = AND logic: Class AND Tenant must both match
-  targets {
-    key    = "tag:${local.ssm_application_requests[count.index].target_tag_key}"
-    values = [local.ssm_application_requests[count.index].target_tag_value]
-  }
-
-  targets {
-    key    = "tag:Tenant"
-    values = [local.ssm_application_requests[count.index].tenant]
-  }
-
-  # Output location (dynamically built)
-  dynamic "output_location" {
-    for_each = var.application_scripts_bucket != "" ? [1] : []
-    content {
-      s3_bucket_name = var.application_scripts_bucket
-      s3_key_prefix  = "ssm-logs/applications/"
-    }
-  }
-
-  # Compliance settings - configuration-management decides this, not applications
-  compliance_severity = "MEDIUM"
-}
-
-# IAM policies for SSM-based application deployment
-# These are deployment-method-specific (only needed for SSM associations)
-
-# IAM policies for SSM-based application deployment
-# These are deployment-method-specific (only needed for SSM associations)
+# Application associations (ssm and compose requests) live in applications.tf.
 
 # IAM Role Policy for Application Scripts
-# Grants S3 access to instance role for downloading scripts and Ansible playbooks
+# Grants S3 access to instance role for downloading Ansible playbooks and uploads
+# (SSM script applications embed their script in their document and need no S3)
 # Falls back to existing_instance_role_name for standalone deployments without compute
 resource "aws_iam_role_policy" "application_scripts_access" {
-  count = length(local.ssm_application_requests) > 0 || length(local.ansible_application_requests) > 0 ? 1 : 0
+  count = length(local.ansible_application_requests) > 0 ? 1 : 0
 
   name = "application-scripts-s3-access"
   role = coalesce(var.instances_role_name, var.config.existing_instance_role_name)
@@ -198,7 +125,7 @@ resource "aws_iam_role_policy" "application_scripts_access" {
 # When wildcard/tag-targeted applications exist, grants read access to any role in the account
 # so non-compute instances can download playbooks and scripts
 resource "aws_s3_bucket_policy" "application_scripts_access" {
-  count = length(local.ssm_application_requests) > 0 || length(local.ansible_application_requests) > 0 ? 1 : 0
+  count = length(local.ansible_application_requests) > 0 ? 1 : 0
 
   bucket = var.application_scripts_bucket
 
@@ -269,7 +196,7 @@ resource "aws_s3_bucket_policy" "application_scripts_access" {
           ]
         }
       ] : [],
-      # Statement 4: SSM service can write logs (script associations)
+      # Statement 4: SSM service can write logs
       [
         {
           Sid    = "AllowSSMServiceToWriteLogs"

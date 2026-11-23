@@ -16,10 +16,12 @@ output "documents" {
 output "application_associations" {
   description = "Application associations created from applications module requests"
   value = {
-    for idx, assoc in aws_ssm_association.applications :
-    idx => {
+    for key, assoc in aws_ssm_association.applications :
+    key => {
       association_id = assoc.association_id
       name           = assoc.name
+      type           = local.ssm_application_requests[key].type
+      targets        = local.ssm_application_targets[key]
     }
   }
 }
@@ -32,12 +34,6 @@ output "ansible_controller" {
     project_arn  = aws_codebuild_project.ansible_controller[0].arn
     schedule     = aws_scheduler_schedule.ansible_controller[0].schedule_expression
   } : null
-}
-
-# Application scripts uploaded to S3
-output "application_scripts_uploaded" {
-  description = "Application scripts uploaded to S3 by configuration-management"
-  value       = [for obj in aws_s3_object.application_scripts : obj.key]
 }
 
 # Ansible playbook files uploaded to S3 (includes all files from playbook directories)
@@ -202,9 +198,9 @@ output "commands" {
     ]),
     # Application associations: trigger + collect per SSM app deployment
     [
-      for idx, assoc in aws_ssm_association.applications : {
-        title       = "Run App: ${local.ssm_application_requests[idx].script}"
-        description = "Trigger and collect results for ${local.ssm_application_requests[idx].class} application deployment"
+      for key, assoc in aws_ssm_association.applications : {
+        title       = "Run App: ${key}"
+        description = "Trigger and collect results for the ${key} application deployment (${local.ssm_application_requests[key].type})"
         commands = [
           "# Step 1: Trigger association",
           "AWS_REGION=${data.aws_region.current.region} AWS_PROFILE=${var.aws_profile} aws ssm start-associations-once --association-ids '${assoc.association_id}'",
@@ -214,14 +210,14 @@ output "commands" {
           "AWS_REGION=${data.aws_region.current.region} AWS_PROFILE=${var.aws_profile} aws ssm describe-association-execution-targets --association-id '${assoc.association_id}' --execution-id '<ExecutionId>'",
         ]
         service     = "configuration-management"
-        category    = "app-${replace(local.ssm_application_requests[idx].script, "/", "-")}"
+        category    = "app-${key}"
         target_type = "class"
-        target      = local.ssm_application_requests[idx].class
+        target      = local.ssm_application_requests[key].class
         execution   = "local"
         action_config = {
           type           = "ssm_trigger_and_collect"
           association_id = assoc.association_id
-          tenant         = local.ssm_application_requests[idx].tenant
+          tenant         = local.ssm_application_requests[key].tenant
           region         = data.aws_region.current.region
         }
       }

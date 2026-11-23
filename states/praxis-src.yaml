@@ -1,0 +1,48 @@
+# The Source (github.com/0-5788719150923125/src): its Docker Compose stack
+# on the two OCI hybrid hosts. Deployed with the management workspace:
+#   terraform workspace select management   (terraform.tfvars.management)
+#
+# The `compose` application type checks out the repository on each host,
+# writes the .env from `environment` (+ the host's overrides), opens `ports`
+# in the host firewall, installs a systemd unit (stack-src.service) so the
+# stack survives reboots, and runs `docker compose up -d`. It converges every
+# 30 minutes and on every change to this file, one host at a time; removing
+# the app tears the stack down on its hosts (named volumes are kept).
+# Lifecycle: applications/scripts/compose-stack.sh.
+#
+# Not managed here: the Oracle Cloud security list. It must allow TCP 80 and
+# 443 and the UDP ranges below, or nothing outside reaches the hosts.
+
+services:
+  applications:
+    src:
+      type: compose
+      repository: https://github.com/0-5788719150923125/src.git
+      ref: main
+      # tracker, seeder, webseed (no profile) + library and traefik (public)
+      profiles: [public]
+      # Host-network services only: the seeder's and the library's WebRTC.
+      # Traefik's 80/443 are published by Docker, which bypasses INPUT.
+      ports:
+        - 51000-51999/udp # WEBRTC_PORTS
+        - 52000-52999/udp # PEER_WEBRTC_PORTS
+      # Written to the stack's .env as-is (compose.yaml and .env.example in
+      # the repo document every variable). Lists are joined with commas.
+      environment:
+        CHATS: trade
+        # The library's git repositories. Each server votes on its own, so
+        # two servers with the same sources count twice: split them between
+        # the hosts below (host values replace this one), or lower PEER_WEIGHT.
+        PEER_SOURCES: []
+        PEER_WEIGHT: 1
+      hosts:
+        docker-1:
+          instance_id: mi-05b3eddaa348b2030
+          environment:
+            TRACKER_HOST: 59.src.eco
+            SEED_HOST: 59.src.eco
+        docker-2:
+          instance_id: mi-0704a04b799a198bb
+          environment:
+            TRACKER_HOST: 95.src.eco
+            SEED_HOST: 95.src.eco

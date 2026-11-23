@@ -1,0 +1,25 @@
+# Test fragment: a compose application deployed per host (hybrid instances),
+# with list, number and bool environment values.
+services:
+  applications:
+    demo:
+      type: compose
+      repository: https://github.com/example/demo.git
+      profiles: [public]
+      ports: [51000-51999/udp]
+      environment:
+        CHATS: trade
+        SOURCES:
+          - https://github.com/a/b
+          - https://gitlab.com/c/d#main
+        WEIGHT: 0.5
+        DEBUG: true
+        EMPTY: []
+      hosts:
+        one:
+          instance_id: mi-0000000000000000a
+          environment:
+            HOST_NAME: one.example.org
+            SOURCES: [https://github.com/e/f]
+        two:
+          instance_id: mi-0000000000000000b

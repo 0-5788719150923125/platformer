@@ -10,7 +10,7 @@ Automated configuration management for EC2 instances using AWS Systems Manager.
 
 **Hybrid Activations** - Manage non-AWS machines (WSL instances, on-premises servers, other clouds) through SSM.
 
-**Application Deployment** - Run scripts and Ansible playbooks via SSM associations. Auto-discovers custom documents from the `documents/` directory.
+**Application Deployment** - Run scripts, Docker Compose stacks and Ansible playbooks via SSM. Script and compose applications (`applications.tf`) each get an SSM document with the script, parameters and environment embedded (base64), and an association targeted by instance ID, tags, compute class or wildcard; compose stacks also get a destroy-time teardown. That works on hybrid hosts with no aws CLI or S3 permissions. Auto-discovers custom documents from the `documents/` directory.
 
 **Generic Associations** - Use any AWS-managed SSM document for inventory collection, package management, compliance scanning, etc.
 

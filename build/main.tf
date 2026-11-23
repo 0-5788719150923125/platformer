@@ -55,14 +55,14 @@ locals {
   }
 
   # Standalone applications that should be included in each build class's golden AMI
-  # Matching rules:
+  # Matching rules (apps pinned to `hosts` are never baked):
   #   wildcard → included in ALL build classes
   #   tags     → included if the class's tags contain all targeting tag key/value pairs
   #   compute  → included if class name matches (unusual for standalone, but supported)
   build_standalone_applications_by_class = {
     for class_name, class_config in local.build_classes : class_name => [
       for app_name, app_config in var.standalone_applications : app_config
-      if contains(["ssm", "ansible"], try(app_config.type, "ssm")) && (
+      if contains(["ssm", "ansible"], try(app_config.type, "ssm")) && length(try(app_config.hosts, {})) == 0 && (
         # Wildcard: always include
         lookup(lookup(app_config, "targeting", {}), "mode", "wildcard") == "wildcard" ||
         # Tags: include if class tags match all targeting tags

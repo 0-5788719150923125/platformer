@@ -289,6 +289,9 @@ variable "application_requests" {
     # Target selection (for SSM/Ansible - not used by compute)
     target_tag_key   = optional(string)
     target_tag_value = optional(string)
+    # "instance" requests are pinned to one known instance (EC2 or hybrid) and
+    # don't need the compute instance role
+    targeting_mode = optional(string, "compute")
 
     # User-data specific fields (optional)
     script             = optional(string)

@@ -481,11 +481,16 @@ variable "instances_by_class" {
 # Application requests (populated from applications module via dependency inversion)
 # All types of application requests - this module filters internally by type
 variable "application_requests" {
-  description = "All application deployment requests from applications module - filtered internally by type (ssm, ansible, user-data, helm)"
+  description = "All application deployment requests from applications module - filtered internally by type (ssm, compose, ansible, user-data, helm)"
   type = list(object({
     class  = string
     type   = string
     params = optional(map(string))
+
+    # Application environment (ssm: $APP_ENV_FILE on the host; compose: the project's .env)
+    environment = optional(map(string))
+    # Run the script with action=down when the request is removed (compose)
+    teardown = optional(bool, false)
 
     # Target selection
     target_tag_key   = optional(string)
@@ -509,7 +514,7 @@ variable "application_requests" {
     })))
 
     # Direct instance targeting (for mode: 1-master cluster requests)
-    instance_id = optional(string) # EC2 instance ID  -  used when targeting_mode = "instance"
+    instance_id = optional(string) # EC2 or hybrid (mi-) instance ID  -  used when targeting_mode = "instance"
 
     # Cluster targeting (for mode: 1-master)  -  all nodes in one Ansible invocation
     hosts = optional(list(object({

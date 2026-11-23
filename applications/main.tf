@@ -6,42 +6,88 @@
 # 1. Receive application requirements from compute module + standalone config
 # 2. Transform standalone config into request objects
 # 3. Add deployment-specific enrichment (script paths for script-based, defaults for Helm)
-# 4. Route by deployment type (ssm, user-data, or helm)
+# 4. Route by deployment type (ssm, compose, ansible, user-data, or helm)
 # 5. Export type-specific requests for appropriate modules to deploy
 
 locals {
-  # Transform standalone application config (services.applications) into request objects
-  # These are applications declared independently of compute classes
-  standalone_application_requests = [
-    for app_name, app_config in var.config : {
-      class  = app_name
-      tenant = null
-      type   = app_config.type
+  # Standalone applications (services.applications). `profiles` is the one
+  # convenience on top of `environment` (it becomes COMPOSE_PROFILES); nothing
+  # here knows any other variable by name.
+  standalone_apps = {
+    for name, app in var.config : name => merge(app, {
+      environment = merge(
+        length(app.profiles) > 0 ? { COMPOSE_PROFILES = join(",", app.profiles) } : {},
+        app.environment
+      )
 
-      # Script-based deployment fields
-      script = lookup(app_config, "script", null)
-      params = lookup(app_config, "params", {})
+      # Targeting for SSM associations (ignored when `hosts` is set)
+      targeting_mode = try(app.targeting.mode, "wildcard")
+      targets = try(app.targeting.mode, "wildcard") == "tags" ? [
+        for tag_key, tag_values in coalesce(try(app.targeting.tags, null), {}) : {
+          key    = "tag:${tag_key}"
+          values = tag_values
+        }
+      ] : null
+
+      # compose: the stack's source and host settings, passed to
+      # applications/scripts/compose-stack.sh as parameters
+      stack_params = app.type == "compose" ? {
+        STACK_NAME       = name
+        STACK_REPOSITORY = app.repository == null ? "" : app.repository
+        STACK_REF        = coalesce(app.ref, "HEAD")
+        STACK_PATH       = app.path
+        STACK_DIRECTORY  = coalesce(app.directory, "/opt/stacks/${name}")
+        STACK_PORTS      = join(" ", app.ports)
+      } : {}
+    })
+  }
+
+  # One deployment per app, or one per entry in its `hosts` map. A host entry
+  # pins the deployment to one instance (EC2 or hybrid mi-) and layers its own
+  # environment over the app's, for values that differ per host (hostnames).
+  standalone_deployments = flatten([
+    for name, app in local.standalone_apps : length(app.hosts) == 0 ? [
+      {
+        key         = name
+        app         = name
+        instance_id = null
+        environment = app.environment
+      }
+      ] : [
+      for host, host_config in app.hosts : {
+        key         = "${name}-${host}"
+        app         = name
+        instance_id = host_config.instance_id
+        environment = merge(app.environment, host_config.environment)
+      }
+    ]
+  ])
+
+  # Request objects for the standalone deployments
+  standalone_application_requests = [
+    for d in local.standalone_deployments : {
+      class  = d.key
+      tenant = null
+      type   = local.standalone_apps[d.app].type
+
+      # Script-based deployment fields (compose runs the generic stack script)
+      script      = local.standalone_apps[d.app].type == "compose" ? "compose-stack.sh" : local.standalone_apps[d.app].script
+      params      = merge(local.standalone_apps[d.app].stack_params, local.standalone_apps[d.app].params)
+      environment = d.environment
+
+      # compose stacks are torn down on the host when removed from state
+      teardown = local.standalone_apps[d.app].type == "compose"
 
       # Targeting: standalone apps don't use compute tag-based targeting
       target_tag_key   = null
       target_tag_value = null
-
-      # Targeting mode and explicit targets for SSM associations
-      targeting_mode = lookup(lookup(app_config, "targeting", {}), "mode", "wildcard")
-      targets = (
-        lookup(lookup(app_config, "targeting", {}), "mode", "wildcard") == "tags"
-        ? [
-          for tag_key, tag_values in lookup(lookup(app_config, "targeting", {}), "tags", {}) : {
-            key    = "tag:${tag_key}"
-            values = tag_values
-          }
-        ]
-        : null
-      )
+      targeting_mode   = d.instance_id != null ? "instance" : local.standalone_apps[d.app].targeting_mode
+      targets          = d.instance_id != null ? null : local.standalone_apps[d.app].targets
+      instance_id      = d.instance_id
 
       # Ansible fields
-      playbook      = lookup(app_config, "playbook", null)
-      playbook_file = lookup(app_config, "playbook_file", "playbook.yml")
+      playbook      = local.standalone_apps[d.app].playbook
+      playbook_file = local.standalone_apps[d.app].playbook_file
 
       # Helm fields (not applicable for standalone)
       chart        = null
@@ -97,8 +143,8 @@ locals {
   # Enrich ALL application requests with deployment-specific metadata
   enriched_requests = [
     for req in local.all_application_requests : merge(req,
-      # Script-based deployments (SSM/user-data): add script source path
-      req.type == "ssm" || req.type == "user-data" ? {
+      # Script-based deployments (SSM/compose/user-data): add script source path
+      contains(["ssm", "compose", "user-data"], req.type) ? {
         script_source_path = "${path.root}/applications/scripts/${req.script}"
       } :
       # Ansible deployments: add playbook directory path from pre-computed map
@@ -144,10 +190,10 @@ locals {
   ])
 
   # Type-based routing: Filter enriched requests by deployment type
-  # SSM requests → configuration-management module (30-minute reconciliation)
+  # SSM and compose requests → configuration-management module (SSM associations)
   ssm_requests = [
     for req in local.enriched_requests : req
-    if req.type == "ssm"
+    if contains(["ssm", "compose"], req.type)
   ]
 
   # Ansible requests → configuration-management module (ansible playbooks via SSM)
