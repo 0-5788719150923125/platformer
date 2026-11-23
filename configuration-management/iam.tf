@@ -117,7 +117,21 @@ locals {
         trust_actions       = ["sts:AssumeRole"]
         trust_conditions    = "{}"
         managed_policy_arns = ["arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore"]
-        inline_policies = {
+        inline_policies = merge(local.hooks_enabled ? {
+          # Patch hook orchestrators download their scripts on the instance
+          # (aws:downloadContent), so the instance role needs to read them.
+          "hooks-s3-access" = jsonencode({
+            Version = "2012-10-17"
+            Statement = [{
+              Effect = "Allow"
+              Action = ["s3:GetObject", "s3:ListBucket"]
+              Resource = [
+                "arn:aws:s3:::${var.hooks_bucket}",
+                "arn:aws:s3:::${var.hooks_bucket}/*"
+              ]
+            }]
+          })
+          } : {}, {
           "parameter-store-access" = jsonencode({
             Version = "2012-10-17"
             Statement = [{
@@ -131,7 +145,7 @@ locals {
               Resource = "arn:aws:ssm:*:${var.aws_account_id}:parameter/${var.config.parameter_store_prefix}/*"
             }]
           })
-        }
+        })
         instance_profile = false
       }
     ] : [],

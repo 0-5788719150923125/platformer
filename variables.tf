@@ -50,7 +50,8 @@ variable "owner" {
 # Service Configuration
 variable "states" {
   description = <<-EOT
-    List of state fragments to load and merge from states/ directory.
+    List of state fragments to load and merge, by name (<name>.yaml), from
+    states_paths, states/ or tests/states/ (first match wins).
     State fragments are YAML files that define service configurations.
 
     Loaded states are deep-merged in order (left-to-right).
@@ -71,6 +72,25 @@ variable "states" {
     condition     = alltrue([for s in var.states : can(regex("^[a-z0-9-]+$", s))])
     error_message = "State names must contain only lowercase letters, numbers, and hyphens"
   }
+}
+
+variable "states_paths" {
+  description = <<-EOT
+    Extra directories to search for state fragment YAML files, so configs can
+    live outside this repo. Searched in order, before the built-in states/ and
+    tests/states/ directories, so a user path wins on name conflicts (the first
+    directory that contains <name>.yaml is used).
+
+    Absolute paths are used as-is, "~" expands to the home directory, and
+    relative paths resolve against the repo root. Every listed directory must
+    exist.
+
+    Examples:
+      - ["~/configs/platformer"]
+      - ["/srv/platformer/states", "../my-org-states"]
+  EOT
+  type        = list(string)
+  default     = []
 }
 
 variable "workspace_overrides" {

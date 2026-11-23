@@ -10,7 +10,11 @@ Terraform workspaces provide state isolation but don't natively support workspac
 
 Detects the current workspace name, looks for a corresponding `terraform.tfvars.{workspace}` file, parses workspace-specific values, and falls back to base values when the file doesn't exist.
 
-Supports overrides for: `aws_profile`, `aws_region`, `states`
+Supports overrides for: `aws_profile`, `aws_region`, `owner`, `states`, `states_paths`
+
+`states_paths` lists extra directories to search for state fragments, ahead of `states/` (see [`states/README.md`](../states/README.md#storing-states-outside-this-repo)). Like every other key it replaces the base value, so `states_paths = []` in a workspace file clears the base list.
+
+Tests (`tests/states_paths.tftest.hcl`) point the optional `workspace_file_path` variable at fixtures in `tests/fixtures/` instead of a real `terraform.tfvars.<workspace>`.
 
 ## Design
 

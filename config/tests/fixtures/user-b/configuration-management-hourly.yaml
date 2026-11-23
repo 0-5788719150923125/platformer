@@ -1,0 +1,4 @@
+# Fixture: second user dir. Loses to user-a when both are listed.
+services:
+  configuration-management:
+    schedule_expression: "rate(2 hours)"

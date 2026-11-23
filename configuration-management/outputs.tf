@@ -238,7 +238,7 @@ output "commands" {
           "mkdir -p /tmp/ssm",
           "curl https://amazon-ssm-${data.aws_region.current.region}.s3.${data.aws_region.current.region}.amazonaws.com/latest/linux_amd64/ssm-setup-cli -o /tmp/ssm/ssm-setup-cli",
           "chmod +x /tmp/ssm/ssm-setup-cli",
-          "# Step 2: Register the host (tags auto-included when a maintenance window targets this activation)",
+          "# Step 2: Register the host (patch-targeting tags come from the activation)",
           local.activation_register_command[key],
         ]
         service     = "configuration-management"

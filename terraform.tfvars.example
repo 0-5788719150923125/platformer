@@ -27,6 +27,12 @@ owner       = "Platform"
 # Recommended: Load state fragments
 states = ["configuration-management-hourly"]
 
+# Optional: extra directories to search for state fragments, so your configs
+# can live outside this repo. Searched in order before states/, so on a name
+# conflict your copy wins. "~" expands; relative paths resolve against the
+# repo root. Every listed directory must exist.
+# states_paths = ["~/configs/platformer"]
+
 # Alternative Examples:
 # states = ["configuration-management-monthly", "compute-windows-test"]  # Load multiple states
 # states = []  # No states (deploy with defaults)

@@ -21,7 +21,8 @@ Archivist emits `artifact_requests` via dependency inversion. The portal module 
 
 - **git archive** - Uses `git archive HEAD platformer/` for a clean export that automatically excludes gitignored files and `.gitattributes export-ignore` entries. `scrub.sed` is also export-ignored so replacement rules are not bundled with the archive.
 - **Deterministic naming** - Archive filename includes the ISO date and short git SHA: `platformer-<date>-<sha>.tar.gz`.
-- **Idempotent** - The script skips the rebuild if an archive for the current SHA already exists.
+- **Idempotent** - The script skips the rebuild if an archive for the current SHA already exists and its fingerprint (selected states, resolved fragment content, scrub rules) is unchanged. Otherwise it rebuilds the same-named archive.
+- **External states** - Selected fragments that git doesn't track (from user `states_paths`, see [`states/README.md`](../states/README.md#storing-states-outside-this-repo)) are copied into the archive's `states/` before scrubbing, replacing a same-named repo fragment. `MANIFEST.txt` records how many were added.
 - **Scrub rules** - Defined in `scrub.sed` (excluded from the archive itself). Easy to audit and extend. Applied to `.tf`, `.yaml`, `.yml`, `.sh`, `.md`, `.json`, `.hcl`, `.j2` files.
 - **Module source rewriting** - After scrubbing, all local module `source` references (`"./module"`, `"../module"`) are rewritten to pinned git refs: `git::https://github.com/acme-sandbox/platformer//platformer/<module>?ref=<full-sha>`. The archive is self-contained - consumers do not need the original repo layout.
 - **Artifacts registry** - Emits structured `artifact_requests` outputs (types: `archive`, `git-repository`) consumed by the portal module.
@@ -46,6 +47,8 @@ The commit history is independent of the source repository - each commit tracks 
 | `repo_name` | CodeCommit repository name for git-based archive storage. Empty disables git commits. | `""` |
 | `aws_profile` | AWS CLI profile for S3/CodeCommit commands. | `""` |
 | `aws_region` | AWS region for console URLs. | `""` |
+| `states` | Selected state names. Other `states/*.yaml` are removed from the archive. | `[]` |
+| `state_files` | Resolved path per selected state (name => path), from the config module. Untracked ones are copied in. | `{}` |
 
 ## Output Location
 

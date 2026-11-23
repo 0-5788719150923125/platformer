@@ -148,6 +148,12 @@ variable "states" {
   default     = []
 }
 
+variable "state_files" {
+  description = "Every available state fragment (name => path) across user states_paths and states/, first match wins. Drives the state catalog."
+  type        = map(string)
+  default     = {}
+}
+
 variable "event_bus_requests" {
   description = "Event bus webhook subscription requests from modules (dependency inversion)"
   type = list(object({

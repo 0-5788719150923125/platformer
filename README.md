@@ -180,7 +180,7 @@ For a detailed walkthrough on deploying to production, see [`learn/2-going-live.
 GitHub Actions deploys to multiple accounts/regions using composable state configurations:
 
 - **AWS Organizations**: Accounts auto-discovered via `organizations:ListAccounts` API
-- **`states/`**: Reusable fragments (matrix, services) - see [`states/README.md`](./states/README.md)
+- **`states/`**: Reusable fragments (matrix, services) - see [`states/README.md`](./states/README.md). Fragments can also live outside the repo via `states_paths` in `terraform.tfvars`
 - **`top.yaml`**: Pattern-based targeting with state references (Salt-inspired)
 
 ```yaml

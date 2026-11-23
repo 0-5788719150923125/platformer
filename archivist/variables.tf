@@ -28,6 +28,17 @@ variable "states" {
   default     = []
 }
 
+variable "state_files" {
+  description = <<-EOT
+    Resolved file path for each selected state (name => path), from the config
+    module. Fragments that git doesn't track (e.g. from user states_paths
+    outside the repo) are copied into the archive's states/ as <name>.yaml
+    before scrubbing. Tracked fragments use the committed copy.
+  EOT
+  type        = map(string)
+  default     = {}
+}
+
 variable "report_path" {
   description = "Filesystem path to the access report JSON. Empty string disables upload."
   type        = string

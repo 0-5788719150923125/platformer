@@ -257,6 +257,7 @@ module "archivist" {
   aws_profile = module.workspaces.aws_profile != null ? module.workspaces.aws_profile : ""
   aws_region  = local.aws_region
   states      = module.workspaces.states
+  state_files = module.config.state_paths
 
   # Access report upload - archivist coordinates the upload once both the
   # report file (access module) and its bucket (storage module) are ready.
@@ -272,10 +273,11 @@ module "workspaces" {
   source = "./workspaces"
 
   # Pass base terraform.tfvars values as defaults
-  default_aws_profile = var.aws_profile
-  default_aws_region  = var.aws_region
-  default_states      = var.states
-  default_owner       = var.owner
+  default_aws_profile  = var.aws_profile
+  default_aws_region   = var.aws_region
+  default_states       = var.states
+  default_states_paths = var.states_paths
+  default_owner        = var.owner
 
   # Disable workspace file overrides in tests
   enabled = var.workspace_overrides
@@ -283,12 +285,25 @@ module "workspaces" {
 
 # Config Module - Resolves final service configuration
 # Loads and merges state fragments (single source of truth)
+# Search order: user states_paths (from terraform.tfvars[.workspace]) first,
+# then states/, then tests/states/. First directory containing <name>.yaml wins.
+locals {
+  user_states_dirs = [
+    for p in module.workspaces.states_paths :
+    startswith(p, "/") ? p :
+    startswith(p, "~") ? pathexpand(p) :
+    abspath("${path.root}/${p}")
+  ]
+}
+
 module "config" {
   source = "./config"
 
   states      = module.workspaces.states
-  states_dirs = ["../states", "../tests/states"]
-  aws_region  = module.workspaces.aws_region
+  states_dirs = concat(local.user_states_dirs, ["../states", "../tests/states"])
+  # Catalog (portal) lists user + repo fragments, not test fixtures
+  catalog_dirs = concat(local.user_states_dirs, ["../states"])
+  aws_region   = module.workspaces.aws_region
 }
 
 # Resolver Module - Dependency resolution
@@ -572,6 +587,7 @@ module "portal" {
   tenant_entitlements       = module.tenants.effective_entitlements
   service_urls              = local.service_urls_filtered
   states                    = module.workspaces.states
+  state_files               = module.config.available_states
   event_bus_requests        = local.event_bus_requests
   artifact_requests = concat(
     module.archivist.artifact_requests,

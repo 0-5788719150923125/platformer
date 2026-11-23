@@ -216,9 +216,10 @@ This module supports the following arguments:
 | `aws_region` | `string` | No | AWS region where the upload bucket lives. Used to build the S3 console URL. | [./archivist/variables.tf:13](./archivist/variables.tf#L13) |
 | `repo_name` | `string` | No | CodeCommit repository name for git-based archive storage. Empty string disables git commits. | [./archivist/variables.tf:19](./archivist/variables.tf#L19) |
 | `states` | `list` | No | Resolved state fragment names. Only these are included in the archive; all others are removed from states/. | [./archivist/variables.tf:25](./archivist/variables.tf#L25) |
-| `report_path` | `string` | No | Filesystem path to the access report JSON. Empty string disables upload. | [./archivist/variables.tf:31](./archivist/variables.tf#L31) |
-| `report_ready` | `string` | No | Opaque dependency handle from access module - changes when the report is rewritten. | [./archivist/variables.tf:37](./archivist/variables.tf#L37) |
-| `report_bucket_name` | `string` | No | S3 bucket name for the access report. Empty string disables upload. | [./archivist/variables.tf:43](./archivist/variables.tf#L43) |
+| `state_files` | `map` | No |  | [./archivist/variables.tf:31](./archivist/variables.tf#L31) |
+| `report_path` | `string` | No | Filesystem path to the access report JSON. Empty string disables upload. | [./archivist/variables.tf:42](./archivist/variables.tf#L42) |
+| `report_ready` | `string` | No | Opaque dependency handle from access module - changes when the report is rewritten. | [./archivist/variables.tf:48](./archivist/variables.tf#L48) |
+| `report_bucket_name` | `string` | No | S3 bucket name for the access report. Empty string disables upload. | [./archivist/variables.tf:54](./archivist/variables.tf#L54) |
 
 ### Attributes
 
@@ -458,8 +459,9 @@ This module supports the following arguments:
 | Variable | Type | Required | Description | Ref |
 |----------|------|----------|-------------|-----|
 | `states` | `list` | No |  | [./config/variables.tf:1](./config/variables.tf#L1) |
-| `states_dirs` | `list` | No | Directories to search for state fragment YAML files (first match wins) | [./config/variables.tf:22](./config/variables.tf#L22) |
-| `aws_region` | `string` | No | Current AWS region for deployment (used in validation error messages) | [./config/variables.tf:28](./config/variables.tf#L28) |
+| `states_dirs` | `list` | No | Directories to search for state fragment YAML files, in priority order (first match wins). Absolute paths are used verbatim; relative paths resolve against this module. Every dir must exist. | [./config/variables.tf:22](./config/variables.tf#L22) |
+| `catalog_dirs` | `list` | No | Directories whose fragments make up the available_states catalog, in priority order (first match wins). null = same as states_dirs. Lets callers keep test-only dirs searchable but out of catalogs. | [./config/variables.tf:40](./config/variables.tf#L40) |
+| `aws_region` | `string` | No | Current AWS region for deployment (used in validation error messages) | [./config/variables.tf:46](./config/variables.tf#L46) |
 
 ### Attributes
 
@@ -470,7 +472,9 @@ This module exports the following attributes:
 | `service_configs` | Final resolved service configurations (states merged with union mode for list deduplication) | [./config/outputs.tf:1](./config/outputs.tf#L1) |
 | `matrix_configs` | Final resolved matrix configurations (regions, tenants, and future targeting dimensions) | [./config/outputs.tf:6](./config/outputs.tf#L6) |
 | `loaded_states` | List of state fragments that were loaded | [./config/outputs.tf:11](./config/outputs.tf#L11) |
-| `merged_state` | Complete merged state configuration (includes all top-level keys, not just services) - for debugging | [./config/outputs.tf:16](./config/outputs.tf#L16) |
+| `state_paths` | Resolved file path for each selected state fragment (name => path), after search-order precedence | [./config/outputs.tf:16](./config/outputs.tf#L16) |
+| `available_states` | Every fragment found in catalog_dirs (name => path), first match wins. For catalogs, not just the selected states. | [./config/outputs.tf:21](./config/outputs.tf#L21) |
+| `merged_state` | Complete merged state configuration (includes all top-level keys, not just services) - for debugging | [./config/outputs.tf:26](./config/outputs.tf#L26) |
 
 ## Module: configuration-management
 
@@ -574,20 +578,20 @@ This module supports the following arguments:
 | `aws_profile` | `string` | **Yes** | AWS CLI profile name for output commands | [./configuration-management/variables.tf:42](./configuration-management/variables.tf#L42) |
 | `aws_region` | `string` | **Yes** | AWS region for deployment (passed to Ansible playbooks) | [./configuration-management/variables.tf:47](./configuration-management/variables.tf#L47) |
 | `config` | `object` | No | Configuration management service configuration | [./configuration-management/variables.tf:54](./configuration-management/variables.tf#L54) |
-| `ssm_association_log_bucket` | `string` | No | S3 bucket name for SSM association logs (provided by storage module) | [./configuration-management/variables.tf:458](./configuration-management/variables.tf#L458) |
-| `hooks_bucket` | `string` | No | S3 bucket name for hook scripts (provided by storage module) | [./configuration-management/variables.tf:465](./configuration-management/variables.tf#L465) |
-| `instances_by_class` | `map` | No | Instances grouped by class name  -  map of class_name => { instance_key => instance_id } (provided by compute module) | [./configuration-management/variables.tf:472](./configuration-management/variables.tf#L472) |
-| `application_requests` | `list(object)` | No | All application deployment requests from applications module - filtered internally by type (ssm, ansible, user-data, helm) | [./configuration-management/variables.tf:480](./configuration-management/variables.tf#L480) |
-| `has_application_deployments` | `bool` | No | Whether any application deployments (SSM/Ansible) exist  -  drives application-scripts bucket request | [./configuration-management/variables.tf:536](./configuration-management/variables.tf#L536) |
-| `application_scripts_bucket` | `string` | No | S3 bucket name for application scripts (provided by storage module) | [./configuration-management/variables.tf:543](./configuration-management/variables.tf#L543) |
-| `instances_role_name` | `string` | No | IAM role name for compute instances (for attaching S3 access policy) | [./configuration-management/variables.tf:550](./configuration-management/variables.tf#L550) |
-| `instances_role_arn` | `string` | No | IAM role ARN for compute instances (for S3 bucket policy) | [./configuration-management/variables.tf:556](./configuration-management/variables.tf#L556) |
-| `lambda_requests` | `list(object)` | No | Scheduled Lambda function requests from external modules (dependency inversion) | [./configuration-management/variables.tf:564](./configuration-management/variables.tf#L564) |
-| `event_bus_webhooks` | `map` | No | Event bus webhook URLs from portal module (dependency inversion) | [./configuration-management/variables.tf:583](./configuration-management/variables.tf#L583) |
-| `aws_sso_start_url` | `string` | No | AWS SSO start URL for console link wrapping | [./configuration-management/variables.tf:590](./configuration-management/variables.tf#L590) |
-| `ansible_applications_configured` | `bool` | No | Config-derived flag: are there ansible application requests (used in access_requests to avoid cycle) | [./configuration-management/variables.tf:599](./configuration-management/variables.tf#L599) |
-| `access_iam_role_arns` | `map` | No | IAM role ARNs from access module (keyed by module-purpose) | [./configuration-management/variables.tf:606](./configuration-management/variables.tf#L606) |
-| `access_iam_role_names` | `map` | No | IAM role names from access module (keyed by module-purpose) | [./configuration-management/variables.tf:612](./configuration-management/variables.tf#L612) |
+| `ssm_association_log_bucket` | `string` | No | S3 bucket name for SSM association logs (provided by storage module) | [./configuration-management/variables.tf:461](./configuration-management/variables.tf#L461) |
+| `hooks_bucket` | `string` | No | S3 bucket name for hook scripts (provided by storage module) | [./configuration-management/variables.tf:468](./configuration-management/variables.tf#L468) |
+| `instances_by_class` | `map` | No | Instances grouped by class name  -  map of class_name => { instance_key => instance_id } (provided by compute module) | [./configuration-management/variables.tf:475](./configuration-management/variables.tf#L475) |
+| `application_requests` | `list(object)` | No | All application deployment requests from applications module - filtered internally by type (ssm, ansible, user-data, helm) | [./configuration-management/variables.tf:483](./configuration-management/variables.tf#L483) |
+| `has_application_deployments` | `bool` | No | Whether any application deployments (SSM/Ansible) exist  -  drives application-scripts bucket request | [./configuration-management/variables.tf:539](./configuration-management/variables.tf#L539) |
+| `application_scripts_bucket` | `string` | No | S3 bucket name for application scripts (provided by storage module) | [./configuration-management/variables.tf:546](./configuration-management/variables.tf#L546) |
+| `instances_role_name` | `string` | No | IAM role name for compute instances (for attaching S3 access policy) | [./configuration-management/variables.tf:553](./configuration-management/variables.tf#L553) |
+| `instances_role_arn` | `string` | No | IAM role ARN for compute instances (for S3 bucket policy) | [./configuration-management/variables.tf:559](./configuration-management/variables.tf#L559) |
+| `lambda_requests` | `list(object)` | No | Scheduled Lambda function requests from external modules (dependency inversion) | [./configuration-management/variables.tf:567](./configuration-management/variables.tf#L567) |
+| `event_bus_webhooks` | `map` | No | Event bus webhook URLs from portal module (dependency inversion) | [./configuration-management/variables.tf:586](./configuration-management/variables.tf#L586) |
+| `aws_sso_start_url` | `string` | No | AWS SSO start URL for console link wrapping | [./configuration-management/variables.tf:593](./configuration-management/variables.tf#L593) |
+| `ansible_applications_configured` | `bool` | No | Config-derived flag: are there ansible application requests (used in access_requests to avoid cycle) | [./configuration-management/variables.tf:602](./configuration-management/variables.tf#L602) |
+| `access_iam_role_arns` | `map` | No | IAM role ARNs from access module (keyed by module-purpose) | [./configuration-management/variables.tf:609](./configuration-management/variables.tf#L609) |
+| `access_iam_role_names` | `map` | No | IAM role names from access module (keyed by module-purpose) | [./configuration-management/variables.tf:615](./configuration-management/variables.tf#L615) |
 
 ### Attributes
 
@@ -1184,9 +1188,10 @@ This module supports the following arguments:
 | `tenant_entitlements` | `map` | No | Map of tenant codes to their entitlement lists | [./portal/variables.tf:126](./portal/variables.tf#L126) |
 | `service_urls` | `map(object)` | No | Unified service URL registry from root module (service, module, tenants, deployment, metadata) | [./portal/variables.tf:132](./portal/variables.tf#L132) |
 | `states` | `list` | No | List of state fragment names loaded for this deployment | [./portal/variables.tf:145](./portal/variables.tf#L145) |
-| `event_bus_requests` | `list(object)` | No | Event bus webhook subscription requests from modules (dependency inversion) | [./portal/variables.tf:151](./portal/variables.tf#L151) |
-| `artifact_requests` | `list(object)` | No | Artifact registry entries from modules (dependency inversion). Supports archives, docker images, helm charts, and golden images. | [./portal/variables.tf:162](./portal/variables.tf#L162) |
-| `storage_requests` | `list(object)` | No | Storage resource catalog entries from storage module (dependency inversion). Populated from storage.inventory output. | [./portal/variables.tf:176](./portal/variables.tf#L176) |
+| `state_files` | `map` | No | Every available state fragment (name => path) across user states_paths and states/, first match wins. Drives the state catalog. | [./portal/variables.tf:151](./portal/variables.tf#L151) |
+| `event_bus_requests` | `list(object)` | No | Event bus webhook subscription requests from modules (dependency inversion) | [./portal/variables.tf:157](./portal/variables.tf#L157) |
+| `artifact_requests` | `list(object)` | No | Artifact registry entries from modules (dependency inversion). Supports archives, docker images, helm charts, and golden images. | [./portal/variables.tf:168](./portal/variables.tf#L168) |
+| `storage_requests` | `list(object)` | No | Storage resource catalog entries from storage module (dependency inversion). Populated from storage.inventory output. | [./portal/variables.tf:182](./portal/variables.tf#L182) |
 
 ### Attributes
 
@@ -1277,8 +1282,9 @@ This module supports the following arguments:
 | `cross_account_providers` | `map(object)` | No | Cross-account AWS provider configurations. Keys: 'prod', 'infrastructure'. | [./variables.tf:30](./variables.tf#L30) |
 | `owner` | `string` | No | Team or individual responsible for this infrastructure | [./variables.tf:44](./variables.tf#L44) |
 | `states` | `list` | No |  | [./variables.tf:51](./variables.tf#L51) |
-| `workspace_overrides` | `bool` | No | Whether to enable workspace-specific tfvars file overrides. Set to false in tests to ensure test variables are used directly. | [./variables.tf:76](./variables.tf#L76) |
-| `aws_sso_start_url` | `string` | No | AWS SSO start URL for console link wrapping (e.g., https://d-xxxxxxxxxx.awsapps.com/start) | [./variables.tf:82](./variables.tf#L82) |
+| `states_paths` | `list` | No |  | [./variables.tf:77](./variables.tf#L77) |
+| `workspace_overrides` | `bool` | No | Whether to enable workspace-specific tfvars file overrides. Set to false in tests to ensure test variables are used directly. | [./variables.tf:96](./variables.tf#L96) |
+| `aws_sso_start_url` | `string` | No | AWS SSO start URL for console link wrapping (e.g., https://d-xxxxxxxxxx.awsapps.com/start) | [./variables.tf:102](./variables.tf#L102) |
 
 ### Attributes
 
@@ -1435,8 +1441,10 @@ This module supports the following arguments:
 | `default_aws_profile` | `string` | No | Default AWS profile from base terraform.tfvars (null = AWS not configured) | [./workspaces/variables.tf:1](./workspaces/variables.tf#L1) |
 | `default_aws_region` | `string` | **Yes** | Default AWS region from base terraform.tfvars (used when workspace file doesn't exist or doesn't override) | [./workspaces/variables.tf:7](./workspaces/variables.tf#L7) |
 | `default_states` | `list` | **Yes** | Default state fragments list from base terraform.tfvars (used when workspace file doesn't exist or doesn't override) | [./workspaces/variables.tf:12](./workspaces/variables.tf#L12) |
-| `default_owner` | `string` | **Yes** | Default owner from base terraform.tfvars (used when workspace file doesn't exist or doesn't override) | [./workspaces/variables.tf:17](./workspaces/variables.tf#L17) |
-| `enabled` | `bool` | No | Whether to resolve workspace-specific overrides from tfvars files. When false, always returns defaults (useful for tests). | [./workspaces/variables.tf:22](./workspaces/variables.tf#L22) |
+| `default_states_paths` | `list` | No | Default extra state fragment search paths from base terraform.tfvars (used when workspace file doesn't exist or doesn't override) | [./workspaces/variables.tf:17](./workspaces/variables.tf#L17) |
+| `default_owner` | `string` | **Yes** | Default owner from base terraform.tfvars (used when workspace file doesn't exist or doesn't override) | [./workspaces/variables.tf:23](./workspaces/variables.tf#L23) |
+| `workspace_file_path` | `string` | No | Override the workspace file to parse (default: terraform.tfvars.<workspace> in the root). Used by tests to point at fixtures. | [./workspaces/variables.tf:28](./workspaces/variables.tf#L28) |
+| `enabled` | `bool` | No | Whether to resolve workspace-specific overrides from tfvars files. When false, always returns defaults (useful for tests). | [./workspaces/variables.tf:34](./workspaces/variables.tf#L34) |
 
 ### Attributes
 
@@ -1448,7 +1456,8 @@ This module exports the following attributes:
 | `aws_region` | Resolved AWS region for current workspace (from workspace file or default) | [./workspaces/outputs.tf:6](./workspaces/outputs.tf#L6) |
 | `owner` | Resolved owner for current workspace (from workspace file or default) | [./workspaces/outputs.tf:11](./workspaces/outputs.tf#L11) |
 | `states` | Resolved state fragments list for current workspace (from workspace file or default) | [./workspaces/outputs.tf:16](./workspaces/outputs.tf#L16) |
-| `workspace` | Current Terraform workspace name | [./workspaces/outputs.tf:21](./workspaces/outputs.tf#L21) |
-| `is_default_workspace` | Whether currently using the default workspace (true = using base terraform.tfvars only) | [./workspaces/outputs.tf:26](./workspaces/outputs.tf#L26) |
-| `workspace_file_path` | Path to workspace-specific tfvars file (may not exist) | [./workspaces/outputs.tf:31](./workspaces/outputs.tf#L31) |
-| `workspace_file_exists` | Whether workspace-specific tfvars file exists | [./workspaces/outputs.tf:36](./workspaces/outputs.tf#L36) |
+| `states_paths` | Resolved extra state fragment search paths for current workspace, as written (from workspace file or default) | [./workspaces/outputs.tf:21](./workspaces/outputs.tf#L21) |
+| `workspace` | Current Terraform workspace name | [./workspaces/outputs.tf:26](./workspaces/outputs.tf#L26) |
+| `is_default_workspace` | Whether currently using the default workspace (true = using base terraform.tfvars only) | [./workspaces/outputs.tf:31](./workspaces/outputs.tf#L31) |
+| `workspace_file_path` | Path to workspace-specific tfvars file (may not exist) | [./workspaces/outputs.tf:36](./workspaces/outputs.tf#L36) |
+| `workspace_file_exists` | Whether workspace-specific tfvars file exists | [./workspaces/outputs.tf:41](./workspaces/outputs.tf#L41) |

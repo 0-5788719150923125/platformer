@@ -11,6 +11,14 @@ parameters:
     description: 'S3 prefix for hook scripts'
     default: 'hooks/linux/post'
 mainSteps:
+  # Download hook scripts with the agent's own credentials. No AWS CLI needed,
+  # so this also works on hybrid-activated (non-EC2) hosts that don't have it.
+  - action: 'aws:downloadContent'
+    name: 'DownloadPostInstallHooks'
+    inputs:
+      sourceType: 'S3'
+      sourceInfo: '{"path": "https://s3.${region}.amazonaws.com/{{ScriptBucket}}/{{ScriptPrefix}}/"}'
+      destinationPath: '/tmp/org-hooks/post'
   - action: 'aws:runShellScript'
     name: 'ExecutePostInstallHooks'
     inputs:
@@ -23,12 +31,12 @@ mainSteps:
           echo "Starting post-install validation checks..."
           echo ""
 
+          # Scripts were fetched by the DownloadPostInstallHooks step
           HOOK_DIR="/tmp/org-hooks/post"
           mkdir -p "$HOOK_DIR"
-
-          # Download all post-install scripts from S3
-          echo "Downloading hook scripts from s3://{{ScriptBucket}}/{{ScriptPrefix}}/"
-          aws s3 sync "s3://{{ScriptBucket}}/{{ScriptPrefix}}/" "$HOOK_DIR/" --quiet
+          # Flatten in case the download kept the S3 prefix as subdirectories
+          find "$HOOK_DIR" -mindepth 2 -type f -name '*.sh' -exec mv {} "$HOOK_DIR"/ \;
+          echo "Hook scripts from s3://{{ScriptBucket}}/{{ScriptPrefix}}/"
 
           if [ ! "$(ls -A $HOOK_DIR)" ]; then
             echo "WARNING: No hook scripts found in S3 - continuing without hooks"

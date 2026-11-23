@@ -14,7 +14,7 @@
 locals {
   # Metadata
   is_default_workspace  = terraform.workspace == "default"
-  workspace_file_path   = "${path.root}/terraform.tfvars.${terraform.workspace}"
+  workspace_file_path   = coalesce(var.workspace_file_path, "${path.root}/terraform.tfvars.${terraform.workspace}")
   workspace_file_exists = var.enabled && fileexists(local.workspace_file_path)
 
   # Read workspace file content as string (empty if doesn't exist)
@@ -71,4 +71,13 @@ locals {
   # Use parsed states if available, otherwise fall back to defaults
   # Can't use coalesce() with lists, so use conditional instead
   resolved_states = local.states_parsed != null ? local.states_parsed : var.default_states
+
+  # Parse states_paths: extract list from pattern `states_paths = ["/a", "~/b"]`
+  # Same parsing as states. An empty list (`states_paths = []`) counts as an
+  # explicit override, so a workspace can opt out of base search paths.
+  states_paths_raw = try(regex("states_paths\\s*=\\s*\\[([^\\]]*)]", replace(local.workspace_file_no_comments, "\n", " "))[0], null)
+  states_paths_parsed = local.states_paths_raw != null ? [
+    for item in regexall("\"([^\"]+)\"", local.states_paths_raw) : item[0]
+  ] : null
+  resolved_states_paths = local.states_paths_parsed != null ? local.states_paths_parsed : var.default_states_paths
 }

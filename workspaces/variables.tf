@@ -14,9 +14,21 @@ variable "default_states" {
   type        = list(string)
 }
 
+variable "default_states_paths" {
+  description = "Default extra state fragment search paths from base terraform.tfvars (used when workspace file doesn't exist or doesn't override)"
+  type        = list(string)
+  default     = []
+}
+
 variable "default_owner" {
   description = "Default owner from base terraform.tfvars (used when workspace file doesn't exist or doesn't override)"
   type        = string
+}
+
+variable "workspace_file_path" {
+  description = "Override the workspace file to parse (default: terraform.tfvars.<workspace> in the root). Used by tests to point at fixtures."
+  type        = string
+  default     = null
 }
 
 variable "enabled" {

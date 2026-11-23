@@ -13,6 +13,7 @@ locals {
   ]
 
   # Resolve each state name to the first directory that contains it.
+  # (var.states_dirs validation guarantees every dir exists.)
   state_path_candidates = {
     for state in var.states :
     state => [
@@ -30,6 +31,19 @@ locals {
       "ERROR: state '${state}' not found in any states dir: ${join(", ", local.resolved_dirs)}"
     )
   }
+
+  # Catalog of every fragment available in catalog_dirs (defaults to
+  # states_dirs), not just the selected ones. Same first-match-wins rule:
+  # walk dirs in reverse so earlier dirs overwrite later ones in merge().
+  resolved_catalog_dirs = var.catalog_dirs == null ? local.resolved_dirs : [
+    for dir in var.catalog_dirs :
+    startswith(dir, "/") ? dir : "${path.module}/${dir}"
+  ]
+  available_states = merge([
+    for dir in reverse(local.resolved_catalog_dirs) : {
+      for f in fileset(dir, "*.yaml") : trimsuffix(f, ".yaml") => "${dir}/${f}"
+    }
+  ]...)
 
   # Load all state files
   state_files = [

@@ -1,0 +1,4 @@
+# Fixture: a fragment that only exists in a user dir.
+services:
+  user-only:
+    enabled: true

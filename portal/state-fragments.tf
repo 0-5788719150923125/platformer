@@ -1,10 +1,11 @@
 # State Fragment Management
 # Loads state fragment YAML files and creates Port entities
 
-# Read all state fragment files from states/ directory
+# Read every available state fragment (user states_paths + states/), as
+# resolved by the config module. Keyed by "<name>.yaml".
 data "local_file" "state_fragments" {
-  for_each = fileset(path.root, "states/*.yaml")
-  filename = "${path.root}/${each.value}"
+  for_each = { for name, p in var.state_files : "${name}.yaml" => p }
+  filename = each.value
 }
 
 # Get git repository URL for GitHub links
@@ -26,21 +27,25 @@ locals {
 
   state_branch_name = data.external.state_git_info.result.branch
 
+  # Fragments under the repo's states/ get a GitHub link; ones from user
+  # states_paths live outside the repo and have none.
+  repo_states_dir = "${abspath("${path.root}/states")}/"
+
   # Parse state fragments and extract metadata
   state_fragments_parsed = {
-    for path, file in data.local_file.state_fragments : basename(path) => {
-      filename = replace(basename(path), ".yaml", "")
+    for key, file in data.local_file.state_fragments : key => {
+      filename = trimsuffix(key, ".yaml")
       # Wrap YAML content in markdown code fences for proper display in Port
       content = "```yaml\n${file.content}\n```"
       # Check if this state is actively used in the deployment
-      enabled = contains(var.states, replace(basename(path), ".yaml", ""))
+      enabled = contains(var.states, trimsuffix(key, ".yaml"))
       # Try to parse services from YAML
       services = try(
         [for service_key, service_value in yamldecode(file.content).services : service_key],
         []
       )
       # GitHub URL to view the file
-      github_url = "${local.state_repo_url}/blob/${local.state_branch_name}/platformer/states/${basename(path)}"
+      github_url = startswith(abspath(file.filename), local.repo_states_dir) ? "${local.state_repo_url}/blob/${local.state_branch_name}/platformer/states/${key}" : ""
     }
   }
 }

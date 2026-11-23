@@ -147,8 +147,11 @@ variable "config" {
         # Hybrid managed-instance targeting (non-AWS hosts registered via SSM activation).
         # Creates a Resource Group querying AWS::SSM::ManagedInstance by SSM resource tag,
         # so maintenance windows can patch mi-* instances (EC2 tag filters do not match them).
-        # Apply the tag at registration: `ssm-setup-cli -register ... -tags 'Key=<tag_key>,Value=<tag_value>'`
-        # or post-registration via `aws ssm add-tags-to-resource --resource-type ManagedInstance ...`.
+        # The tag is added to the hybrid activation whose key equals tag_value, and SSM copies
+        # activation tags onto instances at registration. Hosts registered before that need it
+        # added once via `aws ssm add-tags-to-resource --resource-type ManagedInstance ...`.
+        # With tag_key "PatchGroup", tag_value is also registered as a patch group on the
+        # window's baseline, so AWS-RunPatchBaseline uses that baseline instead of the AWS default.
         hybrid_targeting = optional(object({
           tag_key   = string
           tag_value = string

@@ -13,6 +13,16 @@ output "loaded_states" {
   value       = var.states
 }
 
+output "state_paths" {
+  description = "Resolved file path for each selected state fragment (name => path), after search-order precedence"
+  value       = local.state_paths
+}
+
+output "available_states" {
+  description = "Every fragment found in catalog_dirs (name => path), first match wins. For catalogs, not just the selected states."
+  value       = local.available_states
+}
+
 output "merged_state" {
   description = "Complete merged state configuration (includes all top-level keys, not just services) - for debugging"
   value       = local.merged_state

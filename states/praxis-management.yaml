@@ -13,18 +13,36 @@
 #     -register \
 #     -activation-code '<code>' \
 #     -activation-id '<id>' \
-#     -region '<region>' \
-#     -tags 'Key=PatchGroup,Value=oci-ubuntu'         # or oci-oracle-linux
+#     -region '<region>'
 #
-# The PatchGroup tag is what the maintenance window's Resource Group selects on.
+# Each activation carries a PatchGroup tag (oci-ubuntu / oci-oracle-linux) that
+# SSM copies onto the instance at registration. The maintenance window's
+# Resource Group selects on it, and AWS-RunPatchBaseline uses it to pick the
+# custom baseline. ssm-setup-cli has no -tags flag for on-prem hosts.
 
 services:
   configuration-management:
-    # Fleet-wide SSM hygiene (AWS-GatherSoftwareInventory, AWS-UpdateSSMAgent)
-    # is owned by praxis-patch-management. Both target InstanceIds=["*"], so
-    # OCI hybrid hosts inherit them automatically once registered - no need
-    # to redeclare here, and AWS rejects duplicate apply-all associations
-    # against the same document in the same account.
+    # SSM hygiene for the OCI hosts: software inventory and agent updates.
+    # Targeted by Class tag (copied from the activation at registration), not
+    # InstanceIds=["*"], so this can coexist with praxis-patch-management's
+    # apply-all associations. If both are deployed, the OCI hosts are covered
+    # by two inventory associations and SSM reports a conflict on them - drop
+    # one side if that happens.
+    associations:
+      gather-software-inventory:
+        document_name: "AWS-GatherSoftwareInventory"
+        schedule_expression: "rate(12 hours)"
+        targets:
+          - key: "tag:Class"
+            values: ["oci-ubuntu", "oci-oracle-linux"]
+      update-ssm-agent:
+        document_name: "AWS-UpdateSSMAgent"
+        schedule_expression: "rate(7 days)"
+        max_concurrency: "1"
+        max_errors: "1"
+        targets:
+          - key: "tag:Class"
+            values: ["oci-ubuntu", "oci-oracle-linux"]
 
     # SSM hybrid activations - one per OS so registration_command output makes
     # it obvious which activation an operator is registering against.
@@ -40,19 +58,18 @@ services:
 
     patch_management:
       baselines:
-        # Ubuntu: approve after 7 days; install Required/Important/Standard
-        # priority items in libs/kernel/admin sections (mirrors praxis baseline
-        # but with the 7-day stability soak).
+        # Ubuntu: approve every update (security and bug-fix, all sections and
+        # priorities, including third-party repos like Docker's) once it has
+        # been out for 7 days. Keeps the hosts fully current with a soak period.
         oci-ubuntu:
           operating_system: "UBUNTU"
           approved_patches_compliance_level: "HIGH"
           approval_rules:
             - approve_after_days: 7
               compliance_level: "HIGH"
-              enable_non_security: false
+              enable_non_security: true
               patch_filter:
-                priority: ["Required", "Important", "Standard"]
-                section: ["libs", "kernel", "admin"]
+                priority: ["Required", "Important", "Standard", "Optional", "Extra"]
           classes: []  # Hybrid only - no EC2 patch-group tagging
 
         # Oracle Linux: approve Security + Bugfix after 7 days, Critical/Important severity.

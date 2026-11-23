@@ -18,6 +18,11 @@ output "states" {
   value       = local.resolved_states
 }
 
+output "states_paths" {
+  description = "Resolved extra state fragment search paths for current workspace, as written (from workspace file or default)"
+  value       = local.resolved_states_paths
+}
+
 output "workspace" {
   description = "Current Terraform workspace name"
   value       = terraform.workspace

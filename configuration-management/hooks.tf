@@ -53,6 +53,7 @@ resource "aws_ssm_document" "universal_preinstall_linux" {
   document_format = "YAML"
   content = templatefile("${path.module}/hooks/preinstall-orchestrator.yaml", {
     default_bucket = var.hooks_bucket
+    region         = data.aws_region.current.region
   })
 
   tags = {
@@ -71,6 +72,7 @@ resource "aws_ssm_document" "universal_postinstall_linux" {
   document_format = "YAML"
   content = templatefile("${path.module}/hooks/postinstall-orchestrator.yaml", {
     default_bucket = var.hooks_bucket
+    region         = data.aws_region.current.region
   })
 
   tags = {

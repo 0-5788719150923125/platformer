@@ -53,6 +53,28 @@ targets:
     - configuration-management-hourly   # overrides to hourly rotation
 ```
 
+## Storing States Outside This Repo
+
+Fragments don't have to live in `states/`. Set `states_paths` in `terraform.tfvars` (or a workspace's `terraform.tfvars.<workspace>`) to a list of extra directories to search:
+
+```hcl
+states = ["my-arcbot", "regions-east"]
+states_paths = [
+  "~/configs/platformer",       # "~" expands to your home directory
+  "/srv/platformer/states",     # absolute paths are used as-is
+  "../my-org-states",           # relative paths resolve against the repo root
+]
+```
+
+Search order is your `states_paths` entries in the order listed, then `states/`, then `tests/states/`. Each name in `states` loads from the first directory that has `<name>.yaml`, so on a name conflict your copy wins over the repo's. Names still follow the usual rule (lowercase letters, digits, hyphens).
+
+Notes:
+- Every listed directory must exist, or plan fails with `states dir(s) not found`. This stops a typo from silently falling through to a same-named fragment in `states/`.
+- A workspace file's `states_paths` replaces the base list rather than adding to it, same as `states`. `states_paths = []` in a workspace file turns the base list off.
+- The archivist bundle includes the fragments you selected from external paths, copied into its `states/` (replacing a same-named repo fragment) and scrubbed like everything else. Editing an external fragment rebuilds the archive even without a new commit.
+- The portal's state catalog lists every fragment in your `states_paths` plus `states/` (not `tests/states/`). External fragments have no GitHub link.
+- Tests: `config/tests/states_paths.tftest.hcl`, `workspaces/tests/states_paths.tftest.hcl`, `archivist/tests/states.tftest.hcl`, `tests/states_paths.tftest.hcl`.
+
 ## Creating States
 
 1. Create `states/my-state.yaml`

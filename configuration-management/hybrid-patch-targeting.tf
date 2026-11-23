@@ -39,3 +39,20 @@ resource "aws_resourcegroups_group" "hybrid_patch" {
     Baseline  = each.value.baseline
   }
 }
+
+# Hybrid Patch Groups
+# AWS-RunPatchBaseline picks its baseline from the instance's "PatchGroup" (or
+# "Patch Group") tag. Without a registered patch group it silently falls back
+# to the AWS default baseline for the OS, ignoring the window's baseline. So
+# register the window's tag_value as a patch group on its baseline whenever the
+# hybrid targeting tag is a patch group tag.
+resource "aws_ssm_patch_group" "hybrid" {
+  for_each = {
+    for window_name, window in local.hybrid_targeting_windows :
+    window_name => window
+    if contains(["PatchGroup", "Patch Group"], window.hybrid_targeting.tag_key)
+  }
+
+  baseline_id = aws_ssm_patch_baseline.baseline[each.value.baseline].id
+  patch_group = each.value.hybrid_targeting.tag_value
+}
