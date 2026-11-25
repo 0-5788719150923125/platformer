@@ -64,6 +64,42 @@ variable "config" {
       ssh_authorized_keys     = optional(string)     # Public key(s) installed at launch
       boot_volume_size_in_gbs = optional(number)     # Default: the image's size
     }))
+    # AWS settings for type = "instance", cloud = "aws". Same fields and meaning as the
+    # top-level EC2 fields below (which `type: ec2` classes still use); anything set
+    # here wins. Such classes run on the AWS adapter's EC2 path with identical keys
+    # and state, so a class can switch between the two forms without plan changes.
+    aws = optional(object({
+      ami_ssm_parameter   = optional(string)
+      ami_filter          = optional(string)
+      ami_owner           = optional(string)
+      instance_type       = optional(string)
+      volume_size         = optional(number)
+      volume_type         = optional(string)
+      user_data_script    = optional(string)
+      subnet_tier         = optional(string)
+      associate_public_ip = optional(bool)
+      security_group_ids  = optional(list(string))
+      ingress = optional(list(object({
+        port     = number
+        cidrs    = list(string)
+        protocol = optional(string, "http")
+      })))
+      build        = optional(bool)
+      swap_size    = optional(number)
+      zram_size    = optional(number)
+      mode         = optional(string)
+      cluster_port = optional(number)
+      volumes = optional(list(object({
+        name       = string
+        size       = number
+        mount_path = string
+        type       = optional(string, "gp3")
+        iops       = optional(number)
+        throughput = optional(number)
+        fs_type    = optional(string, "ext4")
+        device     = optional(string)
+      })))
+    }))
 
     # Network selection (applies to all compute types)
     network_name = optional(string) # Name of network to use (from networks map). If null, uses default VPC.
@@ -178,6 +214,15 @@ variable "config" {
       class_config.type != "instance" || (class_config.cloud != null && try(class_config[class_config.cloud], null) != null)
     ])
     error_message = "Generic instance classes (type = 'instance') must set `cloud` and give that cloud's settings under its name, e.g. cloud: oci with an oci: block"
+  }
+
+  # Validation: adoption is implemented by cloud adapters (oci so far), not the EC2 path
+  validation {
+    condition = alltrue([
+      for class_name, class_config in var.config :
+      !(class_config.type == "instance" && class_config.cloud == "aws" && length(class_config.adopt) > 0)
+    ])
+    error_message = "`adopt` isn't supported for cloud = aws yet (EC2 instances can't be imported through a class)"
   }
 
   # Validation: EC2 classes must have ami_ssm_parameter or ami_filter

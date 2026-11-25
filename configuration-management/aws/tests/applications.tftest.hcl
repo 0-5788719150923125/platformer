@@ -20,7 +20,7 @@ variables {
       class              = "src-docker-1"
       type               = "compose"
       script             = "compose-stack.sh"
-      script_source_path = "../applications/scripts/compose-stack.sh"
+      script_source_path = "../../applications/scripts/compose-stack.sh"
       params             = { STACK_NAME = "src", STACK_PORTS = "51000-51999/udp", NOTE = "it's quoted" }
       environment        = { TRACKER_HOST = "59.example.org", PEER_SOURCES = "https://github.com/a/b,https://gitlab.com/c/d", PRICE = "$5" }
       teardown           = true
@@ -32,7 +32,7 @@ variables {
       tenant             = "alpha"
       type               = "ssm"
       script             = "install-redis.sh"
-      script_source_path = "../applications/scripts/install-redis.sh"
+      script_source_path = "../../applications/scripts/install-redis.sh"
       target_tag_key     = "Class"
       target_tag_value   = "web"
       targeting_mode     = "compute"
@@ -41,14 +41,14 @@ variables {
       class              = "agent"
       type               = "ssm"
       script             = "install-redis.sh"
-      script_source_path = "../applications/scripts/install-redis.sh"
+      script_source_path = "../../applications/scripts/install-redis.sh"
       targeting_mode     = "wildcard"
     },
     {
       class              = "tagged"
       type               = "ssm"
       script             = "install-redis.sh"
-      script_source_path = "../applications/scripts/install-redis.sh"
+      script_source_path = "../../applications/scripts/install-redis.sh"
       targeting_mode     = "tags"
       targets            = [{ key = "tag:Class", values = ["oci-ubuntu"] }]
     },
@@ -72,7 +72,7 @@ run "documents_and_associations" {
   assert {
     condition = strcontains(
       join("\n", jsondecode(aws_ssm_document.applications["src-docker-1"].content).mainSteps[0].inputs.runCommand),
-      base64encode(file("../applications/scripts/compose-stack.sh"))
+      base64encode(file("../../applications/scripts/compose-stack.sh"))
     )
     error_message = "The document should embed the script"
   }
@@ -175,7 +175,7 @@ run "environment_values_cannot_hold_quotes" {
         class              = "bad"
         type               = "compose"
         script             = "compose-stack.sh"
-        script_source_path = "../applications/scripts/compose-stack.sh"
+        script_source_path = "../../applications/scripts/compose-stack.sh"
         environment        = { GREETING = "it's" }
         targeting_mode     = "wildcard"
       },
@@ -194,7 +194,7 @@ run "environment_keys_must_be_names" {
         class              = "bad"
         type               = "compose"
         script             = "compose-stack.sh"
-        script_source_path = "../applications/scripts/compose-stack.sh"
+        script_source_path = "../../applications/scripts/compose-stack.sh"
         environment        = { "NOT A NAME" = "x" }
         targeting_mode     = "wildcard"
       },

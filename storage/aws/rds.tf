@@ -88,40 +88,71 @@ resource "random_password" "rds" {
 }
 
 # RDS Aurora clusters using community module
-module "rds_aurora" {
-  source  = "terraform-aws-modules/rds-aurora/aws"
-  version = "9.13.0"
-
+# Aurora clusters and their instances, declared directly. These used to come
+# from terraform-aws-modules/rds-aurora (9.13.0), which passes the computed-only
+# `cluster_members` argument to aws_rds_cluster. AWS provider 6.x warns on that
+# and says a future version will reject it - and because providers validate
+# configuration, not deployments, that would break every plan in every
+# workspace whether or not it uses RDS. Defaults match what the module set
+# (encrypted storage, identifiers <name> and <name>-<n>, no enhanced monitoring).
+#
+# Clusters created by the old module live at other addresses. To keep one,
+# move it before applying (replace <purpose>, <n> with your keys):
+#   terraform state mv 'module.storage[0].module.rds_aurora["<purpose>"].aws_rds_cluster.this[0]' 'module.storage[0].aws_rds_cluster.requested["<purpose>"]'
+#   terraform state mv 'module.storage[0].module.rds_aurora["<purpose>"].aws_rds_cluster_instance.this["<n>"]' 'module.storage[0].aws_rds_cluster_instance.requested["<purpose>-<n>"]'
+resource "aws_rds_cluster" "requested" {
   for_each = local.rds_clusters
 
-  name                        = each.value.name
-  database_name               = each.value.database_name
-  engine                      = "aurora-postgresql"
-  engine_version              = each.value.engine_version
-  instance_class              = each.value.instance_class
-  instances                   = tomap({ for i in range(1, each.value.instances + 1) : i => {} })
-  master_username             = each.value.database_name # Username = database name
-  master_password             = random_password.rds[each.key].result
-  manage_master_user_password = false
+  cluster_identifier = each.value.name
+  database_name      = each.value.database_name
+  engine             = "aurora-postgresql"
+  engine_version     = each.value.engine_version
+  master_username    = each.value.database_name # Username = database name
+  master_password    = random_password.rds[each.key].result
+  storage_encrypted  = true
 
   db_subnet_group_name   = aws_db_subnet_group.main[0].name
-  vpc_id                 = each.value.vpc_id
   vpc_security_group_ids = [aws_security_group.rds[0].id]
 
-  create_security_group  = false
-  create_db_subnet_group = false
-
-  deletion_protection       = each.value.deletion_protection
-  backup_retention_period   = each.value.backup_retention_period
-  skip_final_snapshot       = !each.value.final_snapshot
-  final_snapshot_identifier = each.value.final_snapshot ? "${each.value.name}-final-snapshot-${formatdate("YYYY-MM-DD-hhmm", timestamp())}" : null
-
-  auto_minor_version_upgrade  = false
+  deletion_protection         = each.value.deletion_protection
+  backup_retention_period     = each.value.backup_retention_period
+  skip_final_snapshot         = !each.value.final_snapshot
+  final_snapshot_identifier   = each.value.final_snapshot ? "${each.value.name}-final-snapshot-${formatdate("YYYY-MM-DD-hhmm", timestamp())}" : null
   allow_major_version_upgrade = true
 
   tags = {
     Name      = each.value.name
     Purpose   = each.key
+    Namespace = var.namespace
+  }
+}
+
+locals {
+  # One entry per cluster instance: "<purpose>-<n>", n from 1
+  rds_cluster_instances = merge([
+    for purpose, cluster in local.rds_clusters : {
+      for n in range(1, cluster.instances + 1) : "${purpose}-${n}" => {
+        purpose = purpose
+        n       = n
+      }
+    }
+  ]...)
+}
+
+resource "aws_rds_cluster_instance" "requested" {
+  for_each = local.rds_cluster_instances
+
+  identifier                 = "${local.rds_clusters[each.value.purpose].name}-${each.value.n}"
+  cluster_identifier         = aws_rds_cluster.requested[each.value.purpose].id
+  instance_class             = local.rds_clusters[each.value.purpose].instance_class
+  engine                     = aws_rds_cluster.requested[each.value.purpose].engine
+  engine_version             = aws_rds_cluster.requested[each.value.purpose].engine_version
+  db_subnet_group_name       = aws_db_subnet_group.main[0].name
+  auto_minor_version_upgrade = false
+
+  tags = {
+    Name      = "${local.rds_clusters[each.value.purpose].name}-${each.value.n}"
+    Purpose   = each.value.purpose
     Namespace = var.namespace
   }
 }

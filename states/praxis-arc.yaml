@@ -23,9 +23,9 @@ services:
 
   compute:
     praxis-arc:
-      type: ec2
+      type: instance
+      cloud: aws
       count: 1
-      build: false
 
       # On-demand redeploy switch (consumed by configuration-management):
       #   true  -> fire the ansible-controller CodeBuild on every apply (converge now)
@@ -44,46 +44,50 @@ services:
       # rebuilt, or use a "<token>" string (e.g. "v1") for a one-shot replace-when-changed.
       taint: false
 
-      # CPU Instance Configuration
-      # r8g.medium: ARM64 Graviton4, 1 vCPU, 8GB RAM, memory-optimized, CPU-only
-      instance_type: r8g.medium
-      swap_size: 4
-      # 2GB of zram (compressed RAM swap, zstd) absorbs transient memory spikes -
-      # typically holds 2-3x its size in compressed pages and mounts at a higher
-      # swap priority than the disk swapfile, so spikes never touch disk first.
-      zram_size: 2
-
-      # AWS Deep Learning AMI (Ubuntu 24.04) ARM64 - Docker, PyTorch 2.9 pre-installed
-      ami_filter: "Deep Learning ARM64 AMI OSS Nvidia Driver GPU PyTorch 2.9 (Ubuntu 24.04)*"
-      ami_owner: "amazon"
-
-      # Storage: 100GB root for OS + PyTorch venv + Docker images + model weights
-      volume_size: 100
-      volume_type: gp3
-
-      # Persistent storage: durable EBS volume mounted at /opt/praxis so the
-      # repository, .env, and most importantly the build/ checkpoint directory
-      # all survive instance replacement (e.g. AMI drift recreating the box).
-      # The storage-mount ansible playbook (imported by praxis/playbook.yml)
-      # formats and mounts on first boot; subsequent boots reattach the same
-      # volume and the existing .git is preserved (git pull instead of clone).
-      volumes:
-        - name: build
-          size: 50
-          mount_path: /opt/praxis
-          fs_type: ext4
-
-      # Network: Public subnet with public IP (for HTTP access on port 8080)
-      subnet_tier: public
-      associate_public_ip: true
-
-      # Security: HTTPS via ALB on port 8080 from anywhere
-      ingress:
-        - port: 8080
-          cidrs: ["0.0.0.0/0"]
-          protocol: https
-
       description: "Praxis AI agents framework - single-node CPU instance"
+
+      # AWS settings (EC2)
+      aws:
+        build: false
+
+        # CPU Instance Configuration
+        # r8g.medium: ARM64 Graviton4, 1 vCPU, 8GB RAM, memory-optimized, CPU-only
+        instance_type: r8g.medium
+        swap_size: 4
+        # 2GB of zram (compressed RAM swap, zstd) absorbs transient memory spikes -
+        # typically holds 2-3x its size in compressed pages and mounts at a higher
+        # swap priority than the disk swapfile, so spikes never touch disk first.
+        zram_size: 2
+
+        # AWS Deep Learning AMI (Ubuntu 24.04) ARM64 - Docker, PyTorch 2.9 pre-installed
+        ami_filter: "Deep Learning ARM64 AMI OSS Nvidia Driver GPU PyTorch 2.9 (Ubuntu 24.04)*"
+        ami_owner: "amazon"
+
+        # Storage: 100GB root for OS + PyTorch venv + Docker images + model weights
+        volume_size: 100
+        volume_type: gp3
+
+        # Persistent storage: durable EBS volume mounted at /opt/praxis so the
+        # repository, .env, and most importantly the build/ checkpoint directory
+        # all survive instance replacement (e.g. AMI drift recreating the box).
+        # The storage-mount ansible playbook (imported by praxis/playbook.yml)
+        # formats and mounts on first boot; subsequent boots reattach the same
+        # volume and the existing .git is preserved (git pull instead of clone).
+        volumes:
+          - name: build
+            size: 50
+            mount_path: /opt/praxis
+            fs_type: ext4
+
+        # Network: Public subnet with public IP (for HTTP access on port 8080)
+        subnet_tier: public
+        associate_public_ip: true
+
+        # Security: HTTPS via ALB on port 8080 from anywhere
+        ingress:
+          - port: 8080
+            cidrs: ["0.0.0.0/0"]
+            protocol: https
 
       # Application Installation
       applications:

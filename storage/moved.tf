@@ -1,0 +1,188 @@
+# The AWS implementation moved into storage/aws/ (2026-11-25). These blocks carry
+# existing state to the new addresses, so nothing is destroyed or recreated.
+# Data sources need no moves; they are simply read again.
+
+moved {
+  from = aws_codecommit_repository.requested
+  to   = module.aws.aws_codecommit_repository.requested
+}
+
+moved {
+  from = null_resource.post_create_commit
+  to   = module.aws.null_resource.post_create_commit
+}
+
+moved {
+  from = null_resource.set_default_branch
+  to   = module.aws.null_resource.set_default_branch
+}
+
+moved {
+  from = aws_ebs_volume.requested
+  to   = module.aws.aws_ebs_volume.requested
+}
+
+moved {
+  from = aws_volume_attachment.requested
+  to   = module.aws.aws_volume_attachment.requested
+}
+
+moved {
+  from = aws_elasticache_subnet_group.main
+  to   = module.aws.aws_elasticache_subnet_group.main
+}
+
+moved {
+  from = aws_security_group.elasticache
+  to   = module.aws.aws_security_group.elasticache
+}
+
+moved {
+  from = aws_security_group_rule.elasticache_ingress
+  to   = module.aws.aws_security_group_rule.elasticache_ingress
+}
+
+moved {
+  from = aws_elasticache_replication_group.valkey_redis
+  to   = module.aws.aws_elasticache_replication_group.valkey_redis
+}
+
+moved {
+  from = aws_elasticache_cluster.memcached
+  to   = module.aws.aws_elasticache_cluster.memcached
+}
+
+moved {
+  from = aws_s3_bucket_lifecycle_configuration.requested
+  to   = module.aws.aws_s3_bucket_lifecycle_configuration.requested
+}
+
+moved {
+  from = aws_s3_bucket_logging.requested
+  to   = module.aws.aws_s3_bucket_logging.requested
+}
+
+moved {
+  from = aws_s3_bucket_policy.access_logs
+  to   = module.aws.aws_s3_bucket_policy.access_logs
+}
+
+moved {
+  from = terraform_data.bucket_replaced
+  to   = module.aws.terraform_data.bucket_replaced
+}
+
+moved {
+  from = aws_s3_bucket.requested
+  to   = module.aws.aws_s3_bucket.requested
+}
+
+moved {
+  from = null_resource.post_create_upload
+  to   = module.aws.null_resource.post_create_upload
+}
+
+moved {
+  from = aws_s3_bucket_versioning.requested
+  to   = module.aws.aws_s3_bucket_versioning.requested
+}
+
+moved {
+  from = aws_s3_bucket_public_access_block.requested
+  to   = module.aws.aws_s3_bucket_public_access_block.requested
+}
+
+moved {
+  from = aws_s3_bucket_server_side_encryption_configuration.requested
+  to   = module.aws.aws_s3_bucket_server_side_encryption_configuration.requested
+}
+
+moved {
+  from = aws_s3_bucket.access_logs
+  to   = module.aws.aws_s3_bucket.access_logs
+}
+
+moved {
+  from = aws_s3_bucket_public_access_block.access_logs
+  to   = module.aws.aws_s3_bucket_public_access_block.access_logs
+}
+
+moved {
+  from = aws_s3_bucket_policy.hooks_access
+  to   = module.aws.aws_s3_bucket_policy.hooks_access
+}
+
+moved {
+  from = aws_s3_bucket_cors_configuration.requested
+  to   = module.aws.aws_s3_bucket_cors_configuration.requested
+}
+
+moved {
+  from = aws_db_subnet_group.main
+  to   = module.aws.aws_db_subnet_group.main
+}
+
+moved {
+  from = aws_security_group.rds
+  to   = module.aws.aws_security_group.rds
+}
+
+moved {
+  from = aws_security_group_rule.rds_ingress
+  to   = module.aws.aws_security_group_rule.rds_ingress
+}
+
+moved {
+  from = random_password.rds
+  to   = module.aws.random_password.rds
+}
+
+moved {
+  from = aws_rds_cluster.requested
+  to   = module.aws.aws_rds_cluster.requested
+}
+
+moved {
+  from = aws_rds_cluster_instance.requested
+  to   = module.aws.aws_rds_cluster_instance.requested
+}
+
+moved {
+  from = aws_db_subnet_group.instance
+  to   = module.aws.aws_db_subnet_group.instance
+}
+
+moved {
+  from = aws_security_group.rds_instance
+  to   = module.aws.aws_security_group.rds_instance
+}
+
+moved {
+  from = aws_security_group_rule.rds_instance_ingress
+  to   = module.aws.aws_security_group_rule.rds_instance_ingress
+}
+
+moved {
+  from = random_password.rds_instance
+  to   = module.aws.random_password.rds_instance
+}
+
+moved {
+  from = aws_db_instance.requested
+  to   = module.aws.aws_db_instance.requested
+}
+
+moved {
+  from = aws_iam_role.dlm
+  to   = module.aws.aws_iam_role.dlm
+}
+
+moved {
+  from = aws_iam_role_policy_attachment.dlm
+  to   = module.aws.aws_iam_role_policy_attachment.dlm
+}
+
+moved {
+  from = aws_dlm_lifecycle_policy.ebs
+  to   = module.aws.aws_dlm_lifecycle_policy.ebs
+}

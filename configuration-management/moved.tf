@@ -1,0 +1,258 @@
+# The AWS implementation moved into configuration-management/aws/ (2026-11-25). These blocks carry
+# existing state to the new addresses, so nothing is destroyed or recreated.
+# Data sources need no moves; they are simply read again.
+
+moved {
+  from = aws_s3_object.ansible_controller_manifest
+  to   = module.aws.aws_s3_object.ansible_controller_manifest
+}
+
+moved {
+  from = aws_s3_object.ansible_controller_files
+  to   = module.aws.aws_s3_object.ansible_controller_files
+}
+
+moved {
+  from = aws_codebuild_project.ansible_controller
+  to   = module.aws.aws_codebuild_project.ansible_controller
+}
+
+moved {
+  from = aws_scheduler_schedule.ansible_controller
+  to   = module.aws.aws_scheduler_schedule.ansible_controller
+}
+
+moved {
+  from = null_resource.force_reboot
+  to   = module.aws.null_resource.force_reboot
+}
+
+moved {
+  from = null_resource.trigger_ansible_controller
+  to   = module.aws.null_resource.trigger_ansible_controller
+}
+
+moved {
+  from = aws_iam_role_policy.ansible_controller_scheduler
+  to   = module.aws.aws_iam_role_policy.ansible_controller_scheduler
+}
+
+moved {
+  from = aws_ssm_document.applications
+  to   = module.aws.aws_ssm_document.applications
+}
+
+moved {
+  from = aws_ssm_association.applications
+  to   = module.aws.aws_ssm_association.applications
+}
+
+moved {
+  from = terraform_data.application_teardown
+  to   = module.aws.terraform_data.application_teardown
+}
+
+moved {
+  from = aws_ssm_association.generic
+  to   = module.aws.aws_ssm_association.generic
+}
+
+moved {
+  from = aws_iam_role_policy.application_scripts_access
+  to   = module.aws.aws_iam_role_policy.application_scripts_access
+}
+
+moved {
+  from = aws_s3_bucket_policy.application_scripts_access
+  to   = module.aws.aws_s3_bucket_policy.application_scripts_access
+}
+
+moved {
+  from = null_resource.ansible_upload_archives
+  to   = module.aws.null_resource.ansible_upload_archives
+}
+
+moved {
+  from = null_resource.ansible_uploads_dir
+  to   = module.aws.null_resource.ansible_uploads_dir
+}
+
+moved {
+  from = aws_s3_object.ansible_upload_archives
+  to   = module.aws.aws_s3_object.ansible_upload_archives
+}
+
+moved {
+  from = null_resource.ansible_url_upload_downloads
+  to   = module.aws.null_resource.ansible_url_upload_downloads
+}
+
+moved {
+  from = aws_s3_object.ansible_url_upload_files
+  to   = module.aws.aws_s3_object.ansible_url_upload_files
+}
+
+moved {
+  from = aws_s3_object.ansible_playbook_files
+  to   = module.aws.aws_s3_object.ansible_playbook_files
+}
+
+moved {
+  from = aws_iam_role_policy.ansible_application_permissions
+  to   = module.aws.aws_iam_role_policy.ansible_application_permissions
+}
+
+moved {
+  from = aws_ssm_patch_baseline.baseline
+  to   = module.aws.aws_ssm_patch_baseline.baseline
+}
+
+moved {
+  from = aws_ssm_patch_group.baseline_class
+  to   = module.aws.aws_ssm_patch_group.baseline_class
+}
+
+moved {
+  from = aws_ec2_tag.patch_group
+  to   = module.aws.aws_ec2_tag.patch_group
+}
+
+moved {
+  from = aws_lambda_function.dynamic_targeting
+  to   = module.aws.aws_lambda_function.dynamic_targeting
+}
+
+moved {
+  from = aws_cloudwatch_event_rule.dynamic_targeting
+  to   = module.aws.aws_cloudwatch_event_rule.dynamic_targeting
+}
+
+moved {
+  from = aws_cloudwatch_event_target.dynamic_targeting
+  to   = module.aws.aws_cloudwatch_event_target.dynamic_targeting
+}
+
+moved {
+  from = aws_lambda_permission.dynamic_targeting
+  to   = module.aws.aws_lambda_permission.dynamic_targeting
+}
+
+moved {
+  from = aws_resourcegroups_group.dynamic_targeting
+  to   = module.aws.aws_resourcegroups_group.dynamic_targeting
+}
+
+moved {
+  from = aws_cloudwatch_event_rule.codebuild_events
+  to   = module.aws.aws_cloudwatch_event_rule.codebuild_events
+}
+
+moved {
+  from = aws_lambda_function.codebuild_event_reporter
+  to   = module.aws.aws_lambda_function.codebuild_event_reporter
+}
+
+moved {
+  from = aws_cloudwatch_event_target.codebuild_event_reporter
+  to   = module.aws.aws_cloudwatch_event_target.codebuild_event_reporter
+}
+
+moved {
+  from = aws_lambda_permission.codebuild_event_reporter
+  to   = module.aws.aws_lambda_permission.codebuild_event_reporter
+}
+
+moved {
+  from = aws_s3_object.linux_pre_scripts
+  to   = module.aws.aws_s3_object.linux_pre_scripts
+}
+
+moved {
+  from = aws_s3_object.linux_post_scripts
+  to   = module.aws.aws_s3_object.linux_post_scripts
+}
+
+moved {
+  from = aws_ssm_document.universal_preinstall_linux
+  to   = module.aws.aws_ssm_document.universal_preinstall_linux
+}
+
+moved {
+  from = aws_ssm_document.universal_postinstall_linux
+  to   = module.aws.aws_ssm_document.universal_postinstall_linux
+}
+
+moved {
+  from = aws_ssm_activation.activation
+  to   = module.aws.aws_ssm_activation.activation
+}
+
+moved {
+  from = aws_resourcegroups_group.hybrid_patch
+  to   = module.aws.aws_resourcegroups_group.hybrid_patch
+}
+
+moved {
+  from = aws_ssm_patch_group.hybrid
+  to   = module.aws.aws_ssm_patch_group.hybrid
+}
+
+moved {
+  from = aws_iam_role_policy.document_policy
+  to   = module.aws.aws_iam_role_policy.document_policy
+}
+
+moved {
+  from = aws_iam_role.requested_lambda
+  to   = module.aws.aws_iam_role.requested_lambda
+}
+
+moved {
+  from = aws_iam_role_policy.requested_lambda
+  to   = module.aws.aws_iam_role_policy.requested_lambda
+}
+
+moved {
+  from = aws_lambda_function.requested_lambda
+  to   = module.aws.aws_lambda_function.requested_lambda
+}
+
+moved {
+  from = aws_cloudwatch_event_rule.requested_lambda
+  to   = module.aws.aws_cloudwatch_event_rule.requested_lambda
+}
+
+moved {
+  from = aws_cloudwatch_event_target.requested_lambda
+  to   = module.aws.aws_cloudwatch_event_target.requested_lambda
+}
+
+moved {
+  from = aws_lambda_permission.requested_lambda
+  to   = module.aws.aws_lambda_permission.requested_lambda
+}
+
+moved {
+  from = aws_ssm_document.document
+  to   = module.aws.aws_ssm_document.document
+}
+
+moved {
+  from = aws_ssm_association.document_association
+  to   = module.aws.aws_ssm_association.document_association
+}
+
+moved {
+  from = aws_ssm_maintenance_window.window
+  to   = module.aws.aws_ssm_maintenance_window.window
+}
+
+moved {
+  from = aws_ssm_maintenance_window_target.patch
+  to   = module.aws.aws_ssm_maintenance_window_target.patch
+}
+
+moved {
+  from = aws_ssm_maintenance_window_task.patch
+  to   = module.aws.aws_ssm_maintenance_window_task.patch
+}

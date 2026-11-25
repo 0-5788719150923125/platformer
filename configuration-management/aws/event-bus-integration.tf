@@ -57,8 +57,8 @@ data "archive_file" "codebuild_event_reporter" {
   count = local.ansible_controller_enabled && length(var.event_bus_webhooks) > 0 ? 1 : 0
 
   type        = "zip"
-  source_file = "${path.module}/lambdas/codebuild-event-reporter/main.py"
-  output_path = "${path.module}/.terraform/lambda/codebuild-event-reporter.zip"
+  source_file = "${local.service_path}/lambdas/codebuild-event-reporter/main.py"
+  output_path = "${local.service_path}/.terraform/lambda/codebuild-event-reporter.zip"
 }
 
 # EventBridge target

@@ -56,8 +56,8 @@ data "archive_file" "dynamic_targeting_lambda" {
   count = local.dynamic_targeting_enabled ? 1 : 0
 
   type        = "zip"
-  source_file = "${path.module}/lambda/tag_instances_from_inventory.py"
-  output_path = "${path.module}/.terraform/lambda/tag_instances_from_inventory.zip"
+  source_file = "${local.service_path}/lambda/tag_instances_from_inventory.py"
+  output_path = "${local.service_path}/.terraform/lambda/tag_instances_from_inventory.zip"
 }
 
 # Lambda function (one per unique targeting config)

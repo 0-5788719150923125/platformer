@@ -15,7 +15,7 @@ data "archive_file" "requested_lambda" {
 
   type        = "zip"
   source_file = each.value.source_path
-  output_path = "${path.module}/.terraform/lambda/${each.key}.zip"
+  output_path = "${local.service_path}/.terraform/lambda/${each.key}.zip"
 }
 
 # Shared IAM role for all requested Lambda functions

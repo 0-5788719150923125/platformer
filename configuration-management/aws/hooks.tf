@@ -12,12 +12,12 @@ locals {
 
 # Upload Linux pre-install hook scripts
 resource "aws_s3_object" "linux_pre_scripts" {
-  for_each = local.hooks_enabled ? fileset("${path.module}/hooks/linux/pre/", "*.sh") : []
+  for_each = local.hooks_enabled ? fileset("${local.service_path}/hooks/linux/pre/", "*.sh") : []
 
   bucket = var.hooks_bucket
   key    = "hooks/linux/pre/${each.value}"
-  source = "${path.module}/hooks/linux/pre/${each.value}"
-  etag   = filemd5("${path.module}/hooks/linux/pre/${each.value}")
+  source = "${local.service_path}/hooks/linux/pre/${each.value}"
+  etag   = filemd5("${local.service_path}/hooks/linux/pre/${each.value}")
 
   tags = {
     Name      = each.value
@@ -29,12 +29,12 @@ resource "aws_s3_object" "linux_pre_scripts" {
 
 # Upload Linux post-install hook scripts
 resource "aws_s3_object" "linux_post_scripts" {
-  for_each = local.hooks_enabled ? fileset("${path.module}/hooks/linux/post/", "*.sh") : []
+  for_each = local.hooks_enabled ? fileset("${local.service_path}/hooks/linux/post/", "*.sh") : []
 
   bucket = var.hooks_bucket
   key    = "hooks/linux/post/${each.value}"
-  source = "${path.module}/hooks/linux/post/${each.value}"
-  etag   = filemd5("${path.module}/hooks/linux/post/${each.value}")
+  source = "${local.service_path}/hooks/linux/post/${each.value}"
+  etag   = filemd5("${local.service_path}/hooks/linux/post/${each.value}")
 
   tags = {
     Name      = each.value
@@ -51,7 +51,7 @@ resource "aws_ssm_document" "universal_preinstall_linux" {
   name            = "ORG-Universal-PreInstall-Linux-${var.namespace}"
   document_type   = "Command"
   document_format = "YAML"
-  content = templatefile("${path.module}/hooks/preinstall-orchestrator.yaml", {
+  content = templatefile("${local.service_path}/hooks/preinstall-orchestrator.yaml", {
     default_bucket = var.hooks_bucket
     region         = data.aws_region.current.region
   })
@@ -70,7 +70,7 @@ resource "aws_ssm_document" "universal_postinstall_linux" {
   name            = "ORG-Universal-PostInstall-Linux-${var.namespace}"
   document_type   = "Command"
   document_format = "YAML"
-  content = templatefile("${path.module}/hooks/postinstall-orchestrator.yaml", {
+  content = templatefile("${local.service_path}/hooks/postinstall-orchestrator.yaml", {
     default_bucket = var.hooks_bucket
     region         = data.aws_region.current.region
   })

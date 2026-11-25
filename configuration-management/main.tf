@@ -1,134 +1,36 @@
-# Local variables for document discovery and configuration
-locals {
-  # Discover all YAML files in documents/ directory
-  document_files = fileset("${path.module}/documents", "*.yaml")
+# Configuration Management Module
+#
+# configuration-management is a service with cloud adapters (see next/fully-connected.md). This
+# layer is generic; the implementation lives in an adapter:
+#
+#   configuration-management/aws/ - AWS, the only implementation so far. Until its settings
+#                                   move under an `aws:` key it takes exactly the same inputs
+#                                   as this module (aws/variables.tf links to ours).
+#
+# Resources that lived here before the split are moved by moved.tf.
 
-  # Create map of documents with their metadata
-  documents = {
-    for file in local.document_files :
-    replace(file, ".yaml", "") => {
-      file_path       = "${path.module}/documents/${file}"
-      document_name   = replace(file, ".yaml", "")
-      formatted_name  = join("-", [for word in split("-", replace(file, ".yaml", "")) : title(word)])
-      iam_policy_file = "${path.module}/documents/${replace(file, ".yaml", ".iam.json")}"
-      has_iam_policy  = fileexists("${path.module}/documents/${replace(file, ".yaml", ".iam.json")}")
-      enabled         = can(var.config.documents[replace(file, ".yaml", "")].enabled) ? var.config.documents[replace(file, ".yaml", "")].enabled : false
-    }
-  }
+module "aws" {
+  source = "./aws"
 
-  # Filter to only enabled documents
-  enabled_documents = {
-    for name, doc in local.documents : name => doc
-    if doc.enabled
-  }
-
-  # Pre-compute which document keys exist in the config map
-  # Note: Key existence doesn't guarantee all properties are set (properties may be null)
-  # This avoids repeated key lookups and makes the intent clear
-  doc_key_exists = {
-    for name in keys(local.enabled_documents) : name =>
-    contains(keys(var.config.documents), name)
-  }
-
-  # Document-specific association configs with defaults
-  # Strategy: If doc key exists, try its properties; coalesce handles nulls by falling back to global defaults
-  association_configs = {
-    for name, doc in local.enabled_documents : name => {
-      # For each field: coalesce doc-specific override (if key exists and property not null) with global default
-      schedule_expression = coalesce(
-        local.doc_key_exists[name] ? var.config.documents[name].schedule_expression : null,
-        var.config.schedule_expression
-      )
-      max_concurrency = coalesce(
-        local.doc_key_exists[name] ? var.config.documents[name].max_concurrency : null,
-        var.config.max_concurrency
-      )
-      max_errors = coalesce(
-        local.doc_key_exists[name] ? var.config.documents[name].max_errors : null,
-        var.config.max_errors
-      )
-      compliance_severity = coalesce(
-        local.doc_key_exists[name] ? var.config.documents[name].compliance_severity : null,
-        var.config.compliance_severity
-      )
-      parameters = coalesce(
-        local.doc_key_exists[name] ? var.config.documents[name].parameters : null,
-        { ParameterStorePrefix = var.config.parameter_store_prefix }
-      )
-
-      # Targeting: explicit override or smart default
-      targets = local.doc_key_exists[name] && var.config.documents[name].targets != null ? (
-        # Explicit targets specified - use them
-        var.config.documents[name].targets
-        ) : (
-        # Default targeting: Use Class AND Namespace tags for proper isolation
-        # This ensures multi-developer/multi-environment deployments don't cross-contaminate
-        length(var.instances_by_class) > 0 ? [
-          {
-            key    = "tag:Class"
-            values = keys(var.instances_by_class)
-          },
-          {
-            key    = "tag:Namespace"
-            values = [var.namespace]
-          }
-        ] : []
-      )
-    }
-  }
-
-  # Filter associations to only those with valid targets
-  # If targets is empty (no instances exist and no explicit override), don't create association
-  enabled_associations = {
-    for name, config in local.association_configs : name => config
-    if length(config.targets) > 0
-  }
-}
-
-# SSM Documents - dynamically created for all YAML files in documents/
-resource "aws_ssm_document" "document" {
-  for_each = local.enabled_documents
-
-  name            = "${each.value.formatted_name}-${var.namespace}"
-  document_type   = "Command"
-  document_format = "YAML"
-
-  content = file(each.value.file_path)
-}
-
-# SSM State Manager Associations - one per document with valid targets
-resource "aws_ssm_association" "document_association" {
-  for_each = local.enabled_associations
-
-  name             = aws_ssm_document.document[each.key].name
-  association_name = "${each.key}-${var.namespace}"
-
-  # Schedule configuration (default: rate(30 minutes))
-  schedule_expression = each.value.schedule_expression
-
-  # Parameters (if any)
-  parameters = each.value.parameters
-
-  # Targets configuration
-  dynamic "targets" {
-    for_each = each.value.targets
-    content {
-      key    = targets.value.key
-      values = targets.value.values
-    }
-  }
-
-  # Optional: Store execution logs in S3 (bucket provided by storage module)
-  dynamic "output_location" {
-    for_each = var.ssm_association_log_bucket != "" ? [1] : []
-    content {
-      s3_bucket_name = var.ssm_association_log_bucket
-      s3_key_prefix  = "${each.key}-logs"
-    }
-  }
-
-  # Compliance and control settings
-  compliance_severity = each.value.compliance_severity
-  max_concurrency     = each.value.max_concurrency
-  max_errors          = each.value.max_errors
+  namespace                       = var.namespace
+  redeploy_triggers               = var.redeploy_triggers
+  reboot_triggers                 = var.reboot_triggers
+  aws_account_id                  = var.aws_account_id
+  aws_profile                     = var.aws_profile
+  aws_region                      = var.aws_region
+  config                          = var.config
+  ssm_association_log_bucket      = var.ssm_association_log_bucket
+  hooks_bucket                    = var.hooks_bucket
+  instances_by_class              = var.instances_by_class
+  application_requests            = var.application_requests
+  has_application_deployments     = var.has_application_deployments
+  application_scripts_bucket      = var.application_scripts_bucket
+  instances_role_name             = var.instances_role_name
+  instances_role_arn              = var.instances_role_arn
+  lambda_requests                 = var.lambda_requests
+  event_bus_webhooks              = var.event_bus_webhooks
+  aws_sso_start_url               = var.aws_sso_start_url
+  ansible_applications_configured = var.ansible_applications_configured
+  access_iam_role_arns            = var.access_iam_role_arns
+  access_iam_role_names           = var.access_iam_role_names
 }

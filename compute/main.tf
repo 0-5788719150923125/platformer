@@ -18,6 +18,20 @@ locals {
   effective_tenants = sort(distinct(flatten(values(var.tenants_by_class))))
 }
 
+# Generic instances on AWS (type = "instance", cloud = "aws") run on the AWS
+# adapter's EC2 path: their aws: settings are lifted to where that path reads
+# them, and the class becomes type = "ec2". Instance keys, resources and state
+# are the same either way.
+locals {
+  aws_config = {
+    for class_name, class_config in var.config : class_name => (
+      class_config.type == "instance" && class_config.cloud == "aws"
+      ? merge(class_config, { for field, value in class_config.aws : field => value if value != null }, { type = "ec2" })
+      : class_config
+    )
+  }
+}
+
 module "aws" {
   source = "./aws"
 
@@ -27,7 +41,7 @@ module "aws" {
   valid_tenants                 = var.valid_tenants
   networks                      = var.networks
   tenants_by_class              = var.tenants_by_class
-  config                        = var.config
+  config                        = local.aws_config
   instance_parameters           = var.instance_parameters
   application_requests          = var.application_requests
   pod_identity_requests         = var.pod_identity_requests

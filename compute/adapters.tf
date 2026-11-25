@@ -19,9 +19,10 @@ locals {
 }
 
 locals {
+  # AWS instances run on the AWS adapter's EC2 path (see main.tf), not through here
   instance_classes = {
     for class_name, class_config in var.config : class_name => class_config
-    if class_config.type == "instance" && length(lookup(var.tenants_by_class, class_name, [])) > 0
+    if class_config.type == "instance" && class_config.cloud != "aws" && length(lookup(var.tenants_by_class, class_name, [])) > 0
   }
 
   # tenant x class x count, keyed like EC2 instances
@@ -66,6 +67,6 @@ locals {
   # (e.g. a tenant missing from tenants/tenants.yaml) without anyone noticing.
   ambiguous_adoptions = [
     for class_name, class_config in var.config : class_name
-    if class_config.type == "instance" && length(class_config.adopt) > 0 && length(lookup(var.tenants_by_class, class_name, [])) != 1
+    if class_config.type == "instance" && class_config.cloud != "aws" && length(class_config.adopt) > 0 && length(lookup(var.tenants_by_class, class_name, [])) != 1
   ]
 }

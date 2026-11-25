@@ -42,6 +42,16 @@ provider "aws" {
   skip_credentials_validation = !local.aws_configured
   skip_requesting_account_id  = !local.aws_configured
 
+  # Without an AWS profile (aws_profile = null) the provider still gets set up,
+  # because modules mention it even when count = 0, and it insists on finding
+  # credentials somewhere. Placeholder keys satisfy that without ever reaching
+  # AWS. The aliases below get them only when AWS isn't configured at all, so
+  # with AWS they keep falling back to the default credentials as before.
+  # Interim measure until AWS is wired in per workspace like providers/oci.tf.
+  access_key              = local.aws_configured ? null : "unconfigured"
+  secret_key              = local.aws_configured ? null : "unconfigured"
+  skip_metadata_api_check = !local.aws_configured
+
   default_tags {
     tags = local.aws_configured ? {
       ManagedBy = "Terraform"
@@ -57,6 +67,9 @@ provider "aws" {
   region                      = try(var.cross_account_providers["prod"].region, "us-east-2")
   skip_credentials_validation = !contains(keys(var.cross_account_providers), "prod")
   skip_requesting_account_id  = !contains(keys(var.cross_account_providers), "prod")
+  access_key                  = local.aws_configured || contains(keys(var.cross_account_providers), "prod") ? null : "unconfigured"
+  secret_key                  = local.aws_configured || contains(keys(var.cross_account_providers), "prod") ? null : "unconfigured"
+  skip_metadata_api_check     = !local.aws_configured && !contains(keys(var.cross_account_providers), "prod")
 }
 
 provider "aws" {
@@ -65,6 +78,9 @@ provider "aws" {
   region                      = try(var.cross_account_providers["infrastructure"].region, "us-east-2")
   skip_credentials_validation = !contains(keys(var.cross_account_providers), "infrastructure")
   skip_requesting_account_id  = !contains(keys(var.cross_account_providers), "infrastructure")
+  access_key                  = local.aws_configured || contains(keys(var.cross_account_providers), "infrastructure") ? null : "unconfigured"
+  secret_key                  = local.aws_configured || contains(keys(var.cross_account_providers), "infrastructure") ? null : "unconfigured"
+  skip_metadata_api_check     = !local.aws_configured && !contains(keys(var.cross_account_providers), "infrastructure")
 }
 
 locals {

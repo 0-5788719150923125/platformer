@@ -391,7 +391,7 @@ resource "null_resource" "ansible_upload_archives" {
   }
 
   provisioner "local-exec" {
-    command     = "mkdir -p ${path.module}/uploads && git archive --format=tar.gz --prefix=${local.ansible_playbook_upload_entries[count.index].prefix}/ -o ${path.module}/uploads/${local.ansible_playbook_upload_entries[count.index].archive_name} HEAD ${local.ansible_playbook_upload_entries[count.index].source}"
+    command     = "mkdir -p ${local.service_path}/uploads && git archive --format=tar.gz --prefix=${local.ansible_playbook_upload_entries[count.index].prefix}/ -o ${local.service_path}/uploads/${local.ansible_playbook_upload_entries[count.index].archive_name} HEAD ${local.ansible_playbook_upload_entries[count.index].source}"
     working_dir = path.root
   }
 }
@@ -401,7 +401,7 @@ resource "null_resource" "ansible_uploads_dir" {
   count = length(local.ansible_playbook_upload_entries) + length(local.ansible_playbook_url_upload_entries) > 0 ? 1 : 0
 
   provisioner "local-exec" {
-    command = "mkdir -p ${path.module}/uploads"
+    command = "mkdir -p ${local.service_path}/uploads"
   }
 }
 
@@ -411,7 +411,7 @@ resource "aws_s3_object" "ansible_upload_archives" {
 
   bucket = var.application_scripts_bucket
   key    = local.ansible_playbook_upload_entries[count.index].s3_key
-  source = "${path.module}/uploads/${local.ansible_playbook_upload_entries[count.index].archive_name}"
+  source = "${local.service_path}/uploads/${local.ansible_playbook_upload_entries[count.index].archive_name}"
 
   depends_on = [null_resource.ansible_upload_archives, null_resource.ansible_uploads_dir]
 
@@ -433,7 +433,7 @@ resource "null_resource" "ansible_url_upload_downloads" {
   }
 
   provisioner "local-exec" {
-    command = "mkdir -p ${path.module}/uploads && curl -fsSL -o ${path.module}/uploads/${local.ansible_playbook_url_upload_entries[count.index].filename} '${local.ansible_playbook_url_upload_entries[count.index].url}'"
+    command = "mkdir -p ${local.service_path}/uploads && curl -fsSL -o ${local.service_path}/uploads/${local.ansible_playbook_url_upload_entries[count.index].filename} '${local.ansible_playbook_url_upload_entries[count.index].url}'"
   }
 }
 
@@ -443,7 +443,7 @@ resource "aws_s3_object" "ansible_url_upload_files" {
 
   bucket = var.application_scripts_bucket
   key    = local.ansible_playbook_url_upload_entries[count.index].s3_key
-  source = "${path.module}/uploads/${local.ansible_playbook_url_upload_entries[count.index].filename}"
+  source = "${local.service_path}/uploads/${local.ansible_playbook_url_upload_entries[count.index].filename}"
 
   depends_on = [null_resource.ansible_url_upload_downloads, null_resource.ansible_uploads_dir]
 

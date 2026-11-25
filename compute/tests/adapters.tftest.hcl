@@ -86,3 +86,77 @@ run "instance_class_needs_a_cloud" {
 
   expect_failures = [var.config]
 }
+
+run "aws_instance_class_runs_on_the_ec2_path" {
+  command = plan
+
+  variables {
+    tenants_by_class = { web = ["alpha"] }
+    config = {
+      web = {
+        type  = "instance"
+        cloud = "aws"
+        count = 2
+        aws = {
+          ami_filter    = "al2023-ami-*-x86_64"
+          instance_type = "t3.micro"
+        }
+      }
+    }
+  }
+
+  assert {
+    condition     = toset(keys(output.instances)) == toset(["alpha-web-0", "alpha-web-1"])
+    error_message = "AWS instance classes expand like EC2 classes, with the same keys"
+  }
+  assert {
+    condition     = output.instances["alpha-web-0"].instance_type == "t3.micro"
+    error_message = "Settings under aws: should reach the instance"
+  }
+  assert {
+    condition     = length(output.adapter_instances) == 0 && length(output.adoptions) == 0
+    error_message = "AWS instances run on the EC2 path, not through the cloud adapters"
+  }
+}
+
+run "aws_settings_win_over_top_level_ec2_fields" {
+  command = plan
+
+  variables {
+    tenants_by_class = { web = ["alpha"] }
+    config = {
+      web = {
+        type          = "instance"
+        cloud         = "aws"
+        instance_type = "t3.large" # top-level EC2 field, overridden below
+        aws = {
+          ami_filter    = "al2023-ami-*-x86_64"
+          instance_type = "t3.micro"
+        }
+      }
+    }
+  }
+
+  assert {
+    condition     = output.instances["alpha-web-0"].instance_type == "t3.micro"
+    error_message = "A value under aws: should win over the top-level field"
+  }
+}
+
+run "adoption_on_aws_is_rejected" {
+  command = plan
+
+  variables {
+    tenants_by_class = { web = ["alpha"] }
+    config = {
+      web = {
+        type  = "instance"
+        cloud = "aws"
+        adopt = ["i-0123456789abcdef0"]
+        aws   = { ami_filter = "al2023-ami-*-x86_64" }
+      }
+    }
+  }
+
+  expect_failures = [var.config]
+}

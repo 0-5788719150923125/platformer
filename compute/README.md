@@ -12,7 +12,7 @@ Rather than separate modules for each compute type, this module provides a unifi
 
 **EKS** - Kubernetes clusters with managed node groups. Automatic kubeconfig management with context names matching class names. Supports Helm chart installations.
 
-**Generic instances (`type: instance`)** - A class names the cloud it lives in (`cloud: oci`) and carries that cloud's settings under its name (`oci:`). Instances expand across tenants like EC2 (`<tenant>-<class>-<idx>`). `adopt` lists existing instance IDs to import instead of create; the plan shows them as "will be imported".
+**Generic instances (`type: instance`)** - A class names the cloud it lives in (`cloud: aws` or `cloud: oci`) and carries that cloud's settings under its name (`aws:`, `oci:`). `cloud: aws` classes run on the EC2 path with the same keys and state as `type: ec2` (fields under `aws:` win over the top-level EC2 fields), so a class can switch forms without plan changes; `states/praxis-arc.yaml` uses the new form. Instances expand across tenants like EC2 (`<tenant>-<class>-<idx>`). `adopt` lists existing instance IDs to import instead of create; the plan shows them as "will be imported".
 
 ## Cloud Adapters
 
