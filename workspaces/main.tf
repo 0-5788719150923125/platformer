@@ -48,6 +48,22 @@ locals {
   aws_region_raw      = try(regex("aws_region\\s*=\\s*\"([^\"]+)\"", local.workspace_file_content)[0], null)
   resolved_aws_region = coalesce(local.aws_region_raw, var.default_aws_region)
 
+  # Parse optional providers. A workspace uses a cloud beyond AWS when it names
+  # that cloud's profile (oci_profile), and other optional providers when it
+  # enables them (port_enabled = true). scripts/providers.sh reads the same keys
+  # to decide what to wire in, and the root guard checks the two agree.
+  # Commented-out lines don't count (same stripping as `states` below).
+  oci_profile_raw      = try(regex("oci_profile\\s*=\\s*\"([^\"]+)\"", local.workspace_file_no_comments)[0], null)
+  resolved_oci_profile = local.oci_profile_raw != null ? local.oci_profile_raw : var.default_oci_profile
+  oci_region_raw       = try(regex("oci_region\\s*=\\s*\"([^\"]+)\"", local.workspace_file_no_comments)[0], null)
+  resolved_oci_region  = local.oci_region_raw != null ? local.oci_region_raw : var.default_oci_region
+  port_enabled_raw      = try(regex("port_enabled\\s*=\\s*(true|false)", local.workspace_file_no_comments)[0], null)
+  resolved_port_enabled = local.port_enabled_raw != null ? local.port_enabled_raw == "true" : var.default_port_enabled
+  resolved_optional_providers = compact([
+    local.resolved_oci_profile != null ? "oci" : "",
+    local.resolved_port_enabled ? "port" : "",
+  ])
+
   # Parse owner: extract value from pattern `owner = "value"`
   owner_raw      = try(regex("owner\\s*=\\s*\"([^\"]+)\"", local.workspace_file_content)[0], null)
   resolved_owner = coalesce(local.owner_raw, var.default_owner)

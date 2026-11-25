@@ -45,7 +45,25 @@ variable "tenants_by_class" {
 variable "config" {
   description = "Compute service configuration - map of class name to class definition"
   type = map(object({
-    type = string # REQUIRED: "ec2", "eks", "ecs", or "localhost" - determines compute implementation
+    type = string # REQUIRED: "ec2", "eks", "ecs", "localhost", or "instance" - determines compute implementation
+
+    # Generic instances (type = "instance"). `cloud` names the adapter that runs them
+    # (compute/<cloud>/, wired in per workspace by scripts/providers.sh). Settings only one
+    # cloud understands live under that cloud's name, e.g. `oci`.
+    cloud = optional(string)           # Cloud adapter, e.g. "oci"
+    adopt = optional(list(string), []) # Existing instance IDs to adopt (import) instead of creating, by index. Single-tenant classes only.
+    oci = optional(object({
+      shape                   = string               # e.g. "VM.Standard.E2.1.Micro"
+      ocpus                   = optional(number)     # Flex shapes only
+      memory_in_gbs           = optional(number)     # Flex shapes only
+      image_id                = string               # Image OCID used at launch
+      subnet_id               = string               # Existing subnet OCID (referenced, never managed by compute)
+      availability_domain     = string               # e.g. "pdyy:US-ASHBURN-AD-1"
+      compartment_id          = optional(string)     # Defaults to the subnet's compartment
+      assign_public_ip        = optional(bool, true) # Ephemeral public IP on the primary VNIC
+      ssh_authorized_keys     = optional(string)     # Public key(s) installed at launch
+      boot_volume_size_in_gbs = optional(number)     # Default: the image's size
+    }))
 
     # Network selection (applies to all compute types)
     network_name = optional(string) # Name of network to use (from networks map). If null, uses default VPC.
@@ -148,9 +166,18 @@ variable "config" {
   validation {
     condition = alltrue([
       for class_name, class_config in var.config :
-      contains(["ec2", "eks", "ecs", "localhost"], class_config.type)
+      contains(["ec2", "eks", "ecs", "localhost", "instance"], class_config.type)
     ])
-    error_message = "Class type must be one of: ec2, eks, ecs, localhost"
+    error_message = "Class type must be one of: ec2, eks, ecs, localhost, instance"
+  }
+
+  # Validation: generic instances name a cloud and carry that cloud's settings
+  validation {
+    condition = alltrue([
+      for class_name, class_config in var.config :
+      class_config.type != "instance" || (class_config.cloud != null && try(class_config[class_config.cloud], null) != null)
+    ])
+    error_message = "Generic instance classes (type = 'instance') must set `cloud` and give that cloud's settings under its name, e.g. cloud: oci with an oci: block"
   }
 
   # Validation: EC2 classes must have ami_ssm_parameter or ami_filter

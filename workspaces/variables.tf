@@ -9,6 +9,24 @@ variable "default_aws_region" {
   type        = string
 }
 
+variable "default_oci_profile" {
+  description = "Default OCI profile from base terraform.tfvars (null = OCI not used)"
+  type        = string
+  default     = null
+}
+
+variable "default_oci_region" {
+  description = "Default OCI region from base terraform.tfvars (null = region from the OCI profile)"
+  type        = string
+  default     = null
+}
+
+variable "default_port_enabled" {
+  description = "Default for wiring in the Port provider, from base terraform.tfvars"
+  type        = bool
+  default     = false
+}
+
 variable "default_states" {
   description = "Default state fragments list from base terraform.tfvars (used when workspace file doesn't exist or doesn't override)"
   type        = list(string)

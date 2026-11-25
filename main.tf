@@ -306,6 +306,9 @@ module "workspaces" {
   # Pass base terraform.tfvars values as defaults
   default_aws_profile  = var.aws_profile
   default_aws_region   = var.aws_region
+  default_oci_profile  = var.oci_profile
+  default_oci_region   = var.oci_region
+  default_port_enabled = var.port_enabled
   default_states       = var.states
   default_states_paths = var.states_paths
   default_owner        = var.owner
@@ -594,40 +597,13 @@ module "observability" {
 
 }
 
-# Portal Module
-# Port.io integration for compute instance catalog
-# Ephemeral resources - entities created at apply-time, destroyed at destroy-time
-module "portal" {
-  count  = local.portal_enabled ? 1 : 0
-  source = "./portal"
 
-  namespace                 = module.namespace.id
-  subspace                  = local.subspace
-  is_default_workspace      = module.workspaces.is_default_workspace
-  owner                     = module.workspaces.owner
-  compute_instances         = local.compute_enabled ? module.compute[0].instances : {}
-  eks_clusters              = local.compute_enabled ? module.compute[0].eks_clusters : {}
-  ecs_clusters              = local.compute_enabled ? module.compute[0].ecs_clusters : {}
-  port_client_id            = local.port_credentials.client_id
-  port_secret               = local.port_credentials.client_secret
-  port_org_id               = local.port_credentials.org_id
-  aws_profile               = var.aws_profile
-  commands                  = local.all_commands
-  patch_management_enabled  = local.configuration_management_enabled ? module.configuration_management[0].patch_management_enabled : false
-  patch_management_by_class = local.configuration_management_enabled ? module.configuration_management[0].patch_management_by_class : {}
-  tenant_entitlements       = module.tenants.effective_entitlements
-  service_urls              = local.service_urls_filtered
-  states                    = module.workspaces.states
-  state_files               = module.config.available_states
-  event_bus_requests        = local.event_bus_requests
-  artifact_requests = concat(
-    module.archivist.artifact_requests,
-    local.compute_enabled ? module.build[0].artifact_requests : [],
-    module.access.artifact_requests,
-  )
-  storage_requests = concat(
-    local.storage_enabled ? module.storage[0].inventory : [],
-  )
+# Portal outputs read by core. The portal module only exists when the Port
+# provider is wired in (providers/port.tf, see scripts/providers.sh); these are
+# the values core sees otherwise, and providers/port_override.tf replaces them.
+locals {
+  portal_lambda_requests    = []
+  portal_event_bus_webhooks = {}
 }
 
 # Configuration Management Module
@@ -682,10 +658,10 @@ module "configuration_management" {
   instances_role_arn  = local.compute_enabled ? module.compute[0].instance_role_arn : ""
 
   # Scheduled Lambda requests from portal module (dependency inversion)
-  lambda_requests = local.portal_enabled ? module.portal[0].lambda_requests : []
+  lambda_requests = local.portal_lambda_requests
 
   # Event bus webhooks from portal module (dependency inversion)
-  event_bus_webhooks = local.portal_enabled ? module.portal[0].event_bus_webhooks : {}
+  event_bus_webhooks = local.portal_event_bus_webhooks
 
   # AWS SSO start URL for console link wrapping
   aws_sso_start_url = var.aws_sso_start_url
@@ -907,7 +883,7 @@ module "arcbot" {
   devin_secret_arn     = local.secrets_enabled ? module.secrets[0].replicated_secret_arns["arcbot/devin_api_key"] : ""
 
   # Event bus webhooks from portal module (dependency inversion)
-  event_bus_webhooks = local.portal_enabled ? module.portal[0].event_bus_webhooks : {}
+  event_bus_webhooks = local.portal_event_bus_webhooks
 
   # KB documents bucket from storage module (dependency inversion)
   kb_documents_bucket_name    = local.storage_enabled && contains(keys(module.storage[0].bucket_names), "arcbot-kb-docs") ? module.storage[0].bucket_names["arcbot-kb-docs"] : ""

@@ -1,0 +1,13 @@
+{
+  // terraform-ls semantic tokens go stale when files change on disk under an
+  // open editor (agent edits), painting wrong colors. TextMate grammar only.
+  "[terraform]": {
+    "editor.semanticHighlighting.enabled": false
+  },
+  "[terraform-vars]": {
+    "editor.semanticHighlighting.enabled": false
+  },
+  "[terraform-test]": {
+    "editor.semanticHighlighting.enabled": false
+  }
+}

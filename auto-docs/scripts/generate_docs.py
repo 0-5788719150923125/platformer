@@ -14,12 +14,20 @@ from hcl_parser import ConfigParser, InterfaceParser, OutputParser, extract_read
 
 
 def discover_modules(project_root):
-    """Find all modules with variables.tf, excluding auto-docs and .terraform."""
+    """Find service modules with variables.tf: the root and its immediate
+    subdirectories, excluding auto-docs and .terraform.
+
+    Nested modules aren't documented on their own. Cloud adapters (e.g.
+    compute/aws/, compute/oci/) are part of their service, and documenting
+    each one would repeat the service's schema once per cloud.
+    """
     modules = []
     for dirpath, dirnames, filenames in os.walk(project_root):
         # Prune excluded directories
         dirnames[:] = [d for d in dirnames if d not in (".terraform",)]
         rel = os.path.relpath(dirpath, project_root)
+        if rel != ".":
+            dirnames[:] = []  # don't descend below top-level directories
         if "auto-docs" in rel.split(os.sep):
             continue
         if "variables.tf" in filenames:

@@ -27,6 +27,24 @@ variable "aws_region" {
   }
 }
 
+variable "oci_profile" {
+  description = "OCI CLI config profile (~/.oci/config). Set it in terraform.tfvars.<workspace> to make Oracle Cloud part of that workspace; null (default) = OCI not used, its provider is never set up. Run scripts/providers.sh after changing it."
+  type        = string
+  default     = null
+}
+
+variable "oci_region" {
+  description = "OCI region for workspaces that use Oracle Cloud (e.g. us-ashburn-1). Null = the region in the OCI profile."
+  type        = string
+  default     = null
+}
+
+variable "port_enabled" {
+  description = "Wire in the Port.io provider and the portal module (providers/port.tf). Set it in terraform.tfvars.<workspace>; false (default) = Port is never loaded. Run scripts/providers.sh after changing it."
+  type        = bool
+  default     = false
+}
+
 variable "cross_account_providers" {
   description = "Cross-account AWS provider configurations. Keys: 'prod', 'infrastructure'."
   type = map(object({

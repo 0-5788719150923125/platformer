@@ -123,6 +123,8 @@ tenants:
     active: true
   test:
     active: true
+  src:
+    active: true
   alder:
     active: true
   birch:

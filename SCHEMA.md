@@ -323,7 +323,20 @@ Unified compute provisioning with type-based routing. Single configuration inter
 services:
   compute:
     <key>:
-      type: string  # REQUIRED: "ec2", "eks", "ecs", or "localhost" - determines compute implementation
+      type: string  # REQUIRED: "ec2", "eks", "ecs", "localhost", or "instance" - determines compute implementation
+      cloud: string  # Cloud adapter, e.g. "oci"
+      adopt: []  # list(string) - Existing instance IDs to adopt (import) instead of creating, by index. Single-tenant classes only.
+      oci:  # object
+        shape: string  # e.g. "VM.Standard.E2.1.Micro"
+        ocpus: number  # Flex shapes only
+        memory_in_gbs: number  # Flex shapes only
+        image_id: string  # Image OCID used at launch
+        subnet_id: string  # Existing subnet OCID (referenced, never managed by compute)
+        availability_domain: string  # e.g. "pdyy:US-ASHBURN-AD-1"
+        compartment_id: string  # Defaults to the subnet's compartment
+        assign_public_ip: bool  # Ephemeral public IP on the primary VNIC (default: true)
+        ssh_authorized_keys: string  # Public key(s) installed at launch
+        boot_volume_size_in_gbs: number  # Default: the image's size
       network_name: string  # Name of network to use (from networks map). If null, uses default VPC.
       ami_ssm_parameter: string  # SSM parameter path for AMI ID (e.g., "/aws/service/ami-amazon-linux-latest/al2023-ami-kernel-default-x86_64") - deterministic, AWS-maintained
       ami_filter: string  # AWS AMI name filter (e.g., "Windows_Server-2022-*") - fallback when SSM parameter unavailable (default: Windows_Server-2022-*)
@@ -405,22 +418,22 @@ This module supports the following arguments:
 | `networks` | `map` | No | Map of network name to network module outputs (for multi-VPC support) | [./compute/variables.tf:31](./compute/variables.tf#L31) |
 | `tenants_by_class` | `map` | No | Map of class name to entitled tenant list (from tenants module) | [./compute/variables.tf:38](./compute/variables.tf#L38) |
 | `config` | `map(object)` | No | Compute service configuration - map of class name to class definition | [./compute/variables.tf:45](./compute/variables.tf#L45) |
-| `instance_parameters` | `list(object)` | No | Parameter Store definitions for each instance (compute module creates resources) | [./compute/variables.tf:268](./compute/variables.tf#L268) |
-| `application_requests` | `list(object)` | No | All application deployment requests from applications module - filtered internally by type | [./compute/variables.tf:282](./compute/variables.tf#L282) |
-| `pod_identity_requests` | `list(object)` | No | Pod Identity association requests from upstream modules (e.g., observability) | [./compute/variables.tf:321](./compute/variables.tf#L321) |
-| `lb_requests` | `list(object)` | No | NLB requests for EKS services (observability, etc.) - Terraform-managed infrastructure | [./compute/variables.tf:336](./compute/variables.tf#L336) |
-| `built_amis` | `map` | No | Map of class name to golden AMI ID (from build module) | [./compute/variables.tf:351](./compute/variables.tf#L351) |
-| `standalone_applications` | `any` | No | Standalone application definitions (services.applications) for ImageBuilder inclusion | [./compute/variables.tf:360](./compute/variables.tf#L360) |
-| `patch_groups_by_class` | `map` | No | Map of class names to their namespaced patch group names (provided by configuration-management module) | [./compute/variables.tf:368](./compute/variables.tf#L368) |
-| `domain_enabled` | `bool` | No | Whether domains module is active (plan-time safe, from config) | [./compute/variables.tf:377](./compute/variables.tf#L377) |
-| `domain_zone_id` | `string` | No | Route53 hosted zone ID for DNS records (empty = no domain) | [./compute/variables.tf:383](./compute/variables.tf#L383) |
-| `domain_zone_name` | `string` | No | Route53 hosted zone name (e.g., dev-platform.example.com) | [./compute/variables.tf:389](./compute/variables.tf#L389) |
-| `domain_certificate_arn` | `string` | No | ACM certificate ARN for HTTPS listeners (empty = no HTTPS) | [./compute/variables.tf:395](./compute/variables.tf#L395) |
-| `domain_aliases` | `map` | No | DNS alias map: FQDN -> compute class name (from domains module) | [./compute/variables.tf:401](./compute/variables.tf#L401) |
-| `access_iam_role_arns` | `map` | No | IAM role ARNs from access module (keyed by module-purpose) | [./compute/variables.tf:408](./compute/variables.tf#L408) |
-| `access_iam_role_names` | `map` | No | IAM role names from access module (keyed by module-purpose) | [./compute/variables.tf:414](./compute/variables.tf#L414) |
-| `access_instance_profile_names` | `map` | No | Instance profile names from access module (keyed by module-purpose) | [./compute/variables.tf:420](./compute/variables.tf#L420) |
-| `preflight_enabled` | `bool` | No | Validate locally required tools (helm/kubectl) before creating EKS resources. Disable for plan-only runs on machines without the tooling. | [./compute/variables.tf:426](./compute/variables.tf#L426) |
+| `instance_parameters` | `list(object)` | No | Parameter Store definitions for each instance (compute module creates resources) | [./compute/variables.tf:295](./compute/variables.tf#L295) |
+| `application_requests` | `list(object)` | No | All application deployment requests from applications module - filtered internally by type | [./compute/variables.tf:309](./compute/variables.tf#L309) |
+| `pod_identity_requests` | `list(object)` | No | Pod Identity association requests from upstream modules (e.g., observability) | [./compute/variables.tf:348](./compute/variables.tf#L348) |
+| `lb_requests` | `list(object)` | No | NLB requests for EKS services (observability, etc.) - Terraform-managed infrastructure | [./compute/variables.tf:363](./compute/variables.tf#L363) |
+| `built_amis` | `map` | No | Map of class name to golden AMI ID (from build module) | [./compute/variables.tf:378](./compute/variables.tf#L378) |
+| `standalone_applications` | `any` | No | Standalone application definitions (services.applications) for ImageBuilder inclusion | [./compute/variables.tf:387](./compute/variables.tf#L387) |
+| `patch_groups_by_class` | `map` | No | Map of class names to their namespaced patch group names (provided by configuration-management module) | [./compute/variables.tf:395](./compute/variables.tf#L395) |
+| `domain_enabled` | `bool` | No | Whether domains module is active (plan-time safe, from config) | [./compute/variables.tf:404](./compute/variables.tf#L404) |
+| `domain_zone_id` | `string` | No | Route53 hosted zone ID for DNS records (empty = no domain) | [./compute/variables.tf:410](./compute/variables.tf#L410) |
+| `domain_zone_name` | `string` | No | Route53 hosted zone name (e.g., dev-platform.example.com) | [./compute/variables.tf:416](./compute/variables.tf#L416) |
+| `domain_certificate_arn` | `string` | No | ACM certificate ARN for HTTPS listeners (empty = no HTTPS) | [./compute/variables.tf:422](./compute/variables.tf#L422) |
+| `domain_aliases` | `map` | No | DNS alias map: FQDN -> compute class name (from domains module) | [./compute/variables.tf:428](./compute/variables.tf#L428) |
+| `access_iam_role_arns` | `map` | No | IAM role ARNs from access module (keyed by module-purpose) | [./compute/variables.tf:435](./compute/variables.tf#L435) |
+| `access_iam_role_names` | `map` | No | IAM role names from access module (keyed by module-purpose) | [./compute/variables.tf:441](./compute/variables.tf#L441) |
+| `access_instance_profile_names` | `map` | No | Instance profile names from access module (keyed by module-purpose) | [./compute/variables.tf:447](./compute/variables.tf#L447) |
+| `preflight_enabled` | `bool` | No | Validate locally required tools (helm/kubectl) before creating EKS resources. Disable for plan-only runs on machines without the tooling. | [./compute/variables.tf:453](./compute/variables.tf#L453) |
 
 ### Attributes
 
@@ -428,33 +441,35 @@ This module exports the following attributes:
 
 | Output | Description | Ref |
 |--------|-------------|-----|
-| `instances` | Deployed tenant instances with metadata | [./compute/outputs.tf:2](./compute/outputs.tf#L2) |
-| `instance_keys` | List of instance keys derived from config (plan-time safe for for_each) | [./compute/outputs.tf:24](./compute/outputs.tf#L24) |
-| `service_instance_keys` | Instance keys for classes with ingress rules (plan-time safe, for service URL filtering) | [./compute/outputs.tf:32](./compute/outputs.tf#L32) |
-| `config` | Compute service configuration summary | [./compute/outputs.tf:41](./compute/outputs.tf#L41) |
-| `instances_by_tenant` | Instances grouped by tenant code | [./compute/outputs.tf:51](./compute/outputs.tf#L51) |
-| `instances_by_class` | Instances grouped by class name - map of class_name => { instance_key => instance_id } | [./compute/outputs.tf:71](./compute/outputs.tf#L71) |
-| `eks_clusters` | Deployed EKS clusters with metadata | [./compute/outputs.tf:84](./compute/outputs.tf#L84) |
-| `eks_cluster_security_groups` | EKS cluster security group IDs (map: class_name => security_group_id) | [./compute/outputs.tf:100](./compute/outputs.tf#L100) |
-| `eks_node_groups` | Deployed EKS node groups with metadata | [./compute/outputs.tf:109](./compute/outputs.tf#L109) |
-| `eks_test_commands` | Commands to test EKS cluster connectivity (kubeconfig managed automatically) | [./compute/outputs.tf:125](./compute/outputs.tf#L125) |
-| `application_requests` | Application installation requests for applications module | [./compute/outputs.tf:143](./compute/outputs.tf#L143) |
-| `cluster_application_requests` | Per-instance cluster application requests for mode: 1-master classes (not fed back to compute) | [./compute/outputs.tf:154](./compute/outputs.tf#L154) |
-| `instance_role_arn` | IAM role ARN for compute instances (for S3 bucket policy) | [./compute/outputs.tf:160](./compute/outputs.tf#L160) |
-| `instance_role_name` | IAM role name for compute instances (for attaching policies) | [./compute/outputs.tf:166](./compute/outputs.tf#L166) |
-| `eks_node_role_name` | EKS node group IAM role name (for attaching policies) | [./compute/outputs.tf:172](./compute/outputs.tf#L172) |
-| `alb_dns_names` | Map of instance_key to FQDN for HTTPS ALB instances | [./compute/outputs.tf:178](./compute/outputs.tf#L178) |
-| `http_dns_names` | Map of instance_key to FQDN for HTTP instances with domain | [./compute/outputs.tf:187](./compute/outputs.tf#L187) |
-| `alias_fqdn_by_class` | Map of compute class name to alias FQDN (first alias per class) | [./compute/outputs.tf:196](./compute/outputs.tf#L196) |
-| `lb_dns_names` | NLB DNS names for EKS services (keyed by cluster_class-name) | [./compute/outputs.tf:202](./compute/outputs.tf#L202) |
-| `helm_releases` | Deployed Helm releases with metadata and access commands | [./compute/outputs.tf:214](./compute/outputs.tf#L214) |
-| `commands` | Mark a cluster as tainted. It will be destroyed and recreated on next terraform apply. | [./compute/outputs.tf:234](./compute/outputs.tf#L234) |
-| `kubeconfig_ready` | Dependency marker indicating kubeconfig contexts are set up | [./compute/outputs.tf:465](./compute/outputs.tf#L465) |
-| `ecs_clusters` | Deployed ECS clusters with metadata | [./compute/outputs.tf:476](./compute/outputs.tf#L476) |
-| `volume_requests` | EBS volume + attachment requests for the storage module | [./compute/outputs.tf:491](./compute/outputs.tf#L491) |
-| `access_requests` | EC2 instance role for compute classes with applications | [./compute/outputs.tf:498](./compute/outputs.tf#L498) |
-| `access_security_groups` | Security groups with rules for the access module (AWS-native format) | [./compute/outputs.tf:530](./compute/outputs.tf#L530) |
-| `ecs_test_commands` | Commands to debug ECS clusters, services, and tasks | [./compute/outputs.tf:536](./compute/outputs.tf#L536) |
+| `instances` | Deployed tenant instances with metadata | [./compute/outputs.tf:6](./compute/outputs.tf#L6) |
+| `instance_keys` | List of instance keys derived from config (plan-time safe for for_each) | [./compute/outputs.tf:11](./compute/outputs.tf#L11) |
+| `service_instance_keys` | Instance keys for classes with ingress rules (plan-time safe, for service URL filtering) | [./compute/outputs.tf:16](./compute/outputs.tf#L16) |
+| `config` | Compute service configuration summary | [./compute/outputs.tf:21](./compute/outputs.tf#L21) |
+| `instances_by_tenant` | Instances grouped by tenant code | [./compute/outputs.tf:26](./compute/outputs.tf#L26) |
+| `instances_by_class` | Instances grouped by class name - map of class_name => { instance_key => instance_id } | [./compute/outputs.tf:31](./compute/outputs.tf#L31) |
+| `eks_clusters` | Deployed EKS clusters with metadata | [./compute/outputs.tf:36](./compute/outputs.tf#L36) |
+| `eks_cluster_security_groups` | EKS cluster security group IDs (map: class_name => security_group_id) | [./compute/outputs.tf:41](./compute/outputs.tf#L41) |
+| `eks_node_groups` | Deployed EKS node groups with metadata | [./compute/outputs.tf:46](./compute/outputs.tf#L46) |
+| `eks_test_commands` | Commands to test EKS cluster connectivity (kubeconfig managed automatically) | [./compute/outputs.tf:51](./compute/outputs.tf#L51) |
+| `application_requests` | Application installation requests for applications module | [./compute/outputs.tf:56](./compute/outputs.tf#L56) |
+| `cluster_application_requests` | Per-instance cluster application requests for mode: 1-master classes (not fed back to compute) | [./compute/outputs.tf:61](./compute/outputs.tf#L61) |
+| `instance_role_arn` | IAM role ARN for compute instances (for S3 bucket policy) | [./compute/outputs.tf:66](./compute/outputs.tf#L66) |
+| `instance_role_name` | IAM role name for compute instances (for attaching policies) | [./compute/outputs.tf:71](./compute/outputs.tf#L71) |
+| `eks_node_role_name` | EKS node group IAM role name (for attaching policies) | [./compute/outputs.tf:76](./compute/outputs.tf#L76) |
+| `alb_dns_names` | Map of instance_key to FQDN for HTTPS ALB instances | [./compute/outputs.tf:81](./compute/outputs.tf#L81) |
+| `http_dns_names` | Map of instance_key to FQDN for HTTP instances with domain | [./compute/outputs.tf:86](./compute/outputs.tf#L86) |
+| `alias_fqdn_by_class` | Map of compute class name to alias FQDN (first alias per class) | [./compute/outputs.tf:91](./compute/outputs.tf#L91) |
+| `lb_dns_names` | NLB DNS names for EKS services (keyed by cluster_class-name) | [./compute/outputs.tf:96](./compute/outputs.tf#L96) |
+| `helm_releases` | Deployed Helm releases with metadata and access commands | [./compute/outputs.tf:101](./compute/outputs.tf#L101) |
+| `commands` | Standardized operational commands for CLI display and portal actions | [./compute/outputs.tf:106](./compute/outputs.tf#L106) |
+| `kubeconfig_ready` | Dependency marker indicating kubeconfig contexts are set up | [./compute/outputs.tf:111](./compute/outputs.tf#L111) |
+| `ecs_clusters` | Deployed ECS clusters with metadata | [./compute/outputs.tf:116](./compute/outputs.tf#L116) |
+| `volume_requests` | EBS volume + attachment requests for the storage module | [./compute/outputs.tf:121](./compute/outputs.tf#L121) |
+| `access_requests` | IAM access requests for the access module (access creates resources, returns ARNs) | [./compute/outputs.tf:126](./compute/outputs.tf#L126) |
+| `access_security_groups` | Security groups with rules for the access module (AWS-native format) | [./compute/outputs.tf:131](./compute/outputs.tf#L131) |
+| `ecs_test_commands` | Commands to debug ECS clusters, services, and tasks | [./compute/outputs.tf:136](./compute/outputs.tf#L136) |
+| `adapter_instances` | Instances run by cloud adapters (type = instance), by cloud, then instance key | [./compute/outputs.tf:142](./compute/outputs.tf#L142) |
+| `adoptions` | Existing instances to adopt (import) instead of create, by cloud, then instance key => cloud resource ID | [./compute/outputs.tf:157](./compute/outputs.tf#L157) |
 
 ## Module: config
 
@@ -1288,12 +1303,15 @@ This module supports the following arguments:
 | `preflight_enabled` | `bool` | No | Validate locally required tools (helm/kubectl for EKS) before creating resources. Disable for plan-only runs (e.g. tests) on machines without the tooling. | [./variables.tf:2](./variables.tf#L2) |
 | `aws_profile` | `string` | No | AWS profile name for authentication. Set to null to disable AWS (for local dev without credentials). | [./variables.tf:8](./variables.tf#L8) |
 | `aws_region` | `string` | No | AWS region where resources will be created | [./variables.tf:19](./variables.tf#L19) |
-| `cross_account_providers` | `map(object)` | No | Cross-account AWS provider configurations. Keys: 'prod', 'infrastructure'. | [./variables.tf:30](./variables.tf#L30) |
-| `owner` | `string` | No | Team or individual responsible for this infrastructure | [./variables.tf:44](./variables.tf#L44) |
-| `states` | `list` | No |  | [./variables.tf:51](./variables.tf#L51) |
-| `states_paths` | `list` | No |  | [./variables.tf:77](./variables.tf#L77) |
-| `workspace_overrides` | `bool` | No | Whether to enable workspace-specific tfvars file overrides. Set to false in tests to ensure test variables are used directly. | [./variables.tf:96](./variables.tf#L96) |
-| `aws_sso_start_url` | `string` | No | AWS SSO start URL for console link wrapping (e.g., https://d-xxxxxxxxxx.awsapps.com/start) | [./variables.tf:102](./variables.tf#L102) |
+| `oci_profile` | `string` | No | OCI CLI config profile (~/.oci/config). Set it in terraform.tfvars.<workspace> to make Oracle Cloud part of that workspace; null (default) = OCI not used, its provider is never set up. Run scripts/providers.sh after changing it. | [./variables.tf:30](./variables.tf#L30) |
+| `oci_region` | `string` | No | OCI region for workspaces that use Oracle Cloud (e.g. us-ashburn-1). Null = the region in the OCI profile. | [./variables.tf:36](./variables.tf#L36) |
+| `port_enabled` | `bool` | No | Wire in the Port.io provider and the portal module (providers/port.tf). Set it in terraform.tfvars.<workspace>; false (default) = Port is never loaded. Run scripts/providers.sh after changing it. | [./variables.tf:42](./variables.tf#L42) |
+| `cross_account_providers` | `map(object)` | No | Cross-account AWS provider configurations. Keys: 'prod', 'infrastructure'. | [./variables.tf:48](./variables.tf#L48) |
+| `owner` | `string` | No | Team or individual responsible for this infrastructure | [./variables.tf:62](./variables.tf#L62) |
+| `states` | `list` | No |  | [./variables.tf:69](./variables.tf#L69) |
+| `states_paths` | `list` | No |  | [./variables.tf:95](./variables.tf#L95) |
+| `workspace_overrides` | `bool` | No | Whether to enable workspace-specific tfvars file overrides. Set to false in tests to ensure test variables are used directly. | [./variables.tf:114](./variables.tf#L114) |
+| `aws_sso_start_url` | `string` | No | AWS SSO start URL for console link wrapping (e.g., https://d-xxxxxxxxxx.awsapps.com/start) | [./variables.tf:120](./variables.tf#L120) |
 
 ### Attributes
 
@@ -1449,11 +1467,14 @@ This module supports the following arguments:
 |----------|------|----------|-------------|-----|
 | `default_aws_profile` | `string` | No | Default AWS profile from base terraform.tfvars (null = AWS not configured) | [./workspaces/variables.tf:1](./workspaces/variables.tf#L1) |
 | `default_aws_region` | `string` | **Yes** | Default AWS region from base terraform.tfvars (used when workspace file doesn't exist or doesn't override) | [./workspaces/variables.tf:7](./workspaces/variables.tf#L7) |
-| `default_states` | `list` | **Yes** | Default state fragments list from base terraform.tfvars (used when workspace file doesn't exist or doesn't override) | [./workspaces/variables.tf:12](./workspaces/variables.tf#L12) |
-| `default_states_paths` | `list` | No | Default extra state fragment search paths from base terraform.tfvars (used when workspace file doesn't exist or doesn't override) | [./workspaces/variables.tf:17](./workspaces/variables.tf#L17) |
-| `default_owner` | `string` | **Yes** | Default owner from base terraform.tfvars (used when workspace file doesn't exist or doesn't override) | [./workspaces/variables.tf:23](./workspaces/variables.tf#L23) |
-| `workspace_file_path` | `string` | No | Override the workspace file to parse (default: terraform.tfvars.<workspace> in the root). Used by tests to point at fixtures. | [./workspaces/variables.tf:28](./workspaces/variables.tf#L28) |
-| `enabled` | `bool` | No | Whether to resolve workspace-specific overrides from tfvars files. When false, always returns defaults (useful for tests). | [./workspaces/variables.tf:34](./workspaces/variables.tf#L34) |
+| `default_oci_profile` | `string` | No | Default OCI profile from base terraform.tfvars (null = OCI not used) | [./workspaces/variables.tf:12](./workspaces/variables.tf#L12) |
+| `default_oci_region` | `string` | No | Default OCI region from base terraform.tfvars (null = region from the OCI profile) | [./workspaces/variables.tf:18](./workspaces/variables.tf#L18) |
+| `default_port_enabled` | `bool` | No | Default for wiring in the Port provider, from base terraform.tfvars | [./workspaces/variables.tf:24](./workspaces/variables.tf#L24) |
+| `default_states` | `list` | **Yes** | Default state fragments list from base terraform.tfvars (used when workspace file doesn't exist or doesn't override) | [./workspaces/variables.tf:30](./workspaces/variables.tf#L30) |
+| `default_states_paths` | `list` | No | Default extra state fragment search paths from base terraform.tfvars (used when workspace file doesn't exist or doesn't override) | [./workspaces/variables.tf:35](./workspaces/variables.tf#L35) |
+| `default_owner` | `string` | **Yes** | Default owner from base terraform.tfvars (used when workspace file doesn't exist or doesn't override) | [./workspaces/variables.tf:41](./workspaces/variables.tf#L41) |
+| `workspace_file_path` | `string` | No | Override the workspace file to parse (default: terraform.tfvars.<workspace> in the root). Used by tests to point at fixtures. | [./workspaces/variables.tf:46](./workspaces/variables.tf#L46) |
+| `enabled` | `bool` | No | Whether to resolve workspace-specific overrides from tfvars files. When false, always returns defaults (useful for tests). | [./workspaces/variables.tf:52](./workspaces/variables.tf#L52) |
 
 ### Attributes
 
@@ -1463,10 +1484,13 @@ This module exports the following attributes:
 |--------|-------------|-----|
 | `aws_profile` | Resolved AWS profile for current workspace (from workspace file or default) | [./workspaces/outputs.tf:1](./workspaces/outputs.tf#L1) |
 | `aws_region` | Resolved AWS region for current workspace (from workspace file or default) | [./workspaces/outputs.tf:6](./workspaces/outputs.tf#L6) |
-| `owner` | Resolved owner for current workspace (from workspace file or default) | [./workspaces/outputs.tf:11](./workspaces/outputs.tf#L11) |
-| `states` | Resolved state fragments list for current workspace (from workspace file or default) | [./workspaces/outputs.tf:16](./workspaces/outputs.tf#L16) |
-| `states_paths` | Resolved extra state fragment search paths for current workspace, as written (from workspace file or default) | [./workspaces/outputs.tf:21](./workspaces/outputs.tf#L21) |
-| `workspace` | Current Terraform workspace name | [./workspaces/outputs.tf:26](./workspaces/outputs.tf#L26) |
-| `is_default_workspace` | Whether currently using the default workspace (true = using base terraform.tfvars only) | [./workspaces/outputs.tf:31](./workspaces/outputs.tf#L31) |
-| `workspace_file_path` | Path to workspace-specific tfvars file (may not exist) | [./workspaces/outputs.tf:36](./workspaces/outputs.tf#L36) |
-| `workspace_file_exists` | Whether workspace-specific tfvars file exists | [./workspaces/outputs.tf:41](./workspaces/outputs.tf#L41) |
+| `oci_profile` | Resolved OCI profile for current workspace (null = OCI not used) | [./workspaces/outputs.tf:11](./workspaces/outputs.tf#L11) |
+| `oci_region` | Resolved OCI region for current workspace (null = region from the OCI profile) | [./workspaces/outputs.tf:16](./workspaces/outputs.tf#L16) |
+| `optional_providers` | Optional providers this workspace declares (beyond the always-on set), e.g. [\ | [./workspaces/outputs.tf:21](./workspaces/outputs.tf#L21) |
+| `owner` | Resolved owner for current workspace (from workspace file or default) | [./workspaces/outputs.tf:26](./workspaces/outputs.tf#L26) |
+| `states` | Resolved state fragments list for current workspace (from workspace file or default) | [./workspaces/outputs.tf:31](./workspaces/outputs.tf#L31) |
+| `states_paths` | Resolved extra state fragment search paths for current workspace, as written (from workspace file or default) | [./workspaces/outputs.tf:36](./workspaces/outputs.tf#L36) |
+| `workspace` | Current Terraform workspace name | [./workspaces/outputs.tf:41](./workspaces/outputs.tf#L41) |
+| `is_default_workspace` | Whether currently using the default workspace (true = using base terraform.tfvars only) | [./workspaces/outputs.tf:46](./workspaces/outputs.tf#L46) |
+| `workspace_file_path` | Path to workspace-specific tfvars file (may not exist) | [./workspaces/outputs.tf:51](./workspaces/outputs.tf#L51) |
+| `workspace_file_exists` | Whether workspace-specific tfvars file exists | [./workspaces/outputs.tf:56](./workspaces/outputs.tf#L56) |

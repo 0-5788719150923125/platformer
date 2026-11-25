@@ -26,10 +26,6 @@ terraform {
       source  = "hashicorp/aws"
       version = "~> 6.0"
     }
-    port = {
-      source  = "port-labs/port-labs"
-      version = "~> 2.0"
-    }
   }
 }
 
@@ -75,33 +71,30 @@ locals {
   prod_provider_configured = contains(keys(var.cross_account_providers), "prod")
 }
 
-# Port.io provider for portal module
-# Credentials retrieved from AWS Secrets Manager (only in example-platform-dev account)
-# Provider is always configured (Terraform requires this), but only used when portal_enabled=true
-
-data "aws_caller_identity" "port_check" {
-  count    = local.prod_provider_configured ? 1 : 0
-  provider = aws.prod
-}
-
-data "aws_secretsmanager_secret_version" "port_credentials" {
-  count     = local.prod_provider_configured && try(data.aws_caller_identity.port_check[0].account_id, "") == "111111111111" ? 1 : 0
-  secret_id = "arn:aws:secretsmanager:us-east-2:111111111111:secret:port/prod/credentials-SzPvSL"
-  provider  = aws.prod
-}
-
+# Optional Providers
+# Providers beyond the always-on set above live in providers/<name>.tf and are
+# wired into the root per workspace by scripts/providers.sh: clouds when the
+# workspace sets <cloud>_profile (oci_profile), others when it sets
+# <name>_enabled = true (port_enabled). This guard fails the plan when the wired
+# set doesn't match what the workspace declares - e.g. after `terraform
+# workspace select` without re-running the script.
 locals {
-  # Fetch Port credentials if available (in correct account), otherwise use dummy values
-  # Portal module will only be instantiated when credentials are available
-  port_credentials = length(data.aws_secretsmanager_secret_version.port_credentials) > 0 ? jsondecode(data.aws_secretsmanager_secret_version.port_credentials[0].secret_string) : {
-    client_id     = "dummy-client-id"
-    client_secret = "dummy-client-secret"
-    org_id        = "dummy-org-id"
-  }
+  optional_providers = toset([for f in fileset("${path.root}/providers", "*_override.tf") : trimsuffix(f, "_override.tf")])
+  linked_providers   = toset([for name in local.optional_providers : name if fileexists("${path.root}/provider_${name}.tf")])
+  declared_providers = toset(module.workspaces.optional_providers)
 }
 
-provider "port" {
-  client_id = local.port_credentials.client_id
-  secret    = local.port_credentials.client_secret
-  base_url  = "https://api.us.getport.io"
+output "optional_providers" {
+  description = "Optional providers wired into this workspace"
+  value       = sort(local.linked_providers)
+
+  precondition {
+    condition     = join(",", sort(local.linked_providers)) == join(",", sort(local.declared_providers))
+    error_message = "Provider wiring is stale for workspace \"${terraform.workspace}\": it declares [${join(", ", sort(local.declared_providers))}] but [${join(", ", sort(local.linked_providers))}] is wired in. Run scripts/providers.sh."
+  }
+
+  precondition {
+    condition     = !local.portal_enabled || contains(local.linked_providers, "port")
+    error_message = "services.portal needs the Port provider: set port_enabled = true in terraform.tfvars.${terraform.workspace} and run scripts/providers.sh."
+  }
 }

@@ -8,6 +8,21 @@ output "aws_region" {
   value       = local.resolved_aws_region
 }
 
+output "oci_profile" {
+  description = "Resolved OCI profile for current workspace (null = OCI not used)"
+  value       = local.resolved_oci_profile
+}
+
+output "oci_region" {
+  description = "Resolved OCI region for current workspace (null = region from the OCI profile)"
+  value       = local.resolved_oci_region
+}
+
+output "optional_providers" {
+  description = "Optional providers this workspace declares (beyond the always-on set), e.g. [\"oci\"]"
+  value       = local.resolved_optional_providers
+}
+
 output "owner" {
   description = "Resolved owner for current workspace (from workspace file or default)"
   value       = local.resolved_owner

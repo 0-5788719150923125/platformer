@@ -1,0 +1,33 @@
+# Oracle Cloud free tier hosts (workspace: oci)
+#
+# docker-1 and docker-2 (VM.Standard.E2.1.Micro, the free tier's two AMD
+# micros) were created by hand in 2022. They are adopted: `adopt` imports the
+# running instances instead of creating new ones, and the plan shows them as
+# "will be imported". The adapter (compute/oci/) refuses to destroy instances.
+#
+# docker-3 (VM.Standard.A1.Flex, the free tier's entire Arm allowance) is NOT
+# managed here and must never be touched. It shares this subnet, which is why
+# the network is referenced by OCID instead of managed.
+#
+# SSM registration and patching for these hosts still come from the
+# management workspace (hybrid activations, PatchGroup tag).
+matrix:
+  tenants:
+    src:
+      entitlements: [compute.*]
+
+services:
+  compute:
+    docker:
+      type: instance
+      cloud: oci
+      count: 2
+      description: "Free tier Docker hosts (adopted docker-1, docker-2)"
+      adopt:
+        - ocid1.instance.oc1.iad.anuwcljt7s4utnqchcm5b3kt7mbhisvd4x3jxpgyaxxtydavbnbwmcf5y3ta # docker-1
+        - ocid1.instance.oc1.iad.anuwcljt7s4utnqcvnrmaxec3jplxa3b2ct3x3m5ezivpgyzqpjgxhjgeafq # docker-2
+      oci:
+        shape: VM.Standard.E2.1.Micro
+        image_id: ocid1.image.oc1.iad.aaaaaaaa3n4z7lmk3mhsvbrxqgziewkoawkpyuttqoapmhscmnlnb2ggdaca # Canonical-Ubuntu-22.04-Minimal-2022.05.15-0
+        subnet_id: ocid1.subnet.oc1.iad.aaaaaaaa5ttpsy2wf5wbatpsuzknpcufsqkipqiyczmfdumpjd5dpqicepva # subnet-20220306-1752 (shared with docker-3)
+        availability_domain: "pdyy:US-ASHBURN-AD-1"

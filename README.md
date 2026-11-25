@@ -51,6 +51,7 @@ platformer/
 ├── portal/                     # Service module
 ├── preflight/                  # Service module
 ├── present/                    # Documentation
+├── providers/                  # Documentation
 ├── resolver/                   # Service module
 ├── scripts/                    # Documentation
 ├── secrets/                    # Service module
@@ -69,11 +70,8 @@ The following tools must be available in `PATH` for full functionality:
 
 | Tool | Type | Modules |
 |------|------|---------|
-| `aws` | discrete | compute |
 | `docker` | discrete | portal |
 | `docker compose` or `docker-compose` | any | portal |
-| `helm` | discrete | compute |
-| `kubectl` | discrete | compute |
 
 ## Available Services
 
