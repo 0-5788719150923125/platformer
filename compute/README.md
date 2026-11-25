@@ -18,7 +18,7 @@ Rather than separate modules for each compute type, this module provides a unifi
 
 This directory is the generic layer; each cloud's implementation is an adapter in a subdirectory with its own tests:
 
-- `aws/` - AWS, the reference implementation (`ec2`, `eks`, `ecs`). Always on, called from `main.tf`. Until its settings move under an `aws:` key it takes exactly the same inputs as compute (`aws/variables.tf` links to `variables.tf`).
+- `aws/` - AWS, the reference implementation (`ec2`, `eks`, `ecs`, and `type: instance` with `cloud: aws`). Wired in by `scripts/providers.sh` in workspaces that set `aws_profile` (`aws/wiring.tf.tmpl` and `aws/wiring_override.tf.tmpl`, linked as `adapter_aws*.tf`). It takes exactly the same inputs as compute (`aws/variables.tf` links to `variables.tf`).
 - `oci/` - Oracle Cloud (`type: instance`, `cloud: oci`). Wired in only in workspaces that set `oci_profile`, by `scripts/providers.sh`, which writes `adapter_oci.tf` and `adapters_override.tf` here. Instances can't be destroyed by a plan (`prevent_destroy`), and networking is referenced by subnet OCID, never managed.
 - `localhost.tf` - runs applications on the machine running Terraform.
 

@@ -1,22 +1,16 @@
-# Current region and account data sources (only when AWS is configured)
-data "aws_region" "current" {
-  count = local.aws_configured ? 1 : 0
-}
-
-data "aws_caller_identity" "current" {
-  count = local.aws_configured ? 1 : 0
-}
-
 locals {
-  # Convenience aliases — fall back to variable values when AWS is not configured
-  aws_account_id = local.aws_configured ? data.aws_caller_identity.current[0].account_id : "not-configured"
-  aws_region     = local.aws_configured ? data.aws_region.current[0].region : module.workspaces.aws_region
+  # Convenience aliases: the values without AWS. providers/aws_override.tf replaces
+  # them with the account and region AWS reports when it's wired in.
+  aws_account_id = "not-configured"
+  aws_region     = module.workspaces.aws_region
 
   # Module enable flags from resolver module
   # Resolver analyzes service configs and determines which modules to enable
   # Storage requires AWS - disabled when aws_profile is null
-  storage_enabled                  = local.aws_configured
-  compute_enabled                  = module.resolver.compute
+  storage_enabled = local.aws_configured
+  compute_enabled = module.resolver.compute
+  # Golden AMI builds run in AWS networks, so they need AWS (and compute)
+  build_enabled                    = module.resolver.compute && local.aws_configured
   configuration_management_enabled = module.resolver.configuration_management
   applications_enabled             = module.resolver.applications
   domains_enabled                  = module.resolver.domains
@@ -34,9 +28,9 @@ locals {
   # Modules like ioshare/iopacs/iorchestrator define compute classes internally and emit them
   effective_compute_config = merge(
     lookup(module.config.service_configs, "compute", {}),
-    local.ioshare_enabled ? module.ioshare[0].compute_class_requests : {},
-    local.iopacs_enabled ? module.iopacs[0].compute_class_requests : {},
-    local.iorchestrator_enabled ? module.iorchestrator[0].compute_class_requests : {},
+    local.ioshare_enabled ? local.ioshare_compute_class_requests : {},
+    local.iopacs_enabled ? local.iopacs_compute_class_requests : {},
+    local.iorchestrator_enabled ? local.iorchestrator_compute_class_requests : {},
     local.observability_enabled ? module.observability[0].compute_class_requests : {}
   )
 
@@ -197,7 +191,7 @@ locals {
   # Event bus webhook requests (dependency inversion)
   event_bus_requests = concat(
     local.configuration_management_enabled ? module.configuration_management[0].event_bus_requests : [],
-    local.arcbot_enabled ? module.arcbot[0].event_bus_requests : []
+    local.arcbot_enabled ? local.arcbot_event_bus_requests : []
   )
 
   # Shared portal namespace - non-default workspaces inherit the default workspace's namespace
@@ -254,10 +248,10 @@ module "access" {
   # Conditions must be config-derived (not length(module.X)) to avoid module-closure cycles
   access_requests = concat(
     local.compute_enabled ? module.compute[0].access_requests : [],
-    local.compute_enabled ? module.build[0].access_requests : [],
-    local.iorchestrator_enabled ? module.iorchestrator[0].access_requests : [],
-    local.arcbot_enabled ? module.arcbot[0].access_requests : [],
-    local.legacy_enabled ? module.legacy[0].access_requests : [],
+    local.build_enabled ? module.build[0].access_requests : [],
+    local.iorchestrator_enabled ? local.iorchestrator_access_requests : [],
+    local.arcbot_enabled ? local.arcbot_access_requests : [],
+    local.legacy_enabled ? local.legacy_access_requests : [],
     local.configuration_management_enabled ? module.configuration_management[0].access_requests : [],
   )
 
@@ -267,13 +261,13 @@ module "access" {
   security_groups = concat(
     local.compute_enabled ? module.compute[0].access_security_groups : [],
     local.storage_enabled ? module.storage[0].access_security_groups : [],
-    local.iopacs_enabled ? module.iopacs[0].access_security_groups : [],
-    local.iorchestrator_enabled ? module.iorchestrator[0].access_security_groups : [],
+    local.iopacs_enabled ? local.iopacs_access_security_groups : [],
+    local.iorchestrator_enabled ? local.iorchestrator_access_security_groups : [],
   )
 
   resource_policies = concat(
     local.storage_enabled ? module.storage[0].access_resource_policies : [],
-    local.arcbot_enabled ? module.arcbot[0].access_resource_policies : [],
+    local.arcbot_enabled ? local.arcbot_access_resource_policies : [],
   )
 }
 
@@ -365,22 +359,6 @@ module "tenants" {
   }
 }
 
-# Secrets Module
-# Cross-account secret replication into the deployment account
-module "secrets" {
-  count  = local.secrets_enabled ? 1 : 0
-  source = "./secrets"
-
-  providers = {
-    aws                = aws
-    aws.infrastructure = aws.infrastructure
-    aws.prod           = aws.prod
-  }
-
-  namespace      = module.namespace.id
-  aws_account_id = local.aws_account_id
-  config         = module.config.service_configs["secrets"]
-}
 
 # Domains Module
 # Route53 zone lookup + ACM wildcard certificate with DNS validation
@@ -433,28 +411,28 @@ module "storage" {
     module.archivist.bucket_requests,
     module.access.bucket_requests,
     local.configuration_management_enabled ? module.configuration_management[0].bucket_requests : [],
-    local.ioshare_enabled ? module.ioshare[0].bucket_requests : [],
-    local.ioshare_enabled ? [module.ioshare[0].ansible_bucket_request] : [],
-    local.iopacs_enabled ? module.iopacs[0].bucket_requests : [],
-    local.iorchestrator_enabled ? module.iorchestrator[0].bucket_requests : [],
+    local.ioshare_enabled ? local.ioshare_bucket_requests : [],
+    local.ioshare_enabled ? [local.ioshare_ansible_bucket_request] : [],
+    local.iopacs_enabled ? local.iopacs_bucket_requests : [],
+    local.iorchestrator_enabled ? local.iorchestrator_bucket_requests : [],
     local.observability_enabled ? module.observability[0].bucket_requests : [],
-    local.arcbot_enabled ? module.arcbot[0].bucket_requests : [],
+    local.arcbot_enabled ? local.arcbot_bucket_requests : [],
   )
 
   # Collect RDS cluster/instance request definitions from all modules (dependency inversion pattern)
   # Unified interface supports both Aurora clusters (type = "aurora") and standalone instances (type = "standalone")
   # Modules define RDS requirements; storage module creates resources based on type
   rds_cluster_requests = concat(
-    local.ioshare_enabled ? module.ioshare[0].rds_cluster_requests : [],
-    local.iopacs_enabled ? module.iopacs[0].rds_cluster_requests : [],
-    local.iorchestrator_enabled ? module.iorchestrator[0].rds_cluster_requests : []
+    local.ioshare_enabled ? local.ioshare_rds_cluster_requests : [],
+    local.iopacs_enabled ? local.iopacs_rds_cluster_requests : [],
+    local.iorchestrator_enabled ? local.iorchestrator_rds_cluster_requests : []
     # Future modules can add RDS requests here
   )
 
   # Collect ElastiCache cluster request definitions from all modules (dependency inversion pattern)
   # Modules define ElastiCache requirements; storage module creates ElastiCache resources
   elasticache_cluster_requests = concat(
-    local.ioshare_enabled ? module.ioshare[0].elasticache_cluster_requests : []
+    local.ioshare_enabled ? local.ioshare_elasticache_cluster_requests : []
     # Future modules can add ElastiCache requests here
   )
 
@@ -479,7 +457,7 @@ module "storage" {
 # Needs: storage (for application-scripts bucket), config (for class definitions)
 # Produces: built AMI IDs consumed by compute for instance launches
 module "build" {
-  count  = local.compute_enabled ? 1 : 0
+  count  = local.build_enabled ? 1 : 0
   source = "./build"
 
   namespace                  = module.namespace.id
@@ -528,7 +506,7 @@ module "compute" {
   access_instance_profile_names = module.access.instance_profile_names
 
   # Built AMIs from build module (golden AMI IDs for classes with build: true)
-  built_amis = local.compute_enabled && length(module.build) > 0 ? module.build[0].built_amis : {}
+  built_amis = local.build_enabled ? module.build[0].built_amis : {}
 
   # Standalone applications for ImageBuilder golden AMI inclusion
   # ImageBuilder matches standalone apps to build classes by targeting mode (wildcard/tags/compute)
@@ -597,6 +575,39 @@ module "observability" {
 
 }
 
+
+# One-cloud products (arcbot, iopacs, iorchestrator, ioshare, legacy, secrets)
+# live in providers/aws.tf, so they only exist where AWS is wired in. Core reads
+# them through these locals, one per output (referencing a whole module would tie
+# all its outputs together and close request round-trips into cycles);
+# providers/aws_override.tf points them at the modules.
+locals {
+  arcbot_access_requests               = null
+  arcbot_access_resource_policies      = null
+  arcbot_bucket_requests               = null
+  arcbot_commands                      = null
+  arcbot_event_bus_requests            = null
+  arcbot_service_url_entries           = null
+  iopacs_access_security_groups        = null
+  iopacs_bucket_requests               = null
+  iopacs_compute_class_requests        = null
+  iopacs_rds_cluster_requests          = null
+  iorchestrator_access_requests        = null
+  iorchestrator_access_security_groups = null
+  iorchestrator_alb_urls               = null
+  iorchestrator_bucket_requests        = null
+  iorchestrator_compute_class_requests = null
+  iorchestrator_rds_cluster_requests   = null
+  ioshare_ansible_bucket_request       = null
+  ioshare_bucket_requests              = null
+  ioshare_compute_class_requests       = null
+  ioshare_eks_deployment_tenants       = null
+  ioshare_elasticache_cluster_requests = null
+  ioshare_frontend_service_urls        = null
+  ioshare_helm_application_requests    = null
+  ioshare_rds_cluster_requests         = null
+  legacy_access_requests               = null
+}
 
 # Portal outputs read by core. The portal module only exists when the Port
 # provider is wired in (providers/port.tf, see scripts/providers.sh); these are
@@ -693,7 +704,7 @@ module "applications" {
   # Alloy requests get LOKI_ENDPOINT injected from compute's Terraform-managed NLB
   application_requests = concat(
     local.compute_enabled ? module.compute[0].application_requests : [],
-    local.ioshare_enabled ? module.ioshare[0].helm_application_requests : [],
+    local.ioshare_enabled ? local.ioshare_helm_application_requests : [],
     local.observability_enabled ? module.observability[0].helm_application_requests : [],
     local.observability_enabled ? [
       for req in module.observability[0].alloy_application_requests :
@@ -713,208 +724,4 @@ module "applications" {
   config = local.applications_config
 }
 
-# Legacy Module
-# Disposable Atlantis deployment - proof of cattle-style infrastructure
-module "legacy" {
-  count  = local.legacy_enabled ? 1 : 0
-  source = "./legacy"
 
-  # Pass cross-account provider for secrets access
-  providers = {
-    aws.prod = aws.prod
-  }
-
-  # Core variables
-  namespace      = module.namespace.id
-  aws_account_id = local.aws_account_id
-
-  # Service-specific configuration (defaults handled by module)
-  config = module.config.service_configs["legacy"]
-
-  # Access return-path (IAM resources created by access module)
-  access_iam_role_arns          = module.access.iam_role_arns
-  access_iam_role_names         = module.access.iam_role_names
-  access_instance_profile_names = module.access.instance_profile_names
-}
-
-# ClaireVoyance Module
-# Medical AI platform on SageMaker - sourced from hackathon-8 repository (improve-compat branch)
-module "clairevoyance" {
-  count  = 0 # Disabled: upstream module (hackathon-8) not bundled in this repo
-  source = "./clairevoyance"
-
-  # Core variables
-  namespace      = module.namespace.id
-  aws_account_id = local.aws_account_id
-  aws_region     = module.workspaces.aws_region
-  aws_profile    = module.workspaces.aws_profile
-
-  # Service-specific configuration (defaults handled by module)
-  config = module.config.service_configs["clairevoyance"]
-}
-
-# Ioshare Module
-# Medical imaging platform orchestration - generates infrastructure requests for storage module
-module "ioshare" {
-  count  = local.ioshare_enabled ? 1 : 0
-  source = "./ioshare"
-
-  # Core variables
-  namespace      = module.namespace.id
-  aws_account_id = local.aws_account_id
-
-  # Service-specific configuration (defaults handled by module)
-  # Each key is a named deployment containing compute + RDS + ElastiCache config
-  config = module.config.service_configs["ioshare"]
-
-  # Per-deployment tenant lists (from entitlements system)
-  # Deployment name = class name, so tenants_by_class maps deployment → tenants
-  tenants_by_deployment = {
-    for name in try(keys(module.config.service_configs["ioshare"]), []) :
-    name => try(module.tenants.tenants_by_class[name], [])
-  }
-
-  # Network module outputs (dependency inversion)
-  networks = module.networks
-
-  # Pass storage outputs back (dependency inversion return path)
-  # Storage module creates resources, then we pass endpoints back to ioshare
-  rds_clusters         = local.storage_enabled ? module.storage[0].rds_clusters : {}
-  elasticache_clusters = local.storage_enabled ? module.storage[0].elasticache_clusters : {}
-  s3_buckets           = local.storage_enabled ? module.storage[0].bucket_names : {}
-  efs_filesystems      = {} # Not implemented yet
-
-  # Pass storage security group IDs (for ioshare to create access rules)
-  storage_enabled                       = local.storage_enabled
-  storage_rds_security_group_id         = local.storage_enabled ? module.storage[0].rds_security_group_id : ""
-  storage_elasticache_security_group_id = local.storage_enabled ? module.storage[0].elasticache_security_group_id : ""
-
-  # Pass compute instance role (for attaching ECR permissions)
-  instance_role_name = local.compute_enabled ? module.compute[0].instance_role_name : ""
-
-  # Pass EKS node role for ECR permissions (if EKS is used)
-  eks_node_role_name = local.compute_enabled ? module.compute[0].eks_node_role_name : ""
-
-  # Pass kubeconfig readiness marker to ensure kubectl context exists before K8s operations
-  kubeconfig_ready = local.compute_enabled ? module.compute[0].kubeconfig_ready : {}
-
-  # Pass EKS cluster security groups for storage access rules
-  eks_cluster_security_groups = local.compute_enabled ? module.compute[0].eks_cluster_security_groups : {}
-}
-
-# IOPACS Module
-# Medical imaging PACS platform - generates infrastructure requests for compute, storage, and applications
-module "iopacs" {
-  count  = local.iopacs_enabled ? 1 : 0
-  source = "./iopacs"
-
-  # Core variables
-  namespace = module.namespace.id
-
-  # Service-specific configuration
-  # Each key is a named deployment containing compute + RDS + S3 config
-  config = module.config.service_configs["iopacs"]
-
-  # Per-deployment tenant lists (from entitlements system)
-  # Deployment name = class name, so tenants_by_class maps deployment → tenants
-  tenants_by_deployment = {
-    for name in try(keys(module.config.service_configs["iopacs"]), []) :
-    name => try(module.tenants.tenants_by_class[name], [])
-  }
-
-  # Network module outputs (dependency inversion)
-  networks = module.networks
-}
-
-# IOrchestrator Module
-# IO Cloud / SaaSApp platform - ECS Fargate services with MSSQL backend
-# Generates infrastructure requests for storage module (RDS SQL Server, S3)
-module "iorchestrator" {
-  count  = local.iorchestrator_enabled ? 1 : 0
-  source = "./iorchestrator"
-
-  # Core variables
-  namespace      = module.namespace.id
-  aws_account_id = local.aws_account_id
-  aws_region     = local.aws_region
-  aws_profile    = module.workspaces.aws_profile
-
-  # Service-specific configuration
-  # Each key is a named deployment (IO Cloud "instance") containing ECS + RDS + S3 config
-  config = module.config.service_configs["iorchestrator"]
-
-  # Per-deployment tenant lists (from entitlements system)
-  # Deployment name = class name, so tenants_by_class maps deployment → tenants
-  tenants_by_deployment = {
-    for name in try(keys(module.config.service_configs["iorchestrator"]), []) :
-    name => try(module.tenants.tenants_by_class[name], [])
-  }
-
-  # Network module outputs (dependency inversion)
-  networks = module.networks
-
-  # Pass compute outputs back (dependency inversion return path)
-  # Compute module creates ECS clusters based on requests
-  ecs_clusters = local.compute_enabled ? module.compute[0].ecs_clusters : {}
-
-  # Pass storage outputs back (dependency inversion return path)
-  # Storage module creates RDS instances and S3 buckets, then we pass endpoints back
-  rds_instances = local.storage_enabled ? module.storage[0].rds_instances : {}
-  s3_buckets    = local.storage_enabled ? module.storage[0].bucket_names : {}
-
-  # Access return-path (IAM resources created by access module)
-  access_iam_role_arns  = module.access.iam_role_arns
-  access_iam_role_names = module.access.iam_role_names
-}
-
-# arcbot Module
-# Event-driven AI automation pipeline - Jira webhook -> SQS -> Lambda -> Devin -> Jira comment
-# No dependencies on compute, storage, or networking modules
-module "arcbot" {
-  count  = local.arcbot_enabled ? 1 : 0
-  source = "./arcbot"
-
-  namespace   = module.namespace.id
-  config      = module.config.service_configs["arcbot"]
-  aws_profile = module.workspaces.aws_profile
-
-  # Secrets replicated by the secrets module (dependency inversion)
-  atlassian_secret_arn = local.secrets_enabled ? module.secrets[0].replicated_secret_arns["arcbot/atlassian_pat"] : ""
-  devin_secret_arn     = local.secrets_enabled ? module.secrets[0].replicated_secret_arns["arcbot/devin_api_key"] : ""
-
-  # Event bus webhooks from portal module (dependency inversion)
-  event_bus_webhooks = local.portal_event_bus_webhooks
-
-  # KB documents bucket from storage module (dependency inversion)
-  kb_documents_bucket_name    = local.storage_enabled && contains(keys(module.storage[0].bucket_names), "arcbot-kb-docs") ? module.storage[0].bucket_names["arcbot-kb-docs"] : ""
-  kb_documents_bucket_arn     = local.storage_enabled && contains(keys(module.storage[0].bucket_arns), "arcbot-kb-docs") ? module.storage[0].bucket_arns["arcbot-kb-docs"] : ""
-  kb_documents_bucket_trigger = local.storage_enabled && contains(keys(module.storage[0].bucket_replacement_triggers), "arcbot-kb-docs") ? module.storage[0].bucket_replacement_triggers["arcbot-kb-docs"] : ""
-
-  # Access return-path (IAM resources created by access module)
-  access_iam_role_arns  = module.access.iam_role_arns
-  access_iam_role_names = module.access.iam_role_names
-}
-# archbot -> arcbot rename: keep existing state addressed under the new module name
-# so resources whose AWS names did NOT embed "archbot" are not needlessly recreated.
-# (Resources with embedded names still replace - that rename is intentional.)
-moved {
-  from = module.archbot
-  to   = module.arcbot
-}
-
-# Legacy module renames (ported examples; normally unused, blocks are no-ops
-# when no state exists but protect any deployment that does have them):
-moved {
-  from = module.archpacs
-  to   = module.iopacs
-}
-
-moved {
-  from = module.archshare
-  to   = module.ioshare
-}
-
-moved {
-  from = module.archorchestrator
-  to   = module.iorchestrator
-}

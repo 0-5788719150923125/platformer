@@ -1,0 +1,27 @@
+# AWS adapter outputs for storage, linked in as adapter_aws_override.tf by
+# scripts/providers.sh together with wiring.tf.tmpl (see ../adapters.tf).
+
+locals {
+  aws_wired = true
+
+  aws_output_buckets                         = module.aws.buckets
+  aws_output_bucket_names                    = module.aws.bucket_names
+  aws_output_bucket_replacement_triggers     = module.aws.bucket_replacement_triggers
+  aws_output_bucket_arns                     = module.aws.bucket_arns
+  aws_output_access_logs_bucket              = module.aws.access_logs_bucket
+  aws_output_config                          = module.aws.config
+  aws_output_rds_clusters                    = module.aws.rds_clusters
+  aws_output_rds_instances                   = module.aws.rds_instances
+  aws_output_rds_instance_security_group_ids = module.aws.rds_instance_security_group_ids
+  aws_output_elasticache_clusters            = module.aws.elasticache_clusters
+  aws_output_rds_security_group_id           = module.aws.rds_security_group_id
+  aws_output_elasticache_security_group_id   = module.aws.elasticache_security_group_id
+  aws_output_repositories                    = module.aws.repositories
+  aws_output_commands                        = module.aws.commands
+  aws_output_inventory                       = module.aws.inventory
+  aws_output_access_security_groups          = module.aws.access_security_groups
+  aws_output_access_resource_policies        = module.aws.access_resource_policies
+  aws_output_volumes                         = module.aws.volumes
+  aws_output_repository_names                = module.aws.repository_names
+  aws_output_clone_urls                      = module.aws.clone_urls
+}

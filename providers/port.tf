@@ -69,7 +69,7 @@ module "portal" {
   event_bus_requests        = local.event_bus_requests
   artifact_requests = concat(
     module.archivist.artifact_requests,
-    local.compute_enabled ? module.build[0].artifact_requests : [],
+    local.build_enabled ? module.build[0].artifact_requests : [],
     module.access.artifact_requests,
   )
   storage_requests = concat(

@@ -1,0 +1,45 @@
+# AWS adapter wiring for build. Not loaded as-is (.tmpl): scripts/providers.sh links
+# it into build/ as adapter_aws.tf in workspaces that set aws_profile, together with
+# wiring_override.tf.tmpl. Elsewhere AWS is never loaded.
+
+module "aws" {
+  source = "./aws"
+
+  namespace                     = var.namespace
+  aws_profile                   = var.aws_profile
+  config                        = var.config
+  standalone_applications       = var.standalone_applications
+  vpc_id                        = var.vpc_id
+  subnet_id                     = var.subnet_id
+  application_scripts_bucket    = var.application_scripts_bucket
+  access_iam_role_names         = var.access_iam_role_names
+  access_instance_profile_names = var.access_instance_profile_names
+}
+
+# The AWS implementation moved into aws/ (2026-11-25). These blocks carry existing
+# state to the new addresses; they travel with the module call.
+
+moved {
+  from = local_file.packer_template
+  to   = module.aws.local_file.packer_template
+}
+
+moved {
+  from = null_resource.ansible_venv
+  to   = module.aws.null_resource.ansible_venv
+}
+
+moved {
+  from = null_resource.build_upload_archives
+  to   = module.aws.null_resource.build_upload_archives
+}
+
+moved {
+  from = null_resource.packer_build
+  to   = module.aws.null_resource.packer_build
+}
+
+moved {
+  from = module.preflight
+  to   = module.aws.module.preflight
+}

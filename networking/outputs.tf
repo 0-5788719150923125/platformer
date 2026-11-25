@@ -4,45 +4,45 @@
 
 output "vpc" {
   description = "VPC metadata"
-  value       = module.aws.vpc
+  value       = local.aws_output_vpc
 }
 
 output "subnets_by_tier" {
   description = "Subnets grouped by tier (private/public/intra) with all subnet IDs and CIDRs"
-  value       = module.aws.subnets_by_tier
+  value       = local.aws_output_subnets_by_tier
 }
 
 output "all_subnets" {
   description = "Complete subnet inventory with metadata"
-  value       = module.aws.all_subnets
+  value       = local.aws_output_all_subnets
 }
 
 output "nat_gateways" {
   description = "NAT Gateway Elastic IPs for egress traffic allowlisting"
-  value       = module.aws.nat_gateways
+  value       = local.aws_output_nat_gateways
 }
 
 output "internet_gateway" {
   description = "Internet Gateway metadata"
-  value       = module.aws.internet_gateway
+  value       = local.aws_output_internet_gateway
 }
 
 output "route_tables" {
   description = "Route table IDs by type"
-  value       = module.aws.route_tables
+  value       = local.aws_output_route_tables
 }
 
 output "cidr_allocation" {
   description = "CIDR allocation metadata"
-  value       = module.aws.cidr_allocation
+  value       = local.aws_output_cidr_allocation
 }
 
 output "availability_zones" {
   description = "Availability zone selection metadata"
-  value       = module.aws.availability_zones
+  value       = local.aws_output_availability_zones
 }
 
 output "network_summary" {
   description = "High-level network configuration summary"
-  value       = module.aws.network_summary
+  value       = local.aws_output_network_summary
 }

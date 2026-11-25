@@ -7,18 +7,5 @@
 #                move under an `aws:` key it takes exactly the same inputs
 #                as this module (aws/variables.tf links to ours).
 #
-# Resources that lived here before the split are moved by moved.tf.
-
-module "aws" {
-  source = "./aws"
-
-  namespace                     = var.namespace
-  aws_profile                   = var.aws_profile
-  config                        = var.config
-  standalone_applications       = var.standalone_applications
-  vpc_id                        = var.vpc_id
-  subnet_id                     = var.subnet_id
-  application_scripts_bucket    = var.application_scripts_bucket
-  access_iam_role_names         = var.access_iam_role_names
-  access_instance_profile_names = var.access_instance_profile_names
-}
+# The AWS adapter is wired in per workspace (aws/wiring.tf.tmpl, linked by
+# scripts/providers.sh when the workspace sets aws_profile); its moved blocks travel with it.

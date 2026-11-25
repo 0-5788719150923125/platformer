@@ -22,10 +22,6 @@ terraform {
       source  = "hashicorp/tls"
       version = "~> 4.0"
     }
-    aws = {
-      source  = "hashicorp/aws"
-      version = "~> 6.0"
-    }
   }
 }
 
@@ -35,57 +31,6 @@ locals {
   aws_configured = module.workspaces.aws_profile != null
 }
 
-provider "aws" {
-  region  = module.workspaces.aws_region
-  profile = module.workspaces.aws_profile
-
-  skip_credentials_validation = !local.aws_configured
-  skip_requesting_account_id  = !local.aws_configured
-
-  # Without an AWS profile (aws_profile = null) the provider still gets set up,
-  # because modules mention it even when count = 0, and it insists on finding
-  # credentials somewhere. Placeholder keys satisfy that without ever reaching
-  # AWS. The aliases below get them only when AWS isn't configured at all, so
-  # with AWS they keep falling back to the default credentials as before.
-  # Interim measure until AWS is wired in per workspace like providers/oci.tf.
-  access_key              = local.aws_configured ? null : "unconfigured"
-  secret_key              = local.aws_configured ? null : "unconfigured"
-  skip_metadata_api_check = !local.aws_configured
-
-  default_tags {
-    tags = local.aws_configured ? {
-      ManagedBy = "Terraform"
-      Project   = "Platformer"
-      Owner     = module.workspaces.owner
-    } : {}
-  }
-}
-
-provider "aws" {
-  alias                       = "prod"
-  profile                     = try(var.cross_account_providers["prod"].profile, null)
-  region                      = try(var.cross_account_providers["prod"].region, "us-east-2")
-  skip_credentials_validation = !contains(keys(var.cross_account_providers), "prod")
-  skip_requesting_account_id  = !contains(keys(var.cross_account_providers), "prod")
-  access_key                  = local.aws_configured || contains(keys(var.cross_account_providers), "prod") ? null : "unconfigured"
-  secret_key                  = local.aws_configured || contains(keys(var.cross_account_providers), "prod") ? null : "unconfigured"
-  skip_metadata_api_check     = !local.aws_configured && !contains(keys(var.cross_account_providers), "prod")
-}
-
-provider "aws" {
-  alias                       = "infrastructure"
-  profile                     = try(var.cross_account_providers["infrastructure"].profile, null)
-  region                      = try(var.cross_account_providers["infrastructure"].region, "us-east-2")
-  skip_credentials_validation = !contains(keys(var.cross_account_providers), "infrastructure")
-  skip_requesting_account_id  = !contains(keys(var.cross_account_providers), "infrastructure")
-  access_key                  = local.aws_configured || contains(keys(var.cross_account_providers), "infrastructure") ? null : "unconfigured"
-  secret_key                  = local.aws_configured || contains(keys(var.cross_account_providers), "infrastructure") ? null : "unconfigured"
-  skip_metadata_api_check     = !local.aws_configured && !contains(keys(var.cross_account_providers), "infrastructure")
-}
-
-locals {
-  prod_provider_configured = contains(keys(var.cross_account_providers), "prod")
-}
 
 # Optional Providers
 # Providers beyond the always-on set above live in providers/<name>.tf and are
@@ -98,6 +43,18 @@ locals {
   optional_providers = toset([for f in fileset("${path.root}/providers", "*_override.tf") : trimsuffix(f, "_override.tf")])
   linked_providers   = toset([for name in local.optional_providers : name if fileexists("${path.root}/provider_${name}.tf")])
   declared_providers = toset(module.workspaces.optional_providers)
+
+  # Services with no implementation beyond AWS (yet)
+  aws_only_services = [for name, enabled in {
+    arcbot                     = local.arcbot_enabled
+    iopacs                     = local.iopacs_enabled
+    iorchestrator              = local.iorchestrator_enabled
+    ioshare                    = local.ioshare_enabled
+    legacy                     = local.legacy_enabled
+    secrets                    = local.secrets_enabled
+    domains                    = local.domains_enabled
+    "configuration-management" = local.configuration_management_enabled
+  } : name if enabled]
 }
 
 output "optional_providers" {
@@ -107,6 +64,16 @@ output "optional_providers" {
   precondition {
     condition     = join(",", sort(local.linked_providers)) == join(",", sort(local.declared_providers))
     error_message = "Provider wiring is stale for workspace \"${terraform.workspace}\": it declares [${join(", ", sort(local.declared_providers))}] but [${join(", ", sort(local.linked_providers))}] is wired in. Run scripts/providers.sh."
+  }
+
+  precondition {
+    condition     = !contains(local.linked_providers, "port") || contains(local.linked_providers, "aws")
+    error_message = "Port reads its credentials through AWS (Secrets Manager): set aws_profile in terraform.tfvars.${terraform.workspace} too, and run scripts/providers.sh."
+  }
+
+  precondition {
+    condition     = contains(local.linked_providers, "aws") || length(local.aws_only_services) == 0
+    error_message = "These services only exist on AWS, which isn't wired into workspace \"${terraform.workspace}\": ${join(", ", local.aws_only_services)}. Set aws_profile in terraform.tfvars.${terraform.workspace} and run scripts/providers.sh."
   }
 
   precondition {

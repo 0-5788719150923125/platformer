@@ -146,7 +146,8 @@ Terraform's authors built a language that can describe everything at once. Almos
 | Piece | Status |
 |-------|--------|
 | Unused providers block users without those clouds | Reproduced: a fresh clone without AWS credentials cannot plan |
-| Placeholder credentials | Applied for AWS (a clone without AWS credentials can plan); verified for Oracle and Google; impossible for Azure |
+| Placeholder credentials | Used for AWS as a stopgap, then removed; verified for Oracle and Google; impossible for Azure |
+| AWS optional | Built: AWS is wired in per workspace like Oracle; a clone without AWS plans with the AWS provider absent |
 | Composition per workspace, with a guard in the root | Built: `scripts/providers.sh`, `providers/`, the `optional_providers` guard |
 | Port, a provider that logs in during setup | Built: optional like Oracle, loaded only where `port_enabled = true` |
 | Generic service with per-cloud adapter directories | Built: compute, with `compute/aws/` and `compute/oci/` |

@@ -6,7 +6,7 @@ variable "preflight_enabled" {
 }
 
 variable "aws_profile" {
-  description = "AWS profile name for authentication. Set to null to disable AWS (for local dev without credentials)."
+  description = "AWS profile name for authentication. Set it (usually in terraform.tfvars.<workspace>) to make AWS part of a workspace; null = AWS not used, and its provider is never set up. Run scripts/providers.sh after changing it."
   type        = string
   default     = null
 

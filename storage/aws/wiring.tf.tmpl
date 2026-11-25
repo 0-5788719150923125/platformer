@@ -1,6 +1,23 @@
-# The AWS implementation moved into storage/aws/ (2026-11-25). These blocks carry
-# existing state to the new addresses, so nothing is destroyed or recreated.
-# Data sources need no moves; they are simply read again.
+# AWS adapter wiring for storage. Not loaded as-is (.tmpl): scripts/providers.sh links
+# it into storage/ as adapter_aws.tf in workspaces that set aws_profile, together with
+# wiring_override.tf.tmpl. Elsewhere AWS is never loaded.
+
+module "aws" {
+  source = "./aws"
+
+  namespace                    = var.namespace
+  aws_account_id               = var.aws_account_id
+  bucket_requests              = var.bucket_requests
+  rds_cluster_requests         = var.rds_cluster_requests
+  elasticache_cluster_requests = var.elasticache_cluster_requests
+  volume_requests              = var.volume_requests
+  repository_requests          = var.repository_requests
+  aws_profile                  = var.aws_profile
+  aws_region                   = var.aws_region
+}
+
+# The AWS implementation moved into aws/ (2026-11-25). These blocks carry existing
+# state to the new addresses; they travel with the module call.
 
 moved {
   from = aws_codecommit_repository.requested

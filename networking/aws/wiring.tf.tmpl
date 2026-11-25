@@ -1,6 +1,18 @@
-# The AWS implementation moved into networking/aws/ (2026-11-25). These blocks carry
-# existing state to the new addresses, so nothing is destroyed or recreated.
-# Data sources need no moves; they are simply read again.
+# AWS adapter wiring for networking. Not loaded as-is (.tmpl): scripts/providers.sh links
+# it into networking/ as adapter_aws.tf in workspaces that set aws_profile, together with
+# wiring_override.tf.tmpl. Elsewhere AWS is never loaded.
+
+module "aws" {
+  source = "./aws"
+
+  namespace      = var.namespace
+  aws_account_id = var.aws_account_id
+  network_name   = var.network_name
+  config         = var.config
+}
+
+# The AWS implementation moved into aws/ (2026-11-25). These blocks carry existing
+# state to the new addresses; they travel with the module call.
 
 moved {
   from = aws_vpc.network

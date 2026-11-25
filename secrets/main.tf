@@ -7,7 +7,8 @@
 #                  move under an `aws:` key it takes exactly the same inputs
 #                  as this module (aws/variables.tf links to ours).
 #
-# Resources that lived here before the split are moved by moved.tf.
+# The AWS adapter is wired in per workspace (aws/wiring.tf.tmpl, linked by
+# scripts/providers.sh when the workspace sets aws_profile); its moved blocks travel with it.
 
 terraform {
   required_providers {
@@ -16,18 +17,4 @@ terraform {
       configuration_aliases = [aws.infrastructure, aws.prod]
     }
   }
-}
-
-module "aws" {
-  source = "./aws"
-
-  providers = {
-    aws                = aws
-    aws.infrastructure = aws.infrastructure
-    aws.prod           = aws.prod
-  }
-
-  namespace      = var.namespace
-  aws_account_id = var.aws_account_id
-  config         = var.config
 }

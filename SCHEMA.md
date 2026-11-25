@@ -498,7 +498,7 @@ This module exports the following attributes:
 | `access_security_groups` | Security groups with rules for the access module (AWS-native format) | [./compute/outputs.tf:131](./compute/outputs.tf#L131) |
 | `ecs_test_commands` | Commands to debug ECS clusters, services, and tasks | [./compute/outputs.tf:136](./compute/outputs.tf#L136) |
 | `adapter_instances` | Instances run by cloud adapters (type = instance), by cloud, then instance key | [./compute/outputs.tf:142](./compute/outputs.tf#L142) |
-| `adoptions` | Existing instances to adopt (import) instead of create, by cloud, then instance key => cloud resource ID | [./compute/outputs.tf:157](./compute/outputs.tf#L157) |
+| `adoptions` | Existing instances to adopt (import) instead of create, by cloud, then instance key => cloud resource ID | [./compute/outputs.tf:165](./compute/outputs.tf#L165) |
 
 ## Module: config
 
@@ -1330,7 +1330,7 @@ This module supports the following arguments:
 | Variable | Type | Required | Description | Ref |
 |----------|------|----------|-------------|-----|
 | `preflight_enabled` | `bool` | No | Validate locally required tools (helm/kubectl for EKS) before creating resources. Disable for plan-only runs (e.g. tests) on machines without the tooling. | [./variables.tf:2](./variables.tf#L2) |
-| `aws_profile` | `string` | No | AWS profile name for authentication. Set to null to disable AWS (for local dev without credentials). | [./variables.tf:8](./variables.tf#L8) |
+| `aws_profile` | `string` | No | AWS profile name for authentication. Set it (usually in terraform.tfvars.<workspace>) to make AWS part of a workspace; null = AWS not used, and its provider is never set up. Run scripts/providers.sh after changing it. | [./variables.tf:8](./variables.tf#L8) |
 | `aws_region` | `string` | No | AWS region where resources will be created | [./variables.tf:19](./variables.tf#L19) |
 | `oci_profile` | `string` | No | OCI CLI config profile (~/.oci/config). Set it in terraform.tfvars.<workspace> to make Oracle Cloud part of that workspace; null (default) = OCI not used, its provider is never set up. Run scripts/providers.sh after changing it. | [./variables.tf:30](./variables.tf#L30) |
 | `oci_region` | `string` | No | OCI region for workspaces that use Oracle Cloud (e.g. us-ashburn-1). Null = the region in the OCI profile. | [./variables.tf:36](./variables.tf#L36) |

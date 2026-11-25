@@ -1,0 +1,25 @@
+# AWS adapter outputs for configuration-management, linked in as adapter_aws_override.tf by
+# scripts/providers.sh together with wiring.tf.tmpl (see ../adapters.tf).
+
+locals {
+  aws_wired = true
+
+  aws_output_documents                  = module.aws.documents
+  aws_output_application_associations   = module.aws.application_associations
+  aws_output_ansible_controller         = module.aws.ansible_controller
+  aws_output_ansible_playbooks_uploaded = module.aws.ansible_playbooks_uploaded
+  aws_output_config                     = module.aws.config
+  aws_output_trigger_execution          = module.aws.trigger_execution
+  aws_output_check_execution_status     = module.aws.check_execution_status
+  aws_output_instance_parameters        = module.aws.instance_parameters
+  aws_output_bucket_requests            = module.aws.bucket_requests
+  aws_output_patch_management_enabled   = module.aws.patch_management_enabled
+  aws_output_patch_management_summary   = module.aws.patch_management_summary
+  aws_output_patch_management_by_class  = module.aws.patch_management_by_class
+  aws_output_baselines                  = module.aws.baselines
+  aws_output_patch_groups_by_class      = module.aws.patch_groups_by_class
+  aws_output_commands                   = module.aws.commands
+  aws_output_docker_test_commands       = module.aws.docker_test_commands
+  aws_output_access_requests            = module.aws.access_requests
+  aws_output_event_bus_requests         = module.aws.event_bus_requests
+}

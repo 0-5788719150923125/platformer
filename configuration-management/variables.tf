@@ -34,7 +34,7 @@ variable "aws_account_id" {
   type        = string
 
   validation {
-    condition     = can(regex("^[0-9]{12}$", var.aws_account_id))
+    condition     = var.aws_account_id == "not-configured" || can(regex("^[0-9]{12}$", var.aws_account_id)) # "not-configured": the workspace doesn't use AWS
     error_message = "AWS account ID must be a 12-digit number"
   }
 }
