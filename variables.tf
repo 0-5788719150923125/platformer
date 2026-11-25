@@ -6,7 +6,7 @@ variable "preflight_enabled" {
 }
 
 variable "aws_profile" {
-  description = "AWS profile name for authentication. Set it (usually in terraform.tfvars.<workspace>) to make AWS part of a workspace; null = AWS not used, and its provider is never set up. Run scripts/providers.sh after changing it."
+  description = "AWS profile name for authentication. Set it (usually in terraform.tfvars.<workspace>) to enable AWS in a workspace; null = AWS not used, and its lazy provider is never set up."
   type        = string
   default     = null
 
@@ -28,7 +28,7 @@ variable "aws_region" {
 }
 
 variable "oci_profile" {
-  description = "OCI CLI config profile (~/.oci/config). Set it in terraform.tfvars.<workspace> to make Oracle Cloud part of that workspace; null (default) = OCI not used, its provider is never set up. Run scripts/providers.sh after changing it."
+  description = "OCI CLI config profile (~/.oci/config). Set it in terraform.tfvars.<workspace> to enable Oracle Cloud there; null (default) = OCI not used, its lazy provider is never set up."
   type        = string
   default     = null
 }
@@ -40,7 +40,7 @@ variable "oci_region" {
 }
 
 variable "port_enabled" {
-  description = "Wire in the Port.io provider and the portal module (providers/port.tf). Set it in terraform.tfvars.<workspace>; false (default) = Port is never loaded. Run scripts/providers.sh after changing it."
+  description = "Enable the Port.io provider (portal backend) in a workspace. Set it in terraform.tfvars.<workspace>; false (default) = Port is never set up."
   type        = bool
   default     = false
 }

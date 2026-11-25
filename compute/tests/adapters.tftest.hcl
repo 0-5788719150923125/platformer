@@ -1,11 +1,17 @@
 # Generic adapter layer (compute/adapters.tf): routing generic instance classes
 # to clouds, adoption, and the checks that keep both from failing silently.
 #
-# Runs against the committed configuration, with no optional providers wired
-# in (scripts/providers.sh in a workspace without them, e.g. default). The
-# adapters themselves are tested in compute/aws/tests and compute/oci/tests.
+# The adapters themselves are tested in compute/aws/tests and compute/oci/tests.
 
 mock_provider "aws" {}
+
+mock_provider "oci" {
+  mock_data "oci_core_subnet" {
+    defaults = {
+      compartment_id = "ocid1.compartment.oc1..subnet-compartment"
+    }
+  }
+}
 
 variables {
   namespace         = "test-namespace"
@@ -21,12 +27,12 @@ run "no_instance_classes" {
   }
 
   assert {
-    condition     = length(output.adapter_instances) == 0 && length(output.adoptions) == 0
+    condition     = alltrue([for cloud, instances in output.adapter_instances : length(instances) == 0]) && length(output.adoptions) == 0
     error_message = "Without generic instance classes there is nothing to route or adopt"
   }
 }
 
-run "instance_class_without_its_adapter_fails" {
+run "oci_instance_class_routes_to_the_oci_adapter" {
   command = plan
 
   variables {
@@ -35,6 +41,8 @@ run "instance_class_without_its_adapter_fails" {
       docker = {
         type  = "instance"
         cloud = "oci"
+        count = 2
+        adopt = ["ocid1.instance.oc1..first"]
         oci = {
           shape               = "VM.Standard.E2.1.Micro"
           image_id            = "ocid1.image.oc1..ubuntu"
@@ -45,9 +53,14 @@ run "instance_class_without_its_adapter_fails" {
     }
   }
 
-  # The oci adapter isn't wired in, so the plan must stop instead of quietly
-  # dropping the class.
-  expect_failures = [output.adapter_instances]
+  assert {
+    condition     = toset(keys(output.adapter_instances["oci"])) == toset(["src-docker-0", "src-docker-1"])
+    error_message = "OCI instance classes should reach the OCI adapter, keyed like EC2"
+  }
+  assert {
+    condition     = output.adoptions["oci"] == { "src-docker-0" = "ocid1.instance.oc1..first" }
+    error_message = "adopt maps list indexes to instance keys; unlisted instances are created"
+  }
 }
 
 run "adoption_without_a_tenant_fails" {
@@ -114,7 +127,7 @@ run "aws_instance_class_runs_on_the_ec2_path" {
     error_message = "Settings under aws: should reach the instance"
   }
   assert {
-    condition     = length(output.adapter_instances) == 0 && length(output.adoptions) == 0
+    condition     = alltrue([for cloud, instances in output.adapter_instances : length(instances) == 0]) && length(output.adoptions) == 0
     error_message = "AWS instances run on the EC2 path, not through the cloud adapters"
   }
 }

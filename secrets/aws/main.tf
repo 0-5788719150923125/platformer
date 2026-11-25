@@ -31,7 +31,7 @@
 terraform {
   required_providers {
     aws = {
-      source                = "hashicorp/aws"
+      source                = "platformer/aws"
       configuration_aliases = [aws.infrastructure, aws.prod]
     }
   }

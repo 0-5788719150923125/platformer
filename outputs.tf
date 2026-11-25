@@ -6,7 +6,7 @@ locals {
     local.configuration_management_enabled ? module.configuration_management[0].commands : [],
     local.compute_enabled ? module.compute[0].commands : [],
     local.compute_enabled && length(module.build) > 0 ? module.build[0].commands : [],
-    local.arcbot_enabled ? local.arcbot_commands : [],
+    local.arcbot_enabled ? module.arcbot[0].commands : [],
     local.storage_enabled ? module.storage[0].commands : [],
   )
 
@@ -27,7 +27,7 @@ locals {
   service_urls = merge(
     # IOrchestrator ALB URLs (deployment-wide, multi-tenant)
     local.iorchestrator_enabled ? {
-      for deploy_name, alb_url in local.iorchestrator_alb_urls :
+      for deploy_name, alb_url in module.iorchestrator[0].alb_urls :
       "iorchestrator-${deploy_name}" => {
         url        = alb_url
         service    = "IOrchestrator"
@@ -118,18 +118,18 @@ locals {
 
     # arcbot webhook URLs (one per atlassian bot)
     local.arcbot_enabled ? {
-      for entry in local.arcbot_service_url_entries :
+      for entry in module.arcbot[0].service_url_entries :
       entry.deployment => entry
     } : {},
 
     # Ioshare URLs (per deployment-tenant, queried from Kubernetes)
     local.ioshare_enabled && local.compute_enabled ? {
-      for key, dc in local.ioshare_eks_deployment_tenants :
+      for key, dc in module.ioshare[0].eks_deployment_tenants :
       "ioshare-${key}" => {
         url = (
-          local.ioshare_frontend_service_urls[key] != null &&
-          local.ioshare_frontend_service_urls[key] != ""
-          ? "http://${local.ioshare_frontend_service_urls[key]}"
+          module.ioshare[0].frontend_service_urls[key] != null &&
+          module.ioshare[0].frontend_service_urls[key] != ""
+          ? "http://${module.ioshare[0].frontend_service_urls[key]}"
           : null
         )
         service    = "Ioshare"

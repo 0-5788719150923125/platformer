@@ -50,8 +50,8 @@ locals {
 
   # Parse optional providers. A workspace uses a cloud beyond AWS when it names
   # that cloud's profile (oci_profile), and other optional providers when it
-  # enables them (port_enabled = true). scripts/providers.sh reads the same keys
-  # to decide what to wire in, and the root guard checks the two agree.
+  # enables them (port_enabled = true). each provider's `enabled` setting comes
+  # from this list (providers.tf).
   # Commented-out lines don't count (same stripping as `states` below).
   oci_profile_raw       = try(regex("oci_profile\\s*=\\s*\"([^\"]+)\"", local.workspace_file_no_comments)[0], null)
   resolved_oci_profile  = local.oci_profile_raw != null ? local.oci_profile_raw : var.default_oci_profile

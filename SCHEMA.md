@@ -498,7 +498,7 @@ This module exports the following attributes:
 | `access_security_groups` | Security groups with rules for the access module (AWS-native format) | [./compute/outputs.tf:131](./compute/outputs.tf#L131) |
 | `ecs_test_commands` | Commands to debug ECS clusters, services, and tasks | [./compute/outputs.tf:136](./compute/outputs.tf#L136) |
 | `adapter_instances` | Instances run by cloud adapters (type = instance), by cloud, then instance key | [./compute/outputs.tf:142](./compute/outputs.tf#L142) |
-| `adoptions` | Existing instances to adopt (import) instead of create, by cloud, then instance key => cloud resource ID | [./compute/outputs.tf:165](./compute/outputs.tf#L165) |
+| `adoptions` | Existing instances to adopt (import) instead of create, by cloud, then instance key => cloud resource ID | [./compute/outputs.tf:158](./compute/outputs.tf#L158) |
 
 ## Module: config
 
@@ -1330,11 +1330,11 @@ This module supports the following arguments:
 | Variable | Type | Required | Description | Ref |
 |----------|------|----------|-------------|-----|
 | `preflight_enabled` | `bool` | No | Validate locally required tools (helm/kubectl for EKS) before creating resources. Disable for plan-only runs (e.g. tests) on machines without the tooling. | [./variables.tf:2](./variables.tf#L2) |
-| `aws_profile` | `string` | No | AWS profile name for authentication. Set it (usually in terraform.tfvars.<workspace>) to make AWS part of a workspace; null = AWS not used, and its provider is never set up. Run scripts/providers.sh after changing it. | [./variables.tf:8](./variables.tf#L8) |
+| `aws_profile` | `string` | No | AWS profile name for authentication. Set it (usually in terraform.tfvars.<workspace>) to enable AWS in a workspace; null = AWS not used, and its lazy provider is never set up. | [./variables.tf:8](./variables.tf#L8) |
 | `aws_region` | `string` | No | AWS region where resources will be created | [./variables.tf:19](./variables.tf#L19) |
-| `oci_profile` | `string` | No | OCI CLI config profile (~/.oci/config). Set it in terraform.tfvars.<workspace> to make Oracle Cloud part of that workspace; null (default) = OCI not used, its provider is never set up. Run scripts/providers.sh after changing it. | [./variables.tf:30](./variables.tf#L30) |
+| `oci_profile` | `string` | No | OCI CLI config profile (~/.oci/config). Set it in terraform.tfvars.<workspace> to enable Oracle Cloud there; null (default) = OCI not used, its lazy provider is never set up. | [./variables.tf:30](./variables.tf#L30) |
 | `oci_region` | `string` | No | OCI region for workspaces that use Oracle Cloud (e.g. us-ashburn-1). Null = the region in the OCI profile. | [./variables.tf:36](./variables.tf#L36) |
-| `port_enabled` | `bool` | No | Wire in the Port.io provider and the portal module (providers/port.tf). Set it in terraform.tfvars.<workspace>; false (default) = Port is never loaded. Run scripts/providers.sh after changing it. | [./variables.tf:42](./variables.tf#L42) |
+| `port_enabled` | `bool` | No | Enable the Port.io provider (portal backend) in a workspace. Set it in terraform.tfvars.<workspace>; false (default) = Port is never set up. | [./variables.tf:42](./variables.tf#L42) |
 | `cross_account_providers` | `map(object)` | No | Cross-account AWS provider configurations. Keys: 'prod', 'infrastructure'. | [./variables.tf:48](./variables.tf#L48) |
 | `owner` | `string` | No | Team or individual responsible for this infrastructure | [./variables.tf:62](./variables.tf#L62) |
 | `states` | `list` | No |  | [./variables.tf:69](./variables.tf#L69) |

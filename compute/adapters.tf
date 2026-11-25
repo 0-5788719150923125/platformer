@@ -8,14 +8,21 @@
 #        context - values every adapter may need (namespace, ...)
 #   out: instances - map of instance key => { id, display_name, public_ip, ... }
 #
-# This file is generic: it routes instances to clouds and merges results, and
-# never names a cloud. Adapters are wired in per workspace by scripts/providers.sh,
-# which writes adapter_<cloud>.tf (the module call) and adapters_override.tf
-# (replacing `adapters` below). The committed default wires no adapters, so a
-# workspace that doesn't use a cloud never loads that cloud's provider.
+# The routing below is generic and never names a cloud. Each adapter is called
+# here and listed in `adapters`. A workspace that doesn't use a cloud still
+# loads its adapter, but the cloud's lazy provider (lazyprovider/) is disabled
+# there and never sets itself up, so no credentials are needed.
+
+module "oci" {
+  source  = "./oci"
+  config  = lookup(local.adapter_config, "oci", {})
+  context = local.adapter_context
+}
 
 locals {
-  adapters = {}
+  adapters = {
+    oci = module.oci
+  }
 }
 
 locals {
@@ -69,42 +76,4 @@ locals {
     for class_name, class_config in var.config : class_name
     if class_config.type == "instance" && class_config.cloud != "aws" && length(class_config.adopt) > 0 && length(lookup(var.tenants_by_class, class_name, [])) != 1
   ]
-}
-
-# The AWS adapter's outputs, one local each. These are the values when the
-# workspace doesn't use AWS; aws/wiring_override.tf.tmpl (linked in as
-# adapter_aws_override.tf by scripts/providers.sh) points each at module.aws.
-# One local per output keeps dependencies per output: referencing the module as
-# a whole would tie every output to every other and close request round-trips
-# (e.g. archivist -> storage -> archivist) into cycles.
-locals {
-  aws_wired = false
-
-  aws_output_instances                    = {}
-  aws_output_instance_keys                = []
-  aws_output_service_instance_keys        = []
-  aws_output_config                       = {}
-  aws_output_instances_by_tenant          = {}
-  aws_output_instances_by_class           = {}
-  aws_output_eks_clusters                 = {}
-  aws_output_eks_cluster_security_groups  = {}
-  aws_output_eks_node_groups              = {}
-  aws_output_eks_test_commands            = {}
-  aws_output_application_requests         = []
-  aws_output_cluster_application_requests = []
-  aws_output_instance_role_arn            = ""
-  aws_output_instance_role_name           = ""
-  aws_output_eks_node_role_name           = 0
-  aws_output_alb_dns_names                = {}
-  aws_output_http_dns_names               = {}
-  aws_output_alias_fqdn_by_class          = {}
-  aws_output_lb_dns_names                 = {}
-  aws_output_helm_releases                = {}
-  aws_output_commands                     = []
-  aws_output_kubeconfig_ready             = {}
-  aws_output_ecs_clusters                 = {}
-  aws_output_volume_requests              = []
-  aws_output_access_requests              = []
-  aws_output_access_security_groups       = []
-  aws_output_ecs_test_commands            = {}
 }

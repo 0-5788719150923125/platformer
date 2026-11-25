@@ -8,7 +8,3 @@ __pycache__
 !terraform.tfvars.example
 .env
 
-# Generated per workspace by scripts/providers.sh
-/provider_*.tf
-/*/adapter_*.tf
-/*/adapters_override.tf

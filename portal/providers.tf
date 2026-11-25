@@ -1,8 +1,10 @@
 terraform {
   required_providers {
+    aws = {
+      source = "platformer/aws"
+    }
     port = {
-      source  = "port-labs/port-labs"
-      version = "~> 2.0"
+      source = "platformer/port"
     }
   }
 }

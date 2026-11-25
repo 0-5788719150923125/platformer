@@ -48,7 +48,7 @@ variable "config" {
     type = string # REQUIRED: "ec2", "eks", "ecs", "localhost", or "instance" - determines compute implementation
 
     # Generic instances (type = "instance"). `cloud` names the adapter that runs them
-    # (compute/<cloud>/, wired in per workspace by scripts/providers.sh). Settings only one
+    # (compute/<cloud>/, called from adapters.tf). Settings only one
     # cloud understands live under that cloud's name, e.g. `oci`.
     cloud = optional(string)           # Cloud adapter, e.g. "oci"
     adopt = optional(list(string), []) # Existing instance IDs to adopt (import) instead of creating, by index. Single-tenant classes only.

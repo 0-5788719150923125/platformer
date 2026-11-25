@@ -2,6 +2,23 @@ terraform {
   required_version = "~> 1.8"
 
   required_providers {
+    # Clouds go through platformer/<cloud>: lazy proxies in front of the real
+    # providers (lazyprovider/, built by scripts/build-providers.sh). A provider
+    # block with enabled = false is never set up, so a workspace doesn't need
+    # credentials for clouds it doesn't use. The real providers are declared in
+    # upstreams/.
+    aws = {
+      source  = "platformer/aws"
+      version = "~> 0.1"
+    }
+    oci = {
+      source  = "platformer/oci"
+      version = "~> 0.1"
+    }
+    port = {
+      source  = "platformer/port"
+      version = "~> 0.1"
+    }
     random = {
       source  = "hashicorp/random"
       version = "~> 3.6"
@@ -32,17 +49,13 @@ locals {
 }
 
 
-# Optional Providers
-# Providers beyond the always-on set above live in providers/<name>.tf and are
-# wired into the root per workspace by scripts/providers.sh: clouds when the
-# workspace sets <cloud>_profile (oci_profile), others when it sets
-# <name>_enabled = true (port_enabled). This guard fails the plan when the wired
-# set doesn't match what the workspace declares - e.g. after `terraform
-# workspace select` without re-running the script.
+# Providers a workspace enables: AWS with aws_profile, OCI with oci_profile,
+# Port with port_enabled = true (terraform.tfvars.<workspace>). Each one's
+# provider block sets `enabled` from this, inside the graph.
 locals {
-  optional_providers = toset([for f in fileset("${path.root}/providers", "*_override.tf") : trimsuffix(f, "_override.tf")])
-  linked_providers   = toset([for name in local.optional_providers : name if fileexists("${path.root}/provider_${name}.tf")])
-  declared_providers = toset(module.workspaces.optional_providers)
+  enabled_providers = toset(module.workspaces.optional_providers)
+  oci_enabled       = contains(local.enabled_providers, "oci")
+  port_enabled      = contains(local.enabled_providers, "port")
 
   # Services with no implementation beyond AWS (yet)
   aws_only_services = [for name, enabled in {
@@ -57,27 +70,102 @@ locals {
   } : name if enabled]
 }
 
-output "optional_providers" {
-  description = "Optional providers wired into this workspace"
-  value       = sort(local.linked_providers)
+output "enabled_providers" {
+  description = "Lazy providers enabled in this workspace (the rest are never set up)"
+  value       = sort(local.enabled_providers)
 
   precondition {
-    condition     = join(",", sort(local.linked_providers)) == join(",", sort(local.declared_providers))
-    error_message = "Provider wiring is stale for workspace \"${terraform.workspace}\": it declares [${join(", ", sort(local.declared_providers))}] but [${join(", ", sort(local.linked_providers))}] is wired in. Run scripts/providers.sh."
+    condition     = local.aws_configured || length(local.aws_only_services) == 0
+    error_message = "These services only exist on AWS, which workspace \"${terraform.workspace}\" doesn't enable: ${join(", ", local.aws_only_services)}. Set aws_profile in terraform.tfvars.${terraform.workspace}."
   }
 
   precondition {
-    condition     = !contains(local.linked_providers, "port") || contains(local.linked_providers, "aws")
-    error_message = "Port reads its credentials through AWS (Secrets Manager): set aws_profile in terraform.tfvars.${terraform.workspace} too, and run scripts/providers.sh."
+    condition     = !local.port_enabled || local.aws_configured
+    error_message = "Port reads its credentials through AWS (Secrets Manager): set aws_profile in terraform.tfvars.${terraform.workspace} too."
   }
 
   precondition {
-    condition     = contains(local.linked_providers, "aws") || length(local.aws_only_services) == 0
-    error_message = "These services only exist on AWS, which isn't wired into workspace \"${terraform.workspace}\": ${join(", ", local.aws_only_services)}. Set aws_profile in terraform.tfvars.${terraform.workspace} and run scripts/providers.sh."
+    condition     = !local.portal_enabled || local.port_enabled
+    error_message = "services.portal needs Port: set port_enabled = true in terraform.tfvars.${terraform.workspace}."
   }
+}
 
-  precondition {
-    condition     = !local.portal_enabled || contains(local.linked_providers, "port")
-    error_message = "services.portal needs the Port provider: set port_enabled = true in terraform.tfvars.${terraform.workspace} and run scripts/providers.sh."
+# AWS
+
+provider "aws" {
+  enabled = local.aws_configured # lazyprovider: AWS is never set up where this is false
+  region  = module.workspaces.aws_region
+  profile = module.workspaces.aws_profile
+
+
+  default_tags {
+    tags = local.aws_configured ? {
+      ManagedBy = "Terraform"
+      Project   = "Platformer"
+      Owner     = module.workspaces.owner
+    } : {}
   }
+}
+
+provider "aws" {
+  alias                       = "prod"
+  enabled                     = local.aws_configured || contains(keys(var.cross_account_providers), "prod")
+  profile                     = try(var.cross_account_providers["prod"].profile, null)
+  region                      = try(var.cross_account_providers["prod"].region, "us-east-2")
+  skip_credentials_validation = !contains(keys(var.cross_account_providers), "prod")
+  skip_requesting_account_id  = !contains(keys(var.cross_account_providers), "prod")
+}
+
+provider "aws" {
+  alias                       = "infrastructure"
+  enabled                     = local.aws_configured || contains(keys(var.cross_account_providers), "infrastructure")
+  profile                     = try(var.cross_account_providers["infrastructure"].profile, null)
+  region                      = try(var.cross_account_providers["infrastructure"].region, "us-east-2")
+  skip_credentials_validation = !contains(keys(var.cross_account_providers), "infrastructure")
+  skip_requesting_account_id  = !contains(keys(var.cross_account_providers), "infrastructure")
+}
+
+locals {
+  prod_provider_configured = contains(keys(var.cross_account_providers), "prod")
+}
+
+# Oracle Cloud (OCI)
+
+provider "oci" {
+  enabled             = local.oci_enabled
+  config_file_profile = module.workspaces.oci_profile
+  region              = module.workspaces.oci_region
+}
+
+# Port.io (portal backend; access is currently gone, kept for anyone who has it)
+
+# Credentials
+# Credentials retrieved from AWS Secrets Manager (only in example-platform-dev account)
+
+data "aws_caller_identity" "port_check" {
+  count    = local.prod_provider_configured ? 1 : 0
+  provider = aws.prod
+}
+
+data "aws_secretsmanager_secret_version" "port_credentials" {
+  count     = local.prod_provider_configured && try(data.aws_caller_identity.port_check[0].account_id, "") == "111111111111" ? 1 : 0
+  secret_id = "arn:aws:secretsmanager:us-east-2:111111111111:secret:port/prod/credentials-SzPvSL"
+  provider  = aws.prod
+}
+
+locals {
+  # Fetch Port credentials if available (in correct account), otherwise use dummy values
+  # Portal module will only be instantiated when credentials are available
+  port_credentials = length(data.aws_secretsmanager_secret_version.port_credentials) > 0 ? jsondecode(data.aws_secretsmanager_secret_version.port_credentials[0].secret_string) : {
+    client_id     = "dummy-client-id"
+    client_secret = "dummy-client-secret"
+    org_id        = "dummy-org-id"
+  }
+}
+
+provider "port" {
+  enabled   = local.port_enabled
+  client_id = local.port_credentials.client_id
+  secret    = local.port_credentials.client_secret
+  base_url  = "https://api.us.getport.io"
 }

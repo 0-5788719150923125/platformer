@@ -18,11 +18,11 @@ Rather than separate modules for each compute type, this module provides a unifi
 
 This directory is the generic layer; each cloud's implementation is an adapter in a subdirectory with its own tests:
 
-- `aws/` - AWS, the reference implementation (`ec2`, `eks`, `ecs`, and `type: instance` with `cloud: aws`). Wired in by `scripts/providers.sh` in workspaces that set `aws_profile` (`aws/wiring.tf.tmpl` and `aws/wiring_override.tf.tmpl`, linked as `adapter_aws*.tf`). It takes exactly the same inputs as compute (`aws/variables.tf` links to `variables.tf`).
-- `oci/` - Oracle Cloud (`type: instance`, `cloud: oci`). Wired in only in workspaces that set `oci_profile`, by `scripts/providers.sh`, which writes `adapter_oci.tf` and `adapters_override.tf` here. Instances can't be destroyed by a plan (`prevent_destroy`), and networking is referenced by subnet OCID, never managed.
+- `aws/` - AWS, the reference implementation (`ec2`, `eks`, `ecs`, and `type: instance` with `cloud: aws`). It takes exactly the same inputs as compute (`aws/variables.tf` links to `variables.tf`).
+- `oci/` - Oracle Cloud (`type: instance`, `cloud: oci`). Instances can't be destroyed by a plan (`prevent_destroy`), and networking is referenced by subnet OCID, never managed.
 - `localhost.tf` - runs applications on the machine running Terraform.
 
-`adapters.tf` routes generic instance classes to their cloud and merges the results (`adapter_instances`, `adoptions`). The plan fails if a class uses a cloud whose adapter isn't wired in, or if a class with `adopt` isn't entitled to exactly one tenant. Tests in `compute/tests` assume no optional providers are wired in. See `next/fully-connected.md` for the design.
+`adapters.tf` routes generic instance classes to their cloud and merges the results (`adapter_instances`, `adoptions`). The plan fails if a class uses a cloud whose adapter isn't wired in, or if a class with `adopt` isn't entitled to exactly one tenant. Every adapter is always part of the configuration; its cloud's lazy provider (`lazyprovider/`) is only set up in workspaces that enable that cloud. See `next/fully-connected.md` for the design.
 
 ## Tenant Expansion
 

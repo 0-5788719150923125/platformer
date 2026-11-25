@@ -46,17 +46,21 @@ The second door was the most tempting: break the graph. Run each cloud as its ow
 
 This door is also how most of the industry became sparse in the first place, usually without meaning to. A team hits a provider problem: a second account, a second region, a provider that can't be switched off. They search for help, and the help they find is tooling that runs Terraform many times instead of once. Atlantis is the best known. It watches pull requests, finds every directory a change touches, and runs a separate plan and apply for each one. Teams split their estate into more and smaller roots to fit it, and the result gets written up as best practice. But each of those plans is computed alone. When one root's outputs feed another, the second plan is drawn against the first root's old state, before the change that will alter it has been applied. No single plan shows the whole consequence of a change, and that is the guarantee Terraform's plan was built to give. And because Atlantis applies from the pull request before it merges, the main branch only describes what's running if every apply succeeded and every pull request was merged afterward. The tool works, but it works in the gaps between graphs, gaps the fragmentation created. Platformer still carries a module called `legacy` that deploys Atlantis as disposable cattle, a reminder of the fragmented world it grew out of.
 
-The third door was to change engines. OpenTofu, the community fork of Terraform, already allows `for_each` on providers, and in a scratch test it did exactly what we needed: an unused cloud got no provider at all. People reasonably ask why we don't just switch. The answer is built into what Platformer is for. This project exists to test whether Terraform can hold an entire estate, across clouds, in one connected graph. Changing engines the moment Terraform made that hard would mean abandoning the experiment instead of running it. There's a second reason, too. Terraform was designed by people who spent years on exactly these problems, and a capability they've reserved by name looks like a deliberate decision about sequencing, not an oversight to route around. If they open that door, we'll walk through it, and the composition step described below will shrink. But waiting isn't a plan either. The multi-cloud claim is ours to test now, on the engine we set out to test.
+The third door was to change engines. OpenTofu, the community fork of Terraform, already allows `for_each` on providers, and in a scratch test it did exactly what we needed: an unused cloud got no provider at all. People reasonably ask why we don't just switch. The answer is built into what Platformer is for. This project exists to test whether Terraform can hold an entire estate, across clouds, in one connected graph. Changing engines the moment Terraform made that hard would mean abandoning the experiment instead of running it. There's a second reason, too. Terraform was designed by people who spent years on exactly these problems, and a capability they've reserved by name looks like a deliberate decision about sequencing, not an oversight to route around. If they open that door, we'll walk through it, and the proxy described below can retire. But waiting isn't a plan either. The multi-cloud claim is ours to test now, on the engine we set out to test.
 
-## Choose the Architecture Before the Forward Pass
+## Call by Need
 
-The answer comes from the same field as the metaphor. A neural network's architecture, how many layers, how wide, which components, is chosen before training begins. Nobody adds a layer halfway through a forward pass. Architecture is configuration, the forward pass is computation, and they happen in that order.
+Our first answer was to choose the architecture before the forward pass. A neural network's architecture is fixed before training begins; nobody adds a layer halfway through. Terraform has the same split: the set of providers is architecture, and everything else is computation. So we built a small step that ran before Terraform, read which clouds a workspace declared, and assembled the configuration for exactly those clouds.
 
-Terraform has the same split; it just never named it. The set of providers is architecture. Everything else is computation. Platformer's mistake was treating architecture as data: one configuration for every possible universe, with the unused parts switched off at runtime. Runtime is too late. By then the input layer has already been built.
+It worked, and it was wrong. The step lived outside the graph, so it had to run again every time someone switched workspaces, and every plan depended on whether it had. A guard could catch a forgotten run, but the guarantee had moved out of Terraform and into a habit. That was the second door again, only smaller.
 
-So we move the decision earlier. A workspace already declares which clouds it lives in, in the same file that names its AWS profile. Before Terraform runs, a small composition step reads that declaration and assembles the configuration for exactly those clouds. Then Terraform evaluates the graph, dense and complete. Every cloud that's present is fully connected to every other cloud that's present. Every cloud that's absent doesn't exist at all: not as a dormant provider, not as a download, not as a credential someone must hold.
+The answer came from the other side of computer science: lazy evaluation. A lazy language doesn't evaluate an expression when it's written down. It evaluates it when something needs the result, and an expression nobody needs costs nothing. Terraform's providers are eager. Every provider the configuration mentions gets set up before planning starts, used or not. Nothing about the graph requires that. It's one call, made too early.
 
-Programmers will recognize the shape. Go lets a file declare that it only belongs in Linux builds. C has its preprocessor. Compilers have targets. Terraform has no build tags, so Platformer adds a very small one. It isn't a second framework, and it doesn't run plans or applies. It's the step that chooses which universe the graph describes, and then gets out of the way. When Terraform opens the door it reserved, this step should shrink and eventually disappear into the language. We'll build it so that day is a deletion, not a rewrite.
+So Platformer ships providers that are lazy. `platformer/aws` stands in front of `hashicorp/aws` and relays every message unchanged except one. When Terraform asks it to set up, it checks a setting of its own, `enabled`. A workspace that uses AWS sets it to true, and the real provider is set up on the spot, errors and all, exactly as before. A workspace that doesn't use AWS sets it to false, and the real provider is never set up at all: no login, no credentials, no failure. The setting is an ordinary provider argument, derived from the workspace's own declarations and evaluated inside the graph like everything else.
+
+The proxy is a few hundred lines of Go, built from source by one script, once per version. That is a step, but not one between Terraform and the graph. It's the same kind of step as installing Terraform itself.
+
+Now every cloud is part of every configuration, and every plan is one plan. The architecture never changes between workspaces; only which parts of it wake up. When Terraform opens the door it reserved, the proxy can retire, and each `enabled` becomes a `for_each`.
 
 ## Services Stay Generic
 
@@ -64,7 +68,7 @@ Platformer was designed around generic service modules. Compute, networking, sto
 
 We won't do that. The service is the noun. Compute is a place for work to run, networking is the roads between places, storage is the silos. A service owns its interface: the shape of its state fragment, the requests other modules send it, the outputs it returns. That interface stays the same no matter where the service lands.
 
-Inside each service, every cloud is an adapter in its own directory: `compute/aws/`, `compute/oci/`, `compute/localhost/`. Each adapter keeps the same promise. Give it the requests that belong to its cloud and the context it needs, and it returns results in the service's common shape. The generic layer routes each request to its cloud and merges what comes back, without ever naming a cloud resource. The composition step writes one small file per service that calls the adapters this workspace uses and collects their results. Adding Oracle to compute means adding `compute/oci/`. Nothing generic changes.
+Inside each service, every cloud is an adapter in its own directory: `compute/aws/`, `compute/oci/`, `compute/localhost/`. Each adapter keeps the same promise. Give it the requests that belong to its cloud and the context it needs, and it returns results in the service's common shape. The generic layer routes each request to its cloud and merges what comes back, without ever naming a cloud resource. Each service calls all of its adapters; in a workspace that doesn't use a cloud, that cloud's adapter is still there, with its provider asleep. Adding Oracle to compute means adding `compute/oci/`. Nothing generic changes.
 
 We chose directories over filename prefixes on purpose. A directory in Terraform is a module, and a module has inputs and outputs that Terraform itself enforces. That makes the adapter's promise a contract instead of a convention. Files that merely shared a prefix would share everything else too, every local and every variable, and the clouds would bleed into each other the first time someone was in a hurry.
 
@@ -95,9 +99,9 @@ services:
 
 Common ideas live at the top. Details only one cloud understands live under that cloud's name, where they can't pretend to be universal.
 
-Some modules will stay honest single-cloud products, and that's fine. arcbot is built on Bedrock and doesn't need to pretend otherwise. It declares the cloud it needs, and the composition step includes it only in workspaces that live there.
+Some modules will stay honest single-cloud products, and that's fine. arcbot is built on Bedrock and doesn't need to pretend otherwise. Its provider is AWS, and in a workspace without AWS it simply has nothing to wake up for.
 
-While the extraction is underway, users without AWS still need to plan, so AWS gets a placeholder as a stopgap. It works for AWS today because the AWS provider doesn't reach out to AWS while it sets up. The placeholder is scaffolding. When AWS lives fully in adapters, it comes down.
+For a while, users without AWS got by with placeholder credentials, harmless fakes that let the AWS provider set up without reaching AWS. They were scaffolding, and the lazy provider took them down: a workspace without AWS now leaves AWS asleep instead of fooling it.
 
 ## The Edge Nobody Else Can Draw
 
@@ -111,11 +115,11 @@ That's the fully connected view in one picture: two clouds, one graph, one plan,
 
 ## Leaving a Cloud
 
-Composition introduces one new way to get hurt, so we'll design against it from the start. If a workspace owns resources in a cloud and that cloud disappears from the composition, Terraform tries to make reality match the smaller graph. Depending on how the provider is wired, it either refuses or plans to destroy everything in that cloud.
+Laziness introduces one new way to get hurt, so we design against it. A workspace could stop enabling a cloud while it still owns resources there. Those resources are still in the graph, and Terraform still needs their provider to read or remove them.
 
-So the rule is simple: you can't leave a cloud by forgetting it. The composition step refuses to remove a cloud while the workspace still owns resources there. You leave a cloud the way you leave a house: empty it first, then hand back the keys.
+The lazy provider answers that honestly: it won't wake up just because a resource asks. Every resource still living in a disabled cloud fails the plan, by name, saying its provider is disabled in this workspace. Nothing is orphaned and nothing is destroyed by accident.
 
-And on every plan, the root checks that the composition matches what the workspace declares. Switching workspaces without recomposing fails loudly, instead of quietly planning against the wrong universe.
+So the rule is simple: you can't leave a cloud by forgetting it. You leave a cloud the way you leave a house: empty it first, then hand back the keys.
 
 ## Terraforming
 
@@ -135,7 +139,7 @@ We'll know it's failing if:
 
 - adding a cloud to a service means editing the generic layer instead of adding a directory,
 - the common interfaces collect so many cloud-specific escape hatches that "generic" stops meaning anything,
-- the composition step grows past a page and starts making decisions that belong in the graph.
+- the lazy provider grows past a few hundred lines, or starts making decisions that belong in the graph.
 
 We'll know it's working when a second cloud is boring: when Oracle machines show up in the same plan as the AWS activations they depend on, get patched on the same schedule, and receive the same compose stacks. And when someone who has never had an AWS account can clone Platformer, declare Oracle, and plan.
 
@@ -147,9 +151,9 @@ Terraform's authors built a language that can describe everything at once. Almos
 |-------|--------|
 | Unused providers block users without those clouds | Reproduced: a fresh clone without AWS credentials cannot plan |
 | Placeholder credentials | Used for AWS as a stopgap, then removed; verified for Oracle and Google; impossible for Azure |
-| AWS optional | Built: AWS is wired in per workspace like Oracle; a clone without AWS plans with the AWS provider absent |
-| Composition per workspace, with a guard in the root | Built: `scripts/providers.sh`, `providers/`, the `optional_providers` guard |
-| Port, a provider that logs in during setup | Built: optional like Oracle, loaded only where `port_enabled = true` |
+| Composition per workspace (a script before Terraform) | Built, then retired: it put a step between workspace switches and the graph |
+| Lazy providers | Built: `lazyprovider/`, `platformer/aws`, `platformer/oci`, `platformer/port`, each with `enabled`; real providers in `upstreams/`; a clone with no cloud credentials plans |
+| Port, a provider that logs in during setup | Built: behind the lazy proxy, set up only where `port_enabled = true` |
 | Generic service with per-cloud adapter directories | Built: compute, with `compute/aws/` and `compute/oci/` |
 | AWS extracted into adapters | Done with no plan changes for compute, networking, storage, secrets, access, domains, configuration-management and build |
 | One vocabulary for instances | `type: instance` with `cloud: aws` or `cloud: oci`; EC2 settings live under `aws:` |
@@ -158,8 +162,8 @@ Terraform's authors built a language that can describe everything at once. Almos
 
 ## Appendix: First Steps
 
-1. Give AWS its placeholder, so a clone without AWS credentials can plan today.
-2. Build the composition step and the root's guard, and keep the composition step small enough to read in one sitting.
+1. Give AWS its placeholder, so a clone without AWS credentials can plan today. (Done, then superseded.)
+2. Make unused providers lazy instead of absent: one proxy, one argument, every cloud always in the graph. (Done.)
 3. Split networking and compute into a generic layer and an AWS adapter, with no change to any existing plan. That's the proof the extraction is safe.
 4. Add the Oracle adapters for networking and compute.
 5. Bring the Oracle machines in: import their network, so the firewall rules the compose stack needs become code, then rebuild the machines through the Oracle compute adapter, registering with Systems Manager as they boot.

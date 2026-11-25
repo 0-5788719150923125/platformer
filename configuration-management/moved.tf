@@ -1,35 +1,6 @@
-# AWS adapter wiring for configuration-management. Not loaded as-is (.tmpl): scripts/providers.sh links
-# it into configuration-management/ as adapter_aws.tf in workspaces that set aws_profile, together with
-# wiring_override.tf.tmpl. Elsewhere AWS is never loaded.
-
-module "aws" {
-  source = "./aws"
-
-  namespace                       = var.namespace
-  redeploy_triggers               = var.redeploy_triggers
-  reboot_triggers                 = var.reboot_triggers
-  aws_account_id                  = var.aws_account_id
-  aws_profile                     = var.aws_profile
-  aws_region                      = var.aws_region
-  config                          = var.config
-  ssm_association_log_bucket      = var.ssm_association_log_bucket
-  hooks_bucket                    = var.hooks_bucket
-  instances_by_class              = var.instances_by_class
-  application_requests            = var.application_requests
-  has_application_deployments     = var.has_application_deployments
-  application_scripts_bucket      = var.application_scripts_bucket
-  instances_role_name             = var.instances_role_name
-  instances_role_arn              = var.instances_role_arn
-  lambda_requests                 = var.lambda_requests
-  event_bus_webhooks              = var.event_bus_webhooks
-  aws_sso_start_url               = var.aws_sso_start_url
-  ansible_applications_configured = var.ansible_applications_configured
-  access_iam_role_arns            = var.access_iam_role_arns
-  access_iam_role_names           = var.access_iam_role_names
-}
-
-# The AWS implementation moved into aws/ (2026-11-25). These blocks carry existing
-# state to the new addresses; they travel with the module call.
+# The AWS implementation moved into configuration-management/aws/ (2026-11-25). These blocks carry
+# existing state to the new addresses, so nothing is destroyed or recreated.
+# Data sources need no moves; they are simply read again.
 
 moved {
   from = aws_s3_object.ansible_controller_manifest

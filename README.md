@@ -43,6 +43,7 @@ platformer/
 ├── iopacs/                     # Service module
 ├── iorchestrator/              # Service module
 ├── ioshare/                    # Service module
+├── lazyprovider/               # Documentation
 ├── learn/                      # Documentation
 ├── legacy/                     # Service module
 ├── networking/                 # Service module
@@ -51,7 +52,6 @@ platformer/
 ├── portal/                     # Service module
 ├── preflight/                  # Service module
 ├── present/                    # Documentation
-├── providers/                  # Documentation
 ├── resolver/                   # Service module
 ├── scripts/                    # Documentation
 ├── secrets/                    # Service module
@@ -60,6 +60,7 @@ platformer/
 ├── storage/                    # Service module
 ├── tenants/                    # Service module
 ├── tests/                      # Test automation
+├── upstreams/                  # Service module
 ├── workspaces/                 # Service module
 ├── main.tf                     # Service orchestration
 └── top.yaml                    # Multi-account targeting
@@ -100,6 +101,7 @@ The following tools must be available in `PATH` for full functionality:
 - **storage**: Centralized S3 bucket provisioning using dependency inversion. Modules declare their storage needs, the storage module creates and manages the resources. ([docs](./storage/README.md))
 - **tenants**: Centralized tenant registry and validation. ([docs](./tenants/README.md))
 - **tests**: Root-level test suites and the module test runner. ([docs](./tests/README.md))
+- **upstreams**: upstreams module ([docs](./upstreams/README.md))
 - **workspaces**: Enables workspace-specific variable overrides using `terraform.tfvars.{workspace}` files. ([docs](./workspaces/README.md))
 
 **Auto-enabling services**: Some modules (storage, compute) automatically enable when other modules need them, via dependency inversion. See [Dependency Inversion Pattern](#dependency-inversion-pattern) below.

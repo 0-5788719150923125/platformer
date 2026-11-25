@@ -4,20 +4,20 @@
 
 output "zone_id" {
   description = "Route53 hosted zone ID"
-  value       = local.aws_output_zone_id
+  value       = module.aws.zone_id
 }
 
 output "zone_name" {
   description = "Route53 hosted zone name (e.g., dev-platform.example.com)"
-  value       = local.aws_output_zone_name
+  value       = module.aws.zone_name
 }
 
 output "certificate_arn" {
   description = "Validated ACM wildcard certificate ARN"
-  value       = local.aws_output_certificate_arn
+  value       = module.aws.certificate_arn
 }
 
 output "aliases" {
   description = "DNS alias map: FQDN -> compute class name"
-  value       = local.aws_output_aliases
+  value       = module.aws.aliases
 }
