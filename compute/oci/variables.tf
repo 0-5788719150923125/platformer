@@ -18,6 +18,12 @@ variable "config" {
       assign_public_ip        = optional(bool, true)
       ssh_authorized_keys     = optional(string)
       boot_volume_size_in_gbs = optional(number)
+      ingress = optional(list(object({
+        protocol    = string
+        ports       = string
+        source      = optional(string, "0.0.0.0/0")
+        description = optional(string)
+      })), [])
     })
   }))
 }

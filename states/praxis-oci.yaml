@@ -31,3 +31,12 @@ services:
         image_id: ocid1.image.oc1.iad.aaaaaaaa3n4z7lmk3mhsvbrxqgziewkoawkpyuttqoapmhscmnlnb2ggdaca # Canonical-Ubuntu-22.04-Minimal-2022.05.15-0
         subnet_id: ocid1.subnet.oc1.iad.aaaaaaaa5ttpsy2wf5wbatpsuzknpcufsqkipqiyczmfdumpjd5dpqicepva # subnet-20220306-1752 (shared with docker-3)
         availability_domain: "pdyy:US-ASHBURN-AD-1"
+        # Inbound traffic for the src stack (states/praxis-src.yaml, management
+        # workspace): a security group on docker-1/docker-2 only. The subnet's
+        # security list is shared with docker-3 and stays as it is.
+        ingress:
+          - { protocol: tcp, ports: "80", description: "src: Traefik (HTTP, ACME)" }
+          - { protocol: tcp, ports: "443", description: "src: Traefik (tracker, web seed)" }
+          - { protocol: udp, ports: "51000-51999", description: "src: seeder WebRTC (WEBRTC_PORTS)" }
+          - { protocol: udp, ports: "52000-52999", description: "src: library WebRTC (PEER_WEBRTC_PORTS)" }
+

@@ -63,6 +63,12 @@ variable "config" {
       assign_public_ip        = optional(bool, true) # Ephemeral public IP on the primary VNIC
       ssh_authorized_keys     = optional(string)     # Public key(s) installed at launch
       boot_volume_size_in_gbs = optional(number)     # Default: the image's size
+      ingress = optional(list(object({               # Inbound rules: one network security group per class,
+        protocol    = string                         # attached to its instances only ("tcp" or "udp")
+        ports       = string                         # "443" or a range, "51000-51999"
+        source      = optional(string, "0.0.0.0/0")  # CIDR
+        description = optional(string)
+      })), [])
     }))
     # AWS settings for type = "instance", cloud = "aws". Same fields and meaning as the
     # top-level EC2 fields below (which `type: ec2` classes still use); anything set

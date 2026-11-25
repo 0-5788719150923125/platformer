@@ -10,8 +10,9 @@
 # the app tears the stack down on its hosts (named volumes are kept).
 # Lifecycle: applications/scripts/compose-stack.sh.
 #
-# Not managed here: the Oracle Cloud security list. It must allow TCP 80 and
-# 443 and the UDP ranges below, or nothing outside reaches the hosts.
+# The hosts' cloud firewall (TCP 80/443 and the UDP ranges below) is a network
+# security group on docker-1/docker-2, managed by the oci workspace
+# (states/praxis-oci.yaml, oci.ingress on the docker class).
 
 services:
   applications:
@@ -31,8 +32,9 @@ services:
       environment:
         CHATS: trade
         # The library's git repositories. Each server votes on its own, so
-        # two servers with the same sources count twice: split them between
-        # the hosts below (host values replace this one), or lower PEER_WEIGHT.
+        # two servers with the same sources would count twice: they're split
+        # between the hosts below (each source counted once, at full weight),
+        # with the two largest (praxis, ghost-notes) on different hosts.
         PEER_SOURCES: []
         PEER_WEIGHT: 1
       hosts:
@@ -41,8 +43,18 @@ services:
           environment:
             TRACKER_HOST: 59.src.eco
             SEED_HOST: 59.src.eco
+            PEER_SOURCES:
+              - https://github.com/0-5788719150923125/praxis
+              - https://github.com/0-5788719150923125/nutube
+              - https://github.com/0-5788719150923125/.github
+              - https://gitlab.com/the-resistance/src.eco
         docker-2:
           instance_id: mi-0704a04b799a198bb
           environment:
             TRACKER_HOST: 95.src.eco
             SEED_HOST: 95.src.eco
+            PEER_SOURCES:
+              - https://github.com/0-5788719150923125/ghost-notes
+              - https://github.com/0-5788719150923125/src
+              - https://github.com/0-5788719150923125/platformer
+              - https://gitlab.com/singulari-org/ink.university

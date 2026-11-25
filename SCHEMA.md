@@ -337,6 +337,11 @@ services:
         assign_public_ip: bool  # Ephemeral public IP on the primary VNIC (default: true)
         ssh_authorized_keys: string  # Public key(s) installed at launch
         boot_volume_size_in_gbs: number  # Default: the image's size
+        ingress:  # list - Inbound rules: one network security group per class,
+          - protocol: string  # attached to its instances only ("tcp" or "udp")
+            ports: string  # "443" or a range, "51000-51999"
+            source: string  # CIDR (default: 0.0.0.0/0)
+            description: string
       aws:  # object
         ami_ssm_parameter: string
         ami_filter: string
@@ -447,22 +452,22 @@ This module supports the following arguments:
 | `networks` | `map` | No | Map of network name to network module outputs (for multi-VPC support) | [./compute/variables.tf:31](./compute/variables.tf#L31) |
 | `tenants_by_class` | `map` | No | Map of class name to entitled tenant list (from tenants module) | [./compute/variables.tf:38](./compute/variables.tf#L38) |
 | `config` | `map(object)` | No | Compute service configuration - map of class name to class definition | [./compute/variables.tf:45](./compute/variables.tf#L45) |
-| `instance_parameters` | `list(object)` | No | Parameter Store definitions for each instance (compute module creates resources) | [./compute/variables.tf:340](./compute/variables.tf#L340) |
-| `application_requests` | `list(object)` | No | All application deployment requests from applications module - filtered internally by type | [./compute/variables.tf:354](./compute/variables.tf#L354) |
-| `pod_identity_requests` | `list(object)` | No | Pod Identity association requests from upstream modules (e.g., observability) | [./compute/variables.tf:393](./compute/variables.tf#L393) |
-| `lb_requests` | `list(object)` | No | NLB requests for EKS services (observability, etc.) - Terraform-managed infrastructure | [./compute/variables.tf:408](./compute/variables.tf#L408) |
-| `built_amis` | `map` | No | Map of class name to golden AMI ID (from build module) | [./compute/variables.tf:423](./compute/variables.tf#L423) |
-| `standalone_applications` | `any` | No | Standalone application definitions (services.applications) for ImageBuilder inclusion | [./compute/variables.tf:432](./compute/variables.tf#L432) |
-| `patch_groups_by_class` | `map` | No | Map of class names to their namespaced patch group names (provided by configuration-management module) | [./compute/variables.tf:440](./compute/variables.tf#L440) |
-| `domain_enabled` | `bool` | No | Whether domains module is active (plan-time safe, from config) | [./compute/variables.tf:449](./compute/variables.tf#L449) |
-| `domain_zone_id` | `string` | No | Route53 hosted zone ID for DNS records (empty = no domain) | [./compute/variables.tf:455](./compute/variables.tf#L455) |
-| `domain_zone_name` | `string` | No | Route53 hosted zone name (e.g., dev-platform.example.com) | [./compute/variables.tf:461](./compute/variables.tf#L461) |
-| `domain_certificate_arn` | `string` | No | ACM certificate ARN for HTTPS listeners (empty = no HTTPS) | [./compute/variables.tf:467](./compute/variables.tf#L467) |
-| `domain_aliases` | `map` | No | DNS alias map: FQDN -> compute class name (from domains module) | [./compute/variables.tf:473](./compute/variables.tf#L473) |
-| `access_iam_role_arns` | `map` | No | IAM role ARNs from access module (keyed by module-purpose) | [./compute/variables.tf:480](./compute/variables.tf#L480) |
-| `access_iam_role_names` | `map` | No | IAM role names from access module (keyed by module-purpose) | [./compute/variables.tf:486](./compute/variables.tf#L486) |
-| `access_instance_profile_names` | `map` | No | Instance profile names from access module (keyed by module-purpose) | [./compute/variables.tf:492](./compute/variables.tf#L492) |
-| `preflight_enabled` | `bool` | No | Validate locally required tools (helm/kubectl) before creating EKS resources. Disable for plan-only runs on machines without the tooling. | [./compute/variables.tf:498](./compute/variables.tf#L498) |
+| `instance_parameters` | `list(object)` | No | Parameter Store definitions for each instance (compute module creates resources) | [./compute/variables.tf:346](./compute/variables.tf#L346) |
+| `application_requests` | `list(object)` | No | All application deployment requests from applications module - filtered internally by type | [./compute/variables.tf:360](./compute/variables.tf#L360) |
+| `pod_identity_requests` | `list(object)` | No | Pod Identity association requests from upstream modules (e.g., observability) | [./compute/variables.tf:399](./compute/variables.tf#L399) |
+| `lb_requests` | `list(object)` | No | NLB requests for EKS services (observability, etc.) - Terraform-managed infrastructure | [./compute/variables.tf:414](./compute/variables.tf#L414) |
+| `built_amis` | `map` | No | Map of class name to golden AMI ID (from build module) | [./compute/variables.tf:429](./compute/variables.tf#L429) |
+| `standalone_applications` | `any` | No | Standalone application definitions (services.applications) for ImageBuilder inclusion | [./compute/variables.tf:438](./compute/variables.tf#L438) |
+| `patch_groups_by_class` | `map` | No | Map of class names to their namespaced patch group names (provided by configuration-management module) | [./compute/variables.tf:446](./compute/variables.tf#L446) |
+| `domain_enabled` | `bool` | No | Whether domains module is active (plan-time safe, from config) | [./compute/variables.tf:455](./compute/variables.tf#L455) |
+| `domain_zone_id` | `string` | No | Route53 hosted zone ID for DNS records (empty = no domain) | [./compute/variables.tf:461](./compute/variables.tf#L461) |
+| `domain_zone_name` | `string` | No | Route53 hosted zone name (e.g., dev-platform.example.com) | [./compute/variables.tf:467](./compute/variables.tf#L467) |
+| `domain_certificate_arn` | `string` | No | ACM certificate ARN for HTTPS listeners (empty = no HTTPS) | [./compute/variables.tf:473](./compute/variables.tf#L473) |
+| `domain_aliases` | `map` | No | DNS alias map: FQDN -> compute class name (from domains module) | [./compute/variables.tf:479](./compute/variables.tf#L479) |
+| `access_iam_role_arns` | `map` | No | IAM role ARNs from access module (keyed by module-purpose) | [./compute/variables.tf:486](./compute/variables.tf#L486) |
+| `access_iam_role_names` | `map` | No | IAM role names from access module (keyed by module-purpose) | [./compute/variables.tf:492](./compute/variables.tf#L492) |
+| `access_instance_profile_names` | `map` | No | Instance profile names from access module (keyed by module-purpose) | [./compute/variables.tf:498](./compute/variables.tf#L498) |
+| `preflight_enabled` | `bool` | No | Validate locally required tools (helm/kubectl) before creating EKS resources. Disable for plan-only runs on machines without the tooling. | [./compute/variables.tf:504](./compute/variables.tf#L504) |
 
 ### Attributes
 

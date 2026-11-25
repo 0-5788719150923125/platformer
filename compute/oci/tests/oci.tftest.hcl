@@ -6,6 +6,7 @@ mock_provider "oci" {
   mock_data "oci_core_subnet" {
     defaults = {
       compartment_id = "ocid1.compartment.oc1..subnet-compartment"
+      vcn_id         = "ocid1.vcn.oc1..shared"
     }
   }
 }
@@ -56,6 +57,10 @@ run "fixed_shape_launches_in_the_subnets_compartment" {
   assert {
     condition     = length(oci_core_instance.this["src-docker-0"].shape_config) == 0
     error_message = "Fixed shapes must not set shape_config"
+  }
+  assert {
+    condition     = length(oci_core_instance.this["src-docker-0"].create_vnic_details[0].nsg_ids) == 0 && length(oci_core_network_security_group.class) == 0
+    error_message = "Without ingress rules there is no security group"
   }
   assert {
     condition     = output.instances["src-docker-0"].adopted == false
@@ -125,5 +130,46 @@ run "no_instances" {
   assert {
     condition     = length(oci_core_instance.this) == 0 && length(output.instances) == 0
     error_message = "Empty config should create nothing"
+  }
+}
+
+run "ingress_becomes_one_security_group_per_class" {
+  command = plan
+
+  variables {
+    config = {
+      for idx in [0, 1] : "src-docker-${idx}" => {
+        tenant = "src"
+        class  = "docker"
+        index  = idx
+        settings = {
+          shape               = "VM.Standard.E2.1.Micro"
+          image_id            = "ocid1.image.oc1..ubuntu"
+          subnet_id           = "ocid1.subnet.oc1..shared"
+          availability_domain = "pdyy:US-ASHBURN-AD-1"
+          ingress = [
+            { protocol = "udp", ports = "51000-51999", description = "WebRTC" },
+            { protocol = "tcp", ports = "443" },
+          ]
+        }
+      }
+    }
+  }
+
+  assert {
+    condition     = length(oci_core_network_security_group.class) == 1 && oci_core_network_security_group.class["docker"].vcn_id == "ocid1.vcn.oc1..shared"
+    error_message = "One security group per class, in the subnet's VCN"
+  }
+  assert {
+    condition     = oci_core_network_security_group_security_rule.ingress["docker-0"].protocol == "17" && oci_core_network_security_group_security_rule.ingress["docker-0"].udp_options[0].destination_port_range[0].min == 51000 && oci_core_network_security_group_security_rule.ingress["docker-0"].udp_options[0].destination_port_range[0].max == 51999
+    error_message = "A UDP range becomes protocol 17 with that destination range"
+  }
+  assert {
+    condition     = oci_core_network_security_group_security_rule.ingress["docker-1"].protocol == "6" && oci_core_network_security_group_security_rule.ingress["docker-1"].tcp_options[0].destination_port_range[0].min == 443 && oci_core_network_security_group_security_rule.ingress["docker-1"].tcp_options[0].destination_port_range[0].max == 443
+    error_message = "A single TCP port becomes protocol 6 with min = max"
+  }
+  assert {
+    condition     = alltrue([for key in ["src-docker-0", "src-docker-1"] : length(oci_core_instance.this[key].create_vnic_details[0].nsg_ids) == 1])
+    error_message = "Every instance of the class joins its security group"
   }
 }
