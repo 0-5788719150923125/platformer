@@ -62,7 +62,9 @@ bumping `VERSION`, `terraform init -upgrade` accepts the new checksum.
 ## The address
 
 The proxies live at `platformer.local/lazyprovider/<cloud>`, not at a registry
-address. `.local` names are for this machine and its network, which is exactly
+address. The host says where they come from, the namespace says what they are
+(lazy proxies, not the real providers), and the type is the cloud they stand in
+for. `.local` names are for this machine and its network, which is exactly
 where these providers come from: Terraform finds them in its local plugin
 directory, and nowhere else. A short address like `platformer/aws` would mean
 `registry.terraform.io/platformer/aws`, so a checkout that hadn't built the
