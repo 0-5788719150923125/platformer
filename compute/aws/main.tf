@@ -27,7 +27,7 @@ locals {
   taint_apply_nonce = timestamp()
 
   # Per-class taint token (see terraform_data.taint and the `taint` keyword in the
-  # state file). Mirrors the root `redeploy` normalization so the two switches behave
+  # fragment). Mirrors the root `redeploy` normalization so the two switches behave
   # identically:
   #   taint: true       -> forced ON: a per-apply nonce, so the instance is REPLACED on
   #                        every apply (expect a standing plan diff). Flip to false once

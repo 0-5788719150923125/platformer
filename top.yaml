@@ -1,6 +1,6 @@
 # Multi-Account Deployment Targeting (Salt-inspired)
 # Drives GitHub Actions matrix generation (CI/CD only)
-# States are reusable config fragments in states/ directory
+# Fragments are reusable pieces of configuration in fragments/
 #
 # Pattern Syntax (case-insensitive):
 #   - Simple: '*' (all), 'prefix-*', '*-suffix', '*keyword*', 'exact-name'

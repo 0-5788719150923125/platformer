@@ -243,15 +243,15 @@ resource "port_blueprint" "service_url" {
   }
 }
 
-# State Fragment Blueprint
-# Catalog of state fragments used in this deployment
-resource "port_blueprint" "state_fragment" {
+# Fragment Blueprint
+# Catalog of fragments used in this deployment
+resource "port_blueprint" "fragment" {
   count = local.is_subspace ? 0 : 1
 
-  identifier  = "stateFragment-${var.namespace}"
+  identifier  = "fragment-${var.namespace}"
   title       = "State"
   icon        = "Code"
-  description = "State fragments loaded for this deployment"
+  description = "Fragments loaded for this deployment"
 
   ownership = {
     type = "Direct"
@@ -263,11 +263,11 @@ resource "port_blueprint" "state_fragment" {
         title       = "Content"
         type        = "string"
         format      = "markdown"
-        description = "Full YAML content of the state fragment"
+        description = "Full YAML content of the fragment"
       }
       filename = {
         title       = "Filename"
-        description = "State fragment filename"
+        description = "Fragment filename"
         required    = true
       }
       namespace = {
@@ -277,7 +277,7 @@ resource "port_blueprint" "state_fragment" {
       }
       githubUrl = {
         title       = "View on GitHub"
-        description = "Link to view this state fragment on GitHub"
+        description = "Link to view this fragment on GitHub"
         format      = "url"
       }
       enabled = {
@@ -299,7 +299,7 @@ resource "port_blueprint" "state_fragment" {
     array_props = {
       services = {
         title       = "Services"
-        description = "Services configured in this state fragment"
+        description = "Services configured in this fragment"
       }
     }
   }

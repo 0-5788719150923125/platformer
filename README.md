@@ -22,7 +22,7 @@ It fetches its own Go toolchain (no Go install needed), tests and builds the pro
 
 A **Platformer** combines Platform Architecture + Terraform(er), reflecting a team identity and technical approach. Like the game genre, we build foundations for others to launch from. The "-former" suffix is a nod to modern AI (transformers) and the technological singularity within us all.
 
-Platformer is one Terraform configuration for every account, region and cloud. Modules are switched on and configured by YAML state fragments, and a module that needs infrastructure asks for it: the modules that provide it (storage, compute) turn on to fulfill the request. AWS and Oracle Cloud share one graph, and a workspace only needs credentials for the clouds it uses. [next/foundations.md](next/foundations.md) covers the design and where its ideas come from; [next/fully-connected.md](next/fully-connected.md) covers the multi-cloud design.
+Platformer is one Terraform configuration for every account, region and cloud. Modules are switched on and configured by YAML fragments, and a module that needs infrastructure asks for it: the modules that provide it (storage, compute) turn on to fulfill the request. AWS and Oracle Cloud share one graph, and a workspace only needs credentials for the clouds it uses. [next/foundations.md](next/foundations.md) covers the design and where its ideas come from; [next/fully-connected.md](next/fully-connected.md) covers the multi-cloud design.
 
 <details>
 
@@ -38,7 +38,7 @@ Platformer is one Terraform configuration for every account, region and cloud. M
 - **[`build/`](build/README.md)** - Golden AMI builds for EC2 classes using Packer with SSM communicator.
 - **[`clairevoyance/`](clairevoyance/README.md)** - Medical AI inference platform on AWS SageMaker.
 - **[`compute/`](compute/README.md)** - Unified compute provisioning with type-based routing.
-- **[`config/`](config/README.md)** - Configuration resolution via YAML state fragments.
+- **[`config/`](config/README.md)** - Configuration resolution via YAML fragments.
 - **[`configuration-management/`](configuration-management/README.md)** - Automated configuration management for EC2 instances using AWS Systems Manager.
 - **[`domains/`](domains/README.md)** - Route53 zone lookup and ACM wildcard certificate provisioning with DNS validation.
 - **[`hashing/`](hashing/README.md)** - Deterministic namespace generation for parallel deployments.
@@ -67,18 +67,18 @@ Platformer is one Terraform configuration for every account, region and cloud. M
 
 <!-- AUTODOC:LAYOUT:BEGIN -->
 
+- **[`fragments/`](fragments/README.md)** - Reusable pieces of configuration, loaded by name and merged in order (`fragments` in `terraform.tfvars`, or `top.yaml` in CI).
 - **[`lazyprovider/`](lazyprovider/README.md)** - Platformer declares its clouds through `platformer.local/lazyprovider/<cloud>` providers: small proxies that stand in front of the real providers (`hashicorp/aws`, `oracle/oci`, `port-labs/port-labs`) and set them up only in workspaces that enable them.
 - **[`learn/`](learn/)** - Walkthroughs: getting started, going live, and composing modules.
 - **[`next/`](next/)** - Essays on the design: why Platformer is shaped the way it is, and where it goes next.
 - **[`present/`](present/)** - A slide deck: the problem, the solution, and the patterns in between.
 - **[`scripts/`](scripts/)** - Helper scripts. `build-providers.sh` builds the cloud providers; the rest record applies and generate CI matrices.
-- **[`states/`](states/README.md)** - Reusable configuration fragments referenced in `top.yaml`.
 - **[`static/`](static/)** - Images used in the README.
 - **[`main.tf`](main.tf)** - Wires every module together: config in, requests routed between modules.
 - **[`providers.tf`](providers.tf)** - The clouds, each with an `enabled` switch that follows the workspace's profiles.
-- **[`top.yaml`](top.yaml)** - Multi-account targeting: account patterns mapped to state fragments.
-- **[`terraform.tfvars`](terraform.tfvars)** - Local configuration: profiles, region, and the state fragments to load. `terraform.tfvars.<workspace>` overrides it per workspace.
-- **[`SCHEMA.md`](SCHEMA.md)** - Every option a state fragment can set, generated from the modules' variables.
+- **[`top.yaml`](top.yaml)** - Multi-account targeting: account patterns mapped to fragments.
+- **[`terraform.tfvars`](terraform.tfvars)** - Local configuration: profiles, region, and the fragments to load. `terraform.tfvars.<workspace>` overrides it per workspace.
+- **[`SCHEMA.md`](SCHEMA.md)** - Every option a fragment can set, generated from the modules' variables.
 
 <!-- AUTODOC:LAYOUT:END -->
 
@@ -97,12 +97,12 @@ Platformer is one Terraform configuration for every account, region and cloud. M
    ```hcl
    aws_profile = "example-platform-dev"        # a profile from ~/.aws/config
    aws_region  = "us-east-2"
-   states      = ["configuration-management-hourly"]
+   fragments      = ["configuration-management-hourly"]
    ```
 
 4. `terraform plan`, then `terraform apply`.
 
-With no state fragments, a plan deploys nothing. [learn/1-getting-started.md](learn/1-getting-started.md) walks through a first deployment.
+With no fragments, a plan deploys nothing. [learn/1-getting-started.md](learn/1-getting-started.md) walks through a first deployment.
 
 ## clouds
 
@@ -110,7 +110,7 @@ A workspace switches a cloud on by naming its profile: `aws_profile`, `oci_profi
 
 ## workspaces
 
-`terraform workspace select <name>` loads `terraform.tfvars.<name>` over `terraform.tfvars`, so each workspace can carry its own profiles and state fragments. See [workspaces/README.md](workspaces/README.md).
+`terraform workspace select <name>` loads `terraform.tfvars.<name>` over `terraform.tfvars`, so each workspace can carry its own profiles and fragments. See [workspaces/README.md](workspaces/README.md).
 
 ## prerequisites
 
@@ -146,7 +146,7 @@ See [tests/README.md](tests/README.md).
 
 - [learn/2-going-live.md](learn/2-going-live.md) - tenants, compute classes and entitlements.
 - [learn/3-module-composition.md](learn/3-module-composition.md) - adding a module.
-- [states/README.md](states/README.md) - state fragments, `top.yaml` targeting, and fragments kept outside the repo (`states_paths`).
-- [SCHEMA.md](SCHEMA.md) - every option a state fragment can set.
+- [fragments/README.md](fragments/README.md) - how fragments load and merge, `top.yaml` targeting, and fragments kept outside the repo (`fragment_paths`).
+- [SCHEMA.md](SCHEMA.md) - every option a fragment can set.
 
 </details>

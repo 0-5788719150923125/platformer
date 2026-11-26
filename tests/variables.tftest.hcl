@@ -7,7 +7,7 @@ run "valid_aws_profile" {
 
   variables {
     aws_profile = "example-platform-dev"
-    states      = []
+    fragments   = []
   }
 
   assert {
@@ -22,7 +22,7 @@ run "valid_aws_profile_with_underscores" {
 
   variables {
     aws_profile = "example-account-uat"
-    states      = []
+    fragments   = []
   }
 
   assert {
@@ -37,7 +37,7 @@ run "invalid_aws_profile_with_spaces" {
 
   variables {
     aws_profile = "my profile"
-    states      = []
+    fragments   = []
   }
 
   expect_failures = [
@@ -52,7 +52,7 @@ run "valid_aws_region" {
   variables {
     aws_profile = "example-platform-dev"
     aws_region  = "us-west-2"
-    states      = []
+    fragments   = []
   }
 
   assert {
@@ -68,7 +68,7 @@ run "valid_aws_region_formats" {
   variables {
     aws_profile = "example-platform-dev"
     aws_region  = "ap-southeast-1"
-    states      = []
+    fragments   = []
   }
 
   assert {
@@ -84,7 +84,7 @@ run "invalid_aws_region_format" {
   variables {
     aws_profile = "example-platform-dev"
     aws_region  = "invalid-region"
-    states      = []
+    fragments   = []
   }
 
   expect_failures = [
@@ -99,7 +99,7 @@ run "invalid_aws_region_uppercase" {
   variables {
     aws_profile = "example-platform-dev"
     aws_region  = "US-EAST-1"
-    states      = []
+    fragments   = []
   }
 
   expect_failures = [
@@ -114,10 +114,21 @@ run "invalid_aws_region_no_number" {
   variables {
     aws_profile = "example-platform-dev"
     aws_region  = "us-east"
-    states      = []
+    fragments   = []
   }
 
   expect_failures = [
     var.aws_region,
   ]
+}
+
+run "old_states_variable_fails" {
+  command = plan
+
+  variables {
+    fragments = []
+    states    = ["praxis-src"]
+  }
+
+  expect_failures = [var.states]
 }

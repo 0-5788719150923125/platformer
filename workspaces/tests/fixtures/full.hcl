@@ -1,9 +1,9 @@
-# Fixture: overrides states and states_paths, with comments mixed in
+# Fixture: overrides fragments and fragment_paths, with comments mixed in
 aws_region = "us-west-2"
-# states_paths = ["/commented/out"]
-states_paths = [
+# fragment_paths = ["/commented/out"]
+fragment_paths = [
   "~/configs/platformer", # inline comment
-  "/srv/states",
+  "/srv/fragments",
   "relative/dir",
 ]
-states = ["alpha", "beta"]
+fragments = ["alpha", "beta"]

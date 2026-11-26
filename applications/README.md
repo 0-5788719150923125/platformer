@@ -47,7 +47,7 @@ services:
 
 **Environment** (`ssm`, `compose`) - A generic map: Terraform never looks at the keys. Values may be strings, numbers, bools or lists in YAML; the root joins lists with commas and stringifies the rest before this module sees them. Values can't contain a single quote or a line break.
 
-**Hosts** (`ssm`, `compose`) - Instead of `targeting`, a map of named hosts, each pinned to an instance ID with its own `environment` overrides. Each host is its own deployment (`<app>-<host>`), so values that differ per host (hostnames, split source lists) stay in the state fragment. Host-pinned apps are never baked into golden AMIs and don't create the compute instance role.
+**Hosts** (`ssm`, `compose`) - Instead of `targeting`, a map of named hosts, each pinned to an instance ID with its own `environment` overrides. Each host is its own deployment (`<app>-<host>`), so values that differ per host (hostnames, split source lists) stay in the fragment. Host-pinned apps are never baked into golden AMIs and don't create the compute instance role.
 
 **Ansible** - Complex multi-step installations via the CodeBuild Ansible controller, which connects over Session Manager. Playbooks stored in `ansible/` directory. Session Manager on hybrid (`mi-`) hosts needs the SSM advanced-instances tier, so use `ssm` or `compose` for those.
 

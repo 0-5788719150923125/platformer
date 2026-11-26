@@ -52,7 +52,7 @@ locals {
   # that cloud's profile (oci_profile), and other optional providers when it
   # enables them (port_enabled = true). each provider's `enabled` setting comes
   # from this list (providers.tf).
-  # Commented-out lines don't count (same stripping as `states` below).
+  # Commented-out lines don't count (same stripping as `fragments` below).
   oci_profile_raw       = try(regex("oci_profile\\s*=\\s*\"([^\"]+)\"", local.workspace_file_no_comments)[0], null)
   resolved_oci_profile  = local.oci_profile_raw != null ? local.oci_profile_raw : var.default_oci_profile
   oci_region_raw        = try(regex("oci_region\\s*=\\s*\"([^\"]+)\"", local.workspace_file_no_comments)[0], null)
@@ -69,32 +69,32 @@ locals {
   owner_raw      = try(regex("owner\\s*=\\s*\"([^\"]+)\"", local.workspace_file_content)[0], null)
   resolved_owner = coalesce(local.owner_raw, var.default_owner)
 
-  # Parse states: extract list from pattern `states = ["a", "b", "c"]`
+  # Parse fragments: extract list from pattern `fragments = ["a", "b", "c"]`
   # First strip comment lines (# or ##), then extract the list content
   workspace_file_no_comments = join("\n", [
     for line in split("\n", local.workspace_file_content) :
     line if !can(regex("^\\s*#", line))
   ])
-  states_raw = try(regex("states\\s*=\\s*\\[([^\\]]*)]", replace(local.workspace_file_no_comments, "\n", " "))[0], null)
+  fragments_raw = try(regex("fragments\\s*=\\s*\\[([^\\]]*)]", replace(local.workspace_file_no_comments, "\n", " "))[0], null)
 
   # Extract individual quoted strings from the captured content
-  # Returns null if states_raw is null or if no items found
-  states_parsed = local.states_raw != null ? (
-    length(regexall("\"([^\"]+)\"", local.states_raw)) > 0 ? [
-      for item in regexall("\"([^\"]+)\"", local.states_raw) : item[0]
+  # Returns null if fragments_raw is null or if no items found
+  fragments_parsed = local.fragments_raw != null ? (
+    length(regexall("\"([^\"]+)\"", local.fragments_raw)) > 0 ? [
+      for item in regexall("\"([^\"]+)\"", local.fragments_raw) : item[0]
     ] : null
   ) : null
 
-  # Use parsed states if available, otherwise fall back to defaults
+  # Use parsed fragments if available, otherwise fall back to defaults
   # Can't use coalesce() with lists, so use conditional instead
-  resolved_states = local.states_parsed != null ? local.states_parsed : var.default_states
+  resolved_fragments = local.fragments_parsed != null ? local.fragments_parsed : var.default_fragments
 
-  # Parse states_paths: extract list from pattern `states_paths = ["/a", "~/b"]`
-  # Same parsing as states. An empty list (`states_paths = []`) counts as an
+  # Parse fragment_paths: extract list from pattern `fragment_paths = ["/a", "~/b"]`
+  # Same parsing as fragments. An empty list (`fragment_paths = []`) counts as an
   # explicit override, so a workspace can opt out of base search paths.
-  states_paths_raw = try(regex("states_paths\\s*=\\s*\\[([^\\]]*)]", replace(local.workspace_file_no_comments, "\n", " "))[0], null)
-  states_paths_parsed = local.states_paths_raw != null ? [
-    for item in regexall("\"([^\"]+)\"", local.states_paths_raw) : item[0]
+  fragment_paths_raw = try(regex("fragment_paths\\s*=\\s*\\[([^\\]]*)]", replace(local.workspace_file_no_comments, "\n", " "))[0], null)
+  fragment_paths_parsed = local.fragment_paths_raw != null ? [
+    for item in regexall("\"([^\"]+)\"", local.fragment_paths_raw) : item[0]
   ] : null
-  resolved_states_paths = local.states_paths_parsed != null ? local.states_paths_parsed : var.default_states_paths
+  resolved_fragment_paths = local.fragment_paths_parsed != null ? local.fragment_paths_parsed : var.default_fragment_paths
 }

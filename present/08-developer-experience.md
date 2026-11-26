@@ -1,6 +1,6 @@
 ## Developer Experience
 
-This diagram shows two deployment paths that use the same configuration approach. A developer on their laptop deploys to a single account/region for testing, while CI/CD reads top.yaml to generate a matrix and deploys to multiple accounts simultaneously. Both use identical state fragments - the only difference is the deployment scope.
+This diagram shows two deployment paths that use the same configuration approach. A developer on their laptop deploys to a single account/region for testing, while CI/CD reads top.yaml to generate a matrix and deploys to multiple accounts simultaneously. Both use identical fragments - the only difference is the deployment scope.
 
 ```mermaid
 flowchart LR
@@ -10,7 +10,7 @@ flowchart LR
     end
 
     subgraph Config["Unified Configuration"]
-        States["State Fragments<br/>terraform.tfvars"]
+        Fragments["Fragments<br/>terraform.tfvars"]
     end
 
     subgraph Targets["AWS Accounts"]
@@ -24,13 +24,13 @@ flowchart LR
         end
     end
 
-    Dev -->|"load states from terraform.tfvars"| States
-    CI -->|"load states from top.yaml"| States
+    Dev -->|"load fragments from terraform.tfvars"| Fragments
+    CI -->|"load fragments from top.yaml"| Fragments
 
-    States -->|"single deploy"| DevAccount
-    States -.->|"parallel matrix"| Acc1
-    States -.->|"parallel matrix"| Acc2
-    States -.->|"parallel matrix"| Acc3
+    Fragments -->|"single deploy"| DevAccount
+    Fragments -.->|"parallel matrix"| Acc1
+    Fragments -.->|"parallel matrix"| Acc2
+    Fragments -.->|"parallel matrix"| Acc3
 
     classDef devStyle fill:#e3f2fd,stroke:#1565c0,stroke-width:2px,color:#000
     classDef ciStyle fill:#fff3e0,stroke:#e65100,stroke-width:2px,color:#000
@@ -39,7 +39,7 @@ flowchart LR
 
     class Dev devStyle
     class CI ciStyle
-    class States configStyle
+    class Fragments configStyle
     class DevAccount,Acc1,Acc2,Acc3 accountStyle
 ```
 
@@ -47,4 +47,4 @@ flowchart LR
 
 ### Dev/Prod Parity:
 
-Same code, same state fragments - developers test locally with a single account, CI/CD deploys to multiple accounts via matrix. The configuration approach is unified regardless of deployment source.
+Same code, same fragments - developers test locally with a single account, CI/CD deploys to multiple accounts via matrix. The configuration approach is unified regardless of deployment source.

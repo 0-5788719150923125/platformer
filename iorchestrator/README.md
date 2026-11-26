@@ -44,7 +44,7 @@ curl -H "Host: test.dev1.io.local" http://$ALB_URL/
 ## Architecture
 
 ```
-State Fragment -> IOrchestrator Module -> Infrastructure Requests -> Storage Module
+Fragment -> IOrchestrator Module -> Infrastructure Requests -> Storage Module
                          |                                                     |
                    Creates ECS,                                          Creates RDS,
                    ALB, ECR,                                             S3 Buckets
@@ -114,7 +114,7 @@ iorchestrator/
 | `aws_account_id` | AWS account ID (destination) |
 | `aws_region` | AWS region |
 | `aws_profile` | AWS profile for destination ECR authentication |
-| `config` | IOrchestrator deployment configurations from state fragment |
+| `config` | IOrchestrator deployment configurations from fragment |
 | `tenants_by_deployment` | Per-deployment tenant lists from entitlements |
 | `networks` | Network module outputs (VPC, subnets) |
 | `rds_instances` | RDS instance outputs from storage module (endpoints, credentials) |
@@ -134,7 +134,7 @@ iorchestrator/
 
 ## Usage
 
-### State Fragment
+### Fragment
 
 ```yaml
 services:
@@ -199,7 +199,7 @@ terraform output iorchestrator_urls
 
 ## Dependency Flow
 
-1. **Config Resolution**: State fragment parsed by config module into deployment map
+1. **Config Resolution**: Fragment parsed by config module into deployment map
 2. **Request Generation**: IOrchestrator emits `rds_instance_requests` and `bucket_requests`
 3. **Resource Creation**: Storage module creates RDS SQL Server + S3 buckets
 4. **Endpoint Return**: Root passes storage outputs (endpoints, bucket names) back to module

@@ -131,7 +131,7 @@ Zero-proof knowledge is the more common organizational failure. It is comfortabl
 
 The second inversion is subtler.
 
-Suppose a Prover runs the protocol. They enter the cave. They emerge from the correct path. They do it again. And again. The proof satisfies completeness and soundness. The work is real. The system functions. State fragments converge. Dependencies resolve. Infrastructure deploys, destroys, and redeploys identically across accounts and regions. Tests pass. The framework manages 127 accounts from a single branch.
+Suppose a Prover runs the protocol. They enter the cave. They emerge from the correct path. They do it again. And again. The proof satisfies completeness and soundness. The work is real. The system functions. Fragments converge. Dependencies resolve. Infrastructure deploys, destroys, and redeploys identically across accounts and regions. Tests pass. The framework manages 127 accounts from a single branch.
 
 But nobody is standing at the mouth of the cave.
 
@@ -197,7 +197,7 @@ The converse is the part that should unsettle everyone: **if the proof consisten
 
 Not "probably true." Not "true from a certain perspective." Not "true if you squint." Soundness is a mathematical guarantee. A successful proof - one where the Verifier issued genuine random challenges and the Prover consistently responded correctly - demonstrates truth with a certainty that approaches unity as rounds accumulate.
 
-When a system consistently deploys, destroys, and redeploys across regions and accounts, that is a proof of architectural soundness. When a framework resolves dependencies automatically and converges state fragments to identical infrastructure, that is a proof of design integrity. When tests pass across permutations of services, configurations, and target accounts, that is a proof of correctness. These are not metaphors. They are protocols. The challenges are real - different accounts, different regions, different service combinations. The responses are verifiable - the infrastructure converges, or it doesn't. The probability of a fundamentally broken system passing all these challenges by coincidence is negligible.
+When a system consistently deploys, destroys, and redeploys across regions and accounts, that is a proof of architectural soundness. When a framework resolves dependencies automatically and converges fragments to identical infrastructure, that is a proof of design integrity. When tests pass across permutations of services, configurations, and target accounts, that is a proof of correctness. These are not metaphors. They are protocols. The challenges are real - different accounts, different regions, different service combinations. The responses are verifiable - the infrastructure converges, or it doesn't. The probability of a fundamentally broken system passing all these challenges by coincidence is negligible.
 
 The uncomfortable corollary of soundness: **if you've been shown a valid proof and you reject it, you are not being skeptical. You are being wrong.** Skepticism means challenging the proof - issuing harder challenges, demanding more rounds, testing edge cases. That is the Verifier's role and it strengthens the protocol. But rejecting the proof without engaging with it is not skepticism. It is refusal. And refusal is not a position the math respects.
 

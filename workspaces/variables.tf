@@ -27,13 +27,13 @@ variable "default_port_enabled" {
   default     = false
 }
 
-variable "default_states" {
-  description = "Default state fragments list from base terraform.tfvars (used when workspace file doesn't exist or doesn't override)"
+variable "default_fragments" {
+  description = "Default fragments list from base terraform.tfvars (used when workspace file doesn't exist or doesn't override)"
   type        = list(string)
 }
 
-variable "default_states_paths" {
-  description = "Default extra state fragment search paths from base terraform.tfvars (used when workspace file doesn't exist or doesn't override)"
+variable "default_fragment_paths" {
+  description = "Default extra fragment search paths from base terraform.tfvars (used when workspace file doesn't exist or doesn't override)"
   type        = list(string)
   default     = []
 }

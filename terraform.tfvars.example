@@ -16,23 +16,23 @@ owner       = "Platform"
 # }
 
 # ================================
-# Service Configuration via States
+# Service Configuration via Fragments
 # ================================
-# Load YAML state fragments (same ones used by CI) to configure services.
+# Load YAML fragments (same ones used by CI) to configure services.
 # This is the recommended approach for consistency with CI/CD.
 #
-# State fragments are stored in states/ directory and define service configurations.
-# See states/README.md for available state fragments and their configurations.
+# Fragments are stored in fragments/ directory and define service configurations.
+# See fragments/README.md for available fragments and their configurations.
 
-# Recommended: Load state fragments
-states = ["configuration-management-hourly"]
+# Recommended: Load fragments
+fragments = ["configuration-management-hourly"]
 
-# Optional: extra directories to search for state fragments, so your configs
-# can live outside this repo. Searched in order before states/, so on a name
+# Optional: extra directories to search for fragments, so your configs
+# can live outside this repo. Searched in order before fragments/, so on a name
 # conflict your copy wins. "~" expands; relative paths resolve against the
 # repo root. Every listed directory must exist.
-# states_paths = ["~/configs/platformer"]
+# fragment_paths = ["~/configs/platformer"]
 
 # Alternative Examples:
-# states = ["configuration-management-monthly", "compute-windows-test"]  # Load multiple states
-# states = []  # No states (deploy with defaults)
+# fragments = ["configuration-management-monthly", "compute-windows-test"]  # Load multiple fragments
+# fragments = []  # No fragments (deploy with defaults)

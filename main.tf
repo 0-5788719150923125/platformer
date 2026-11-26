@@ -42,7 +42,7 @@ locals {
     local.observability_enabled ? module.observability[0].compute_class_requests : {}
   )
 
-  # Per-compute-class redeploy switch, read from each class's state file:
+  # Per-compute-class redeploy switch, read from each class's fragment:
   #   redeploy: true      -> forced ON  - fires the ansible-controller on EVERY apply
   #   redeploy: false      -> forced OFF - same as omitting it
   #   redeploy: "<nonce>"  -> fires only when the string value changes (power-user mode)
@@ -285,12 +285,12 @@ module "access" {
 module "archivist" {
   source = "./archivist"
 
-  bucket_name = "archivist-${module.namespace.id}"
-  repo_name   = "archivist-${module.namespace.id}"
-  aws_profile = module.workspaces.aws_profile != null ? module.workspaces.aws_profile : ""
-  aws_region  = local.aws_region
-  states      = module.workspaces.states
-  state_files = module.config.state_paths
+  bucket_name    = "archivist-${module.namespace.id}"
+  repo_name      = "archivist-${module.namespace.id}"
+  aws_profile    = module.workspaces.aws_profile != null ? module.workspaces.aws_profile : ""
+  aws_region     = local.aws_region
+  fragments      = module.workspaces.fragments
+  fragment_files = module.config.fragment_files
 
   # Access report upload - archivist coordinates the upload once both the
   # report file (access module) and its bucket (storage module) are ready.
@@ -306,26 +306,26 @@ module "workspaces" {
   source = "./workspaces"
 
   # Pass base terraform.tfvars values as defaults
-  default_aws_profile  = var.aws_profile
-  default_aws_region   = var.aws_region
-  default_oci_profile  = var.oci_profile
-  default_oci_region   = var.oci_region
-  default_port_enabled = var.port_enabled
-  default_states       = var.states
-  default_states_paths = var.states_paths
-  default_owner        = var.owner
+  default_aws_profile    = var.aws_profile
+  default_aws_region     = var.aws_region
+  default_oci_profile    = var.oci_profile
+  default_oci_region     = var.oci_region
+  default_port_enabled   = var.port_enabled
+  default_fragments      = var.fragments
+  default_fragment_paths = var.fragment_paths
+  default_owner          = var.owner
 
   # Disable workspace file overrides in tests
   enabled = var.workspace_overrides
 }
 
 # Config Module - Resolves final service configuration
-# Loads and merges state fragments (single source of truth)
-# Search order: user states_paths (from terraform.tfvars[.workspace]) first,
-# then states/, then tests/states/. First directory containing <name>.yaml wins.
+# Loads and merges fragments (single source of truth)
+# Search order: user fragment_paths (from terraform.tfvars[.workspace]) first,
+# then fragments/, then tests/fragments/. First directory containing <name>.yaml wins.
 locals {
-  user_states_dirs = [
-    for p in module.workspaces.states_paths :
+  user_fragment_dirs = [
+    for p in module.workspaces.fragment_paths :
     startswith(p, "/") ? p :
     startswith(p, "~") ? pathexpand(p) :
     abspath("${path.root}/${p}")
@@ -335,10 +335,10 @@ locals {
 module "config" {
   source = "./config"
 
-  states      = module.workspaces.states
-  states_dirs = concat(local.user_states_dirs, ["../states", "../tests/states"])
+  fragments     = module.workspaces.fragments
+  fragment_dirs = concat(local.user_fragment_dirs, ["../fragments", "../tests/fragments"])
   # Catalog (portal) lists user + repo fragments, not test fixtures
-  catalog_dirs = concat(local.user_states_dirs, ["../states"])
+  catalog_dirs = concat(local.user_fragment_dirs, ["../fragments"])
   aws_region   = module.workspaces.aws_region
 }
 
@@ -913,8 +913,8 @@ module "portal" {
   patch_management_by_class = local.configuration_management_enabled ? module.configuration_management[0].patch_management_by_class : {}
   tenant_entitlements       = module.tenants.effective_entitlements
   service_urls              = local.service_urls_filtered
-  states                    = module.workspaces.states
-  state_files               = module.config.available_states
+  fragments                 = module.workspaces.fragments
+  fragment_files            = module.config.available_fragments
   event_bus_requests        = local.event_bus_requests
   artifact_requests = concat(
     module.archivist.artifact_requests,

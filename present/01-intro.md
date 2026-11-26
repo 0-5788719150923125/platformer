@@ -2,17 +2,17 @@
 
 **Self-Service Infrastructure Framework**
 
-This diagram shows how Platformer orchestrates infrastructure from state fragments through to AWS deployment. Configuration flows through a config module, an orchestration layer makes conditional decisions about which modules to enable, and service modules are rendered into AWS infrastructure deployments.
+This diagram shows how Platformer orchestrates infrastructure from fragments through to AWS deployment. Configuration flows through a config module, an orchestration layer makes conditional decisions about which modules to enable, and service modules are rendered into AWS infrastructure deployments.
 
 ```mermaid
 graph LR
-    TFVars["terraform.tfvars<br/>states = (...)"]
+    TFVars["terraform.tfvars<br/>fragments = (...)"]
 
     subgraph Config["Configuration Resolution"]
         direction TB
-        States[State Fragments<br/>YAML files]
+        Fragments[Fragments<br/>YAML files]
         ConfigMod[Config Module<br/>Load & Deep Merge]
-        States --> ConfigMod
+        Fragments --> ConfigMod
     end
 
     subgraph Orchestrate["Orchestration Layer"]
@@ -29,7 +29,7 @@ graph LR
 
     AWS[AWS Infrastructure<br/>Multi-Account/Region]
 
-    TFVars --> States
+    TFVars --> Fragments
     ConfigMod -->|service_configs| MainTF
     MainTF -->|conditional| ConfigMgmt
     MainTF -->|conditional| Compute
@@ -46,7 +46,7 @@ graph LR
     classDef serviceStyle fill:#f3e5f5,stroke:#6a1b9a,stroke-width:2px,color:#000
     classDef awsStyle fill:#c8e6c9,stroke:#2e7d32,stroke-width:3px,color:#000
 
-    class States,ConfigMod configStyle
+    class Fragments,ConfigMod configStyle
     class MainTF orchestrateStyle
     class ConfigMgmt,Compute,Storage,Legacy serviceStyle
     class AWS awsStyle
@@ -58,6 +58,6 @@ graph LR
 
 Key Characteristics of This Framework:
 
-- State Fragments → Config Module → Orchestration → Services → AWS
+- Fragments → Config Module → Orchestration → Services → AWS
 - Dependency Inversion: Modules Auto-Enable When Needed
 - Pattern-Based Multi-Account Targeting via `top.yaml`

@@ -12,7 +12,7 @@ Both targets share a common AI backend (`lambdas/shared/ai_backend.py`) for Bedr
 `var.config` is a `map(object({...}))` keyed by bot name. Each bot declares a `target` ("atlassian" or "discord") and the module creates the appropriate infrastructure.
 
 ```yaml
-# states/arcbot-example.yaml
+# fragments/arcbot-example.yaml
 services:
   arcbot:
     jira-bot:
@@ -130,4 +130,4 @@ Two guards prevent the bot from responding to its own comments:
 
 ### Atlassian API Token
 
-Required scopes: Browse Projects, View Issue (`read:jira-work`), Add Comments (`write:jira-work`). Auth uses Basic (email:token). The email is configured via `atlassian_email` in the state fragment.
+Required scopes: Browse Projects, View Issue (`read:jira-work`), Add Comments (`write:jira-work`). Auth uses Basic (email:token). The email is configured via `atlassian_email` in the fragment.

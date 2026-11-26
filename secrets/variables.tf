@@ -9,7 +9,7 @@ variable "aws_account_id" {
 }
 
 variable "config" {
-  description = "Secret replication configuration from state fragments (services.secrets)"
+  description = "Secret replication configuration from fragments (services.secrets)"
   type        = any
   default     = {}
 }

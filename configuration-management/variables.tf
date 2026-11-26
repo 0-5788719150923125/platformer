@@ -17,7 +17,7 @@ variable "redeploy_triggers" {
   default     = {}
 }
 
-# Force reboot: map of compute class name to a trigger value (from the state file's
+# Force reboot: map of compute class name to a trigger value (from the fragment's
 # `reboot` switch, normalized at the root). A change to this map replaces
 # null_resource.force_reboot, which hard stop/starts the class's instances
 # (stop-instances --force - the guaranteed path for OOM-hung boxes that ignore ACPI
@@ -92,7 +92,7 @@ variable "config" {
     })), {})
 
     # Patch management configuration (optional, auto-enables when baselines or maintenance_windows provided)
-    # To disable: remove patch_management state fragment from states list
+    # To disable: remove patch_management fragment from fragments list
     # To temporarily disable a specific maintenance window: set its enabled = false
     patch_management = optional(object({
       baselines = optional(map(object({

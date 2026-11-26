@@ -54,7 +54,7 @@ The Maestro orchestrator runs on one designated node (must have `DistributionSer
 
 ## Usage
 
-### State Fragment Example
+### Fragment Example
 
 ```yaml
 services:
@@ -114,7 +114,7 @@ services:
 
 ```bash
 # terraform.tfvars
-states = ["iopacs-test"]
+fragments = ["iopacs-test"]
 
 # Deploy
 terraform plan
@@ -179,7 +179,7 @@ Maestro `new_site_install` recipe launches and gets through the initial validati
 
 `precheck` fails with: `Missing required MountPoint(s): ["/opt/imsdb"]`
 
-The state fragment declares `ebs_volumes` with `mount: /opt/imsdb`, and Terraform attaches the EBS volume, but nothing formats or mounts it at the OS level. On Nitro instances (t3.medium), `/dev/sdf` appears as `/dev/nvme1n1`.
+The fragment declares `ebs_volumes` with `mount: /opt/imsdb`, and Terraform attaches the EBS volume, but nothing formats or mounts it at the OS level. On Nitro instances (t3.medium), `/dev/sdf` appears as `/dev/nvme1n1`.
 
 **Fix**: Add an early playbook task (or user-data script) to:
 1. Detect the attached EBS device (`/dev/nvme1n1` or `/dev/sdf`)
@@ -222,7 +222,7 @@ See the [PKI Deep Dive](#pki-deep-dive) section below for a full analysis of the
 | SSH private key "invalid format" | SSM `get-parameter --output text` strips trailing newline | Append `\n` to `content:` in copy task |
 | Orchestrator binary not found | RPM places binary at `python/bin/orchestrator`, not `bin/orchestrator` | Split into `maestro_base_dir` + `maestro_bin_dir` vars |
 | Screen/tmux interactive prompt crash | No TTY in SSM execution context | Added `--no-screen-check` flag |
-| Version string parse error | Maestro expects `5-8-1-R32`, not `PACS-5-8-1-R32` | Removed `PACS-` prefix from state fragment and playbook default |
+| Version string parse error | Maestro expects `5-8-1-R32`, not `PACS-5-8-1-R32` | Removed `PACS-` prefix from fragment and playbook default |
 | distribute.cfg missing fields | Recipe tasks grep for `PacsVersion` and `DefaultTimeZone` | Added `[DeploymentInfo]` and `[SiteInfo]` sections |
 
 ## PKI Deep Dive
@@ -313,7 +313,7 @@ For our module, this would mean adding a pre-Maestro playbook step that:
 - Extracts the tarball to `/tmp/pki/` (where Maestro's `pki-download` task expects it)
 - Writes `client.crt` and `client.key` to `/opt/vendor/etc/yum/certs/`
 
-New state fragment fields needed: `client_id` (numeric LCM client identifier).
+New fragment fields needed: `client_id` (numeric LCM client identifier).
 
 **Option B: Manual PKI staging via S3 (interim workaround)**
 

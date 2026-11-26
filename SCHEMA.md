@@ -2,7 +2,7 @@
 
 Auto-generated from variables.tf and outputs.tf files. Do not edit manually.
 
-This document shows the YAML structure for state fragments in `states/` directory.
+This document shows the YAML structure for fragments in `fragments/` directory.
 
 ## Supported Modules
 
@@ -76,7 +76,7 @@ Path: [`./applications`](./applications)
 
 Data transformation layer for application deployment. Enriches application requests with file paths and routes them to appropriate deployment modules.
 
-### State Fragment Structure
+### Fragment Structure
 
 ```yaml
 services:
@@ -133,7 +133,7 @@ Path: [`./arcbot`](./arcbot)
 
 Multi-target AI bot module. Routes config by target type:
 
-### State Fragment Structure
+### Fragment Structure
 
 ```yaml
 services:
@@ -225,8 +225,8 @@ This module supports the following arguments:
 | `aws_profile` | `string` | No | AWS CLI profile used for the s3 cp upload command. | [./archivist/variables.tf:7](./archivist/variables.tf#L7) |
 | `aws_region` | `string` | No | AWS region where the upload bucket lives. Used to build the S3 console URL. | [./archivist/variables.tf:13](./archivist/variables.tf#L13) |
 | `repo_name` | `string` | No | CodeCommit repository name for git-based archive storage. Empty string disables git commits. | [./archivist/variables.tf:19](./archivist/variables.tf#L19) |
-| `states` | `list` | No | Resolved state fragment names. Only these are included in the archive; all others are removed from states/. | [./archivist/variables.tf:25](./archivist/variables.tf#L25) |
-| `state_files` | `map` | No |  | [./archivist/variables.tf:31](./archivist/variables.tf#L31) |
+| `fragments` | `list` | No | Resolved fragment names. Only these are included in the archive; all others are removed from fragments/. | [./archivist/variables.tf:25](./archivist/variables.tf#L25) |
+| `fragment_files` | `map` | No |  | [./archivist/variables.tf:31](./archivist/variables.tf#L31) |
 | `report_path` | `string` | No | Filesystem path to the access report JSON. Empty string disables upload. | [./archivist/variables.tf:42](./archivist/variables.tf#L42) |
 | `report_ready` | `string` | No | Opaque dependency handle from access module - changes when the report is rewritten. | [./archivist/variables.tf:48](./archivist/variables.tf#L48) |
 | `report_bucket_name` | `string` | No | S3 bucket name for the access report. Empty string disables upload. | [./archivist/variables.tf:54](./archivist/variables.tf#L54) |
@@ -281,7 +281,7 @@ Path: [`./clairevoyance`](./clairevoyance)
 
 Medical AI inference platform on AWS SageMaker.
 
-### State Fragment Structure
+### Fragment Structure
 
 ```yaml
 services:
@@ -317,7 +317,7 @@ Path: [`./compute`](./compute)
 
 Unified compute provisioning with type-based routing. Single configuration interface for EC2, EKS, and future compute platforms.
 
-### State Fragment Structure
+### Fragment Structure
 
 ```yaml
 services:
@@ -509,7 +509,7 @@ This module exports the following attributes:
 
 Path: [`./config`](./config)
 
-Configuration resolution via YAML state fragments. Loads, deep-merges, and extracts service configurations.
+Configuration resolution via YAML fragments. Loads, deep-merges, and extracts service configurations.
 
 ### Arguments
 
@@ -517,9 +517,9 @@ This module supports the following arguments:
 
 | Variable | Type | Required | Description | Ref |
 |----------|------|----------|-------------|-----|
-| `states` | `list` | No |  | [./config/variables.tf:1](./config/variables.tf#L1) |
-| `states_dirs` | `list` | No | Directories to search for state fragment YAML files, in priority order (first match wins). Absolute paths are used verbatim; relative paths resolve against this module. Every dir must exist. | [./config/variables.tf:22](./config/variables.tf#L22) |
-| `catalog_dirs` | `list` | No | Directories whose fragments make up the available_states catalog, in priority order (first match wins). null = same as states_dirs. Lets callers keep test-only dirs searchable but out of catalogs. | [./config/variables.tf:40](./config/variables.tf#L40) |
+| `fragments` | `list` | No |  | [./config/variables.tf:1](./config/variables.tf#L1) |
+| `fragment_dirs` | `list` | No | Directories to search for fragment YAML files, in priority order (first match wins). Absolute paths are used verbatim; relative paths resolve against this module. Every dir must exist. | [./config/variables.tf:22](./config/variables.tf#L22) |
+| `catalog_dirs` | `list` | No | Directories whose fragments make up the available_fragments catalog, in priority order (first match wins). null = same as fragment_dirs. Lets callers keep test-only dirs searchable but out of catalogs. | [./config/variables.tf:40](./config/variables.tf#L40) |
 | `aws_region` | `string` | No | Current AWS region for deployment (used in validation error messages) | [./config/variables.tf:46](./config/variables.tf#L46) |
 
 ### Attributes
@@ -528,12 +528,12 @@ This module exports the following attributes:
 
 | Output | Description | Ref |
 |--------|-------------|-----|
-| `service_configs` | Final resolved service configurations (states merged with union mode for list deduplication) | [./config/outputs.tf:1](./config/outputs.tf#L1) |
+| `service_configs` | Final resolved service configurations (fragments merged with union mode for list deduplication) | [./config/outputs.tf:1](./config/outputs.tf#L1) |
 | `matrix_configs` | Final resolved matrix configurations (regions, tenants, and future targeting dimensions) | [./config/outputs.tf:6](./config/outputs.tf#L6) |
-| `loaded_states` | List of state fragments that were loaded | [./config/outputs.tf:11](./config/outputs.tf#L11) |
-| `state_paths` | Resolved file path for each selected state fragment (name => path), after search-order precedence | [./config/outputs.tf:16](./config/outputs.tf#L16) |
-| `available_states` | Every fragment found in catalog_dirs (name => path), first match wins. For catalogs, not just the selected states. | [./config/outputs.tf:21](./config/outputs.tf#L21) |
-| `merged_state` | Complete merged state configuration (includes all top-level keys, not just services) - for debugging | [./config/outputs.tf:26](./config/outputs.tf#L26) |
+| `loaded_fragments` | List of fragments that were loaded | [./config/outputs.tf:11](./config/outputs.tf#L11) |
+| `fragment_files` | Resolved file path for each selected fragment (name => path), after search-order precedence | [./config/outputs.tf:16](./config/outputs.tf#L16) |
+| `available_fragments` | Every fragment found in catalog_dirs (name => path), first match wins. For catalogs, not just the selected fragments. | [./config/outputs.tf:21](./config/outputs.tf#L21) |
+| `merged` | Complete merged configuration (includes all top-level keys, not just services) - for debugging | [./config/outputs.tf:26](./config/outputs.tf#L26) |
 
 ## Module: configuration-management
 
@@ -541,7 +541,7 @@ Path: [`./configuration-management`](./configuration-management)
 
 Automated configuration management for EC2 instances using AWS Systems Manager.
 
-### State Fragment Structure
+### Fragment Structure
 
 ```yaml
 services:
@@ -683,7 +683,7 @@ Path: [`./domains`](./domains)
 
 Route53 zone lookup and ACM wildcard certificate provisioning with DNS validation.
 
-### State Fragment Structure
+### Fragment Structure
 
 ```yaml
 services:
@@ -699,7 +699,7 @@ This module supports the following arguments:
 | Variable | Type | Required | Description | Ref |
 |----------|------|----------|-------------|-----|
 | `namespace` | `string` | **Yes** | Deployment namespace for resource isolation | [./domains/variables.tf:1](./domains/variables.tf#L1) |
-| `config` | `object` | No | Domains service configuration from state fragments (services.domains) | [./domains/variables.tf:6](./domains/variables.tf#L6) |
+| `config` | `object` | No | Domains service configuration from fragments (services.domains) | [./domains/variables.tf:6](./domains/variables.tf#L6) |
 
 ### Attributes
 
@@ -742,7 +742,7 @@ Path: [`./iopacs`](./iopacs)
 
 (WIP) Domain orchestration for IOPACS medical imaging PACS deployments using dependency inversion pattern.
 
-### State Fragment Structure
+### Fragment Structure
 
 ```yaml
 services:
@@ -853,7 +853,7 @@ Path: [`./iorchestrator`](./iorchestrator)
 
 Domain orchestration module for IOrchestrator (IO Cloud / SaaSApp) deployments on AWS ECS Fargate.
 
-### State Fragment Structure
+### Fragment Structure
 
 ```yaml
 services:
@@ -926,7 +926,7 @@ Path: [`./ioshare`](./ioshare)
 
 Domain orchestration module for Ioshare medical imaging platform.
 
-### State Fragment Structure
+### Fragment Structure
 
 ```yaml
 services:
@@ -1063,7 +1063,7 @@ Path: [`./legacy`](./legacy)
 
 Disposable EC2 instance with Atlantis pre-built via Packer.
 
-### State Fragment Structure
+### Fragment Structure
 
 ```yaml
 services:
@@ -1123,7 +1123,7 @@ Path: [`./networking`](./networking)
 
 VPC and subnet management with deterministic CIDR allocation.
 
-### State Fragment Structure
+### Fragment Structure
 
 ```yaml
 services:
@@ -1245,8 +1245,8 @@ This module supports the following arguments:
 | `commands` | `list(object)` | No | Standardized operational commands from all modules for portal actions and CLI display | [./portal/variables.tf:109](./portal/variables.tf#L109) |
 | `tenant_entitlements` | `map` | No | Map of tenant codes to their entitlement lists | [./portal/variables.tf:126](./portal/variables.tf#L126) |
 | `service_urls` | `map(object)` | No | Unified service URL registry from root module (service, module, tenants, deployment, metadata) | [./portal/variables.tf:132](./portal/variables.tf#L132) |
-| `states` | `list` | No | List of state fragment names loaded for this deployment | [./portal/variables.tf:145](./portal/variables.tf#L145) |
-| `state_files` | `map` | No | Every available state fragment (name => path) across user states_paths and states/, first match wins. Drives the state catalog. | [./portal/variables.tf:151](./portal/variables.tf#L151) |
+| `fragments` | `list` | No | List of fragment names loaded for this deployment | [./portal/variables.tf:145](./portal/variables.tf#L145) |
+| `fragment_files` | `map` | No | Every available fragment (name => path) across user fragment_paths and fragments/, first match wins. Drives the fragment catalog. | [./portal/variables.tf:151](./portal/variables.tf#L151) |
 | `event_bus_requests` | `list(object)` | No | Event bus webhook subscription requests from modules (dependency inversion) | [./portal/variables.tf:157](./portal/variables.tf#L157) |
 | `artifact_requests` | `list(object)` | No | Artifact registry entries from modules (dependency inversion). Supports archives, docker images, helm charts, and golden images. | [./portal/variables.tf:168](./portal/variables.tf#L168) |
 | `storage_requests` | `list(object)` | No | Storage resource catalog entries from storage module (dependency inversion). Populated from storage.inventory output. | [./portal/variables.tf:182](./portal/variables.tf#L182) |
@@ -1342,10 +1342,12 @@ This module supports the following arguments:
 | `port_enabled` | `bool` | No | Enable the Port.io provider (portal backend) in a workspace. Set it in terraform.tfvars.<workspace>; false (default) = Port is never set up. | [./variables.tf:42](./variables.tf#L42) |
 | `cross_account_providers` | `map(object)` | No | Cross-account AWS provider configurations. Keys: 'prod', 'infrastructure'. | [./variables.tf:48](./variables.tf#L48) |
 | `owner` | `string` | No | Team or individual responsible for this infrastructure | [./variables.tf:62](./variables.tf#L62) |
-| `states` | `list` | No |  | [./variables.tf:69](./variables.tf#L69) |
-| `states_paths` | `list` | No |  | [./variables.tf:95](./variables.tf#L95) |
-| `workspace_overrides` | `bool` | No | Whether to enable workspace-specific tfvars file overrides. Set to false in tests to ensure test variables are used directly. | [./variables.tf:114](./variables.tf#L114) |
-| `aws_sso_start_url` | `string` | No | AWS SSO start URL for console link wrapping (e.g., https://d-xxxxxxxxxx.awsapps.com/start) | [./variables.tf:120](./variables.tf#L120) |
+| `fragments` | `list` | No |  | [./variables.tf:69](./variables.tf#L69) |
+| `fragment_paths` | `list` | No |  | [./variables.tf:95](./variables.tf#L95) |
+| `states` | `any` | No | Renamed to fragments. | [./variables.tf:119](./variables.tf#L119) |
+| `states_paths` | `any` | No | Renamed to fragment_paths. | [./variables.tf:130](./variables.tf#L130) |
+| `workspace_overrides` | `bool` | No | Whether to enable workspace-specific tfvars file overrides. Set to false in tests to ensure test variables are used directly. | [./variables.tf:141](./variables.tf#L141) |
+| `aws_sso_start_url` | `string` | No | AWS SSO start URL for console link wrapping (e.g., https://d-xxxxxxxxxx.awsapps.com/start) | [./variables.tf:147](./variables.tf#L147) |
 
 ### Attributes
 
@@ -1374,7 +1376,7 @@ This module supports the following arguments:
 |----------|------|----------|-------------|-----|
 | `namespace` | `string` | **Yes** | Deployment namespace for resource isolation | [./secrets/variables.tf:1](./secrets/variables.tf#L1) |
 | `aws_account_id` | `string` | **Yes** | AWS account ID for resource policies | [./secrets/variables.tf:6](./secrets/variables.tf#L6) |
-| `config` | `any` | No | Secret replication configuration from state fragments (services.secrets) | [./secrets/variables.tf:11](./secrets/variables.tf#L11) |
+| `config` | `any` | No | Secret replication configuration from fragments (services.secrets) | [./secrets/variables.tf:11](./secrets/variables.tf#L11) |
 
 ### Attributes
 
@@ -1441,7 +1443,7 @@ Path: [`./tenants`](./tenants)
 
 Centralized tenant registry and validation.
 
-### State Fragment Structure
+### Fragment Structure
 
 ```yaml
 services:
@@ -1504,8 +1506,8 @@ This module supports the following arguments:
 | `default_oci_profile` | `string` | No | Default OCI profile from base terraform.tfvars (null = OCI not used) | [./workspaces/variables.tf:12](./workspaces/variables.tf#L12) |
 | `default_oci_region` | `string` | No | Default OCI region from base terraform.tfvars (null = region from the OCI profile) | [./workspaces/variables.tf:18](./workspaces/variables.tf#L18) |
 | `default_port_enabled` | `bool` | No | Default for wiring in the Port provider, from base terraform.tfvars | [./workspaces/variables.tf:24](./workspaces/variables.tf#L24) |
-| `default_states` | `list` | **Yes** | Default state fragments list from base terraform.tfvars (used when workspace file doesn't exist or doesn't override) | [./workspaces/variables.tf:30](./workspaces/variables.tf#L30) |
-| `default_states_paths` | `list` | No | Default extra state fragment search paths from base terraform.tfvars (used when workspace file doesn't exist or doesn't override) | [./workspaces/variables.tf:35](./workspaces/variables.tf#L35) |
+| `default_fragments` | `list` | **Yes** | Default fragments list from base terraform.tfvars (used when workspace file doesn't exist or doesn't override) | [./workspaces/variables.tf:30](./workspaces/variables.tf#L30) |
+| `default_fragment_paths` | `list` | No | Default extra fragment search paths from base terraform.tfvars (used when workspace file doesn't exist or doesn't override) | [./workspaces/variables.tf:35](./workspaces/variables.tf#L35) |
 | `default_owner` | `string` | **Yes** | Default owner from base terraform.tfvars (used when workspace file doesn't exist or doesn't override) | [./workspaces/variables.tf:41](./workspaces/variables.tf#L41) |
 | `workspace_file_path` | `string` | No | Override the workspace file to parse (default: terraform.tfvars.<workspace> in the root). Used by tests to point at fixtures. | [./workspaces/variables.tf:46](./workspaces/variables.tf#L46) |
 | `enabled` | `bool` | No | Whether to resolve workspace-specific overrides from tfvars files. When false, always returns defaults (useful for tests). | [./workspaces/variables.tf:52](./workspaces/variables.tf#L52) |
@@ -1522,9 +1524,9 @@ This module exports the following attributes:
 | `oci_region` | Resolved OCI region for current workspace (null = region from the OCI profile) | [./workspaces/outputs.tf:16](./workspaces/outputs.tf#L16) |
 | `optional_providers` | Optional providers this workspace declares (beyond the always-on set), e.g. [\ | [./workspaces/outputs.tf:21](./workspaces/outputs.tf#L21) |
 | `owner` | Resolved owner for current workspace (from workspace file or default) | [./workspaces/outputs.tf:26](./workspaces/outputs.tf#L26) |
-| `states` | Resolved state fragments list for current workspace (from workspace file or default) | [./workspaces/outputs.tf:31](./workspaces/outputs.tf#L31) |
-| `states_paths` | Resolved extra state fragment search paths for current workspace, as written (from workspace file or default) | [./workspaces/outputs.tf:36](./workspaces/outputs.tf#L36) |
-| `workspace` | Current Terraform workspace name | [./workspaces/outputs.tf:41](./workspaces/outputs.tf#L41) |
-| `is_default_workspace` | Whether currently using the default workspace (true = using base terraform.tfvars only) | [./workspaces/outputs.tf:46](./workspaces/outputs.tf#L46) |
-| `workspace_file_path` | Path to workspace-specific tfvars file (may not exist) | [./workspaces/outputs.tf:51](./workspaces/outputs.tf#L51) |
-| `workspace_file_exists` | Whether workspace-specific tfvars file exists | [./workspaces/outputs.tf:56](./workspaces/outputs.tf#L56) |
+| `fragments` | Resolved fragments list for current workspace (from workspace file or default) | [./workspaces/outputs.tf:31](./workspaces/outputs.tf#L31) |
+| `fragment_paths` | Resolved extra fragment search paths for current workspace, as written (from workspace file or default) | [./workspaces/outputs.tf:43](./workspaces/outputs.tf#L43) |
+| `workspace` | Current Terraform workspace name | [./workspaces/outputs.tf:48](./workspaces/outputs.tf#L48) |
+| `is_default_workspace` | Whether currently using the default workspace (true = using base terraform.tfvars only) | [./workspaces/outputs.tf:53](./workspaces/outputs.tf#L53) |
+| `workspace_file_path` | Path to workspace-specific tfvars file (may not exist) | [./workspaces/outputs.tf:58](./workspaces/outputs.tf#L58) |
+| `workspace_file_exists` | Whether workspace-specific tfvars file exists | [./workspaces/outputs.tf:63](./workspaces/outputs.tf#L63) |

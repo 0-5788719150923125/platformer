@@ -1,6 +1,6 @@
 # Praxis - Patch Management
 # Dynamic wildcard targeting for Ubuntu instances via SSM inventory
-# Deploy with: states = ["praxis-arc", "praxis-patch-management"]
+# Deploy with: fragments = ["praxis-arc", "praxis-patch-management"]
 
 services:
   configuration-management:

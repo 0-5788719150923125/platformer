@@ -17,7 +17,7 @@ This module is **highly experimental** and comes with several caveats:
 
 Generates `SCHEMA.md` from all `variables.tf` files across modules, showing:
 
-- YAML structure for state fragments (from `config` variables)
+- YAML structure for fragments (from `config` variables)
 - Inline comments from HCL (e.g., "Volume size override")
 - Default values extracted from `optional()` declarations
 - Module interface variables with simplified types

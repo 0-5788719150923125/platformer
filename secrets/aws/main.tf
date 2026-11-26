@@ -14,7 +14,7 @@
 #   source_provider: "self"            - reads from the deployment account itself
 #   source_provider: "dotenv"          - reads from .env file in the repo root
 #
-# State fragment example:
+# Fragment example:
 #   services:
 #     secrets:
 #       crowdstrike/falcon_clientid:

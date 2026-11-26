@@ -10,4 +10,4 @@ When configuration-management is enabled, the resolver automatically enables com
 
 ## Design
 
-Always called after the config module. Provides enable flags that control conditional module instantiation via `count` parameters. This allows the root configuration to remain static while services dynamically enable/disable based on state fragments.
+Always called after the config module. Provides enable flags that control conditional module instantiation via `count` parameters. This allows the root configuration to remain static while services dynamically enable/disable based on fragments.

@@ -7,19 +7,19 @@ These architectural principles underpin the entire framework design. Each choice
 ### Key Architectural Choices
 
 **Composability** 📦
-- State fragments compose like functions - combine to create environments
+- Fragments compose like functions - combine to create environments
 - Services toggle on/off via YAML - no code changes needed
 - Modules auto-enable when dependencies detected
 
 **Dev/Prod Parity** 🔁
 - Developers run exact same code locally as CI/CD runs in production
-- Only difference: which state fragments load and which AWS account targeted
+- Only difference: which fragments load and which AWS account targeted
 - Eliminates "works on my machine" problems
 
 **Test-driven Development** ✅
 - Unit tests: Use `terraform test` with mocked infrastructure to validate configuration logic and module behavior without AWS costs
 - Integration tests: Use `terraform test` against real AWS accounts with terraform.tfvars configs to validate end-to-end functionality
-- Same state fragments used in testing, development, and production - ensures test coverage matches real deployments
+- Same fragments used in testing, development, and production - ensures test coverage matches real deployments
 - Ephemeral test infrastructure: namespace isolation allows parallel test runs, clean teardown prevents cost accumulation
 
 **Eventual Consistency** 🔄

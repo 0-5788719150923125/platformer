@@ -66,20 +66,20 @@ variable "owner" {
 }
 
 # Service Configuration
-variable "states" {
+variable "fragments" {
   description = <<-EOT
-    List of state fragments to load and merge, by name (<name>.yaml), from
-    states_paths, states/ or tests/states/ (first match wins).
-    State fragments are YAML files that define service configurations.
+    List of fragments to load and merge, by name (<name>.yaml), from
+    fragment_paths, fragments/ or tests/fragments/ (first match wins).
+    Fragments are YAML files that define service configurations.
 
-    Loaded states are deep-merged in order (left-to-right).
+    Loaded fragments are deep-merged in order (left-to-right).
 
     Examples:
       - ["configuration-management-hourly"]
       - ["configuration-management", "compute-windows-test"]
-      - []  # No states (no services will be created)
+      - []  # No fragments (no services will be created)
 
-    State fragments may contain a 'matrix' key for CI/CD regions and tenant
+    Fragments may contain a 'matrix' key for CI/CD regions and tenant
     targeting dimensions (matrix.tenants). Terraform deploys to ONE region
     at a time (specified by var.aws_region).
   EOT
@@ -87,16 +87,16 @@ variable "states" {
   default     = []
 
   validation {
-    condition     = alltrue([for s in var.states : can(regex("^[a-z0-9-]+$", s))])
-    error_message = "State names must contain only lowercase letters, numbers, and hyphens"
+    condition     = alltrue([for s in var.fragments : can(regex("^[a-z0-9-]+$", s))])
+    error_message = "Fragment names must contain only lowercase letters, numbers, and hyphens"
   }
 }
 
-variable "states_paths" {
+variable "fragment_paths" {
   description = <<-EOT
-    Extra directories to search for state fragment YAML files, so configs can
-    live outside this repo. Searched in order, before the built-in states/ and
-    tests/states/ directories, so a user path wins on name conflicts (the first
+    Extra directories to search for fragment YAML files, so configs can
+    live outside this repo. Searched in order, before the built-in fragments/ and
+    tests/fragments/ directories, so a user path wins on name conflicts (the first
     directory that contains <name>.yaml is used).
 
     Absolute paths are used as-is, "~" expands to the home directory, and
@@ -105,10 +105,37 @@ variable "states_paths" {
 
     Examples:
       - ["~/configs/platformer"]
-      - ["/srv/platformer/states", "../my-org-states"]
+      - ["/srv/platformer/fragments", "../my-org-fragments"]
   EOT
   type        = list(string)
   default     = []
+}
+
+# The old names for fragments and fragment_paths (renamed 2026-11-26),
+# declared only so a terraform.tfvars that still sets them fails here.
+# Terraform merely warns about values for undeclared variables, so without
+# this an old config would load no fragments and plan to destroy everything.
+# The workspaces module catches them in terraform.tfvars.<workspace>.
+variable "states" {
+  description = "Renamed to fragments."
+  type        = any
+  default     = null
+
+  validation {
+    condition     = var.states == null
+    error_message = "`states` is now `fragments`. Rename it in terraform.tfvars."
+  }
+}
+
+variable "states_paths" {
+  description = "Renamed to fragment_paths."
+  type        = any
+  default     = null
+
+  validation {
+    condition     = var.states_paths == null
+    error_message = "`states_paths` is now `fragment_paths`. Rename it in terraform.tfvars."
+  }
 }
 
 variable "workspace_overrides" {

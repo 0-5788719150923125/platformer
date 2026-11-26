@@ -1,11 +1,11 @@
-variable "states" {
+variable "fragments" {
   description = <<-EOT
-    List of state fragments to load and merge from states/ directory.
-    State fragments are YAML files that define service configurations.
+    List of fragments to load and merge from fragments/ directory.
+    Fragments are YAML files that define service configurations.
 
-    States are deep-merged in order (left-to-right).
+    Fragments are deep-merged in order (left-to-right).
 
-    State fragments may contain a 'matrix' key for CI/CD regions and
+    Fragments may contain a 'matrix' key for CI/CD regions and
     tenant targeting dimensions. Terraform deploys to ONE region at a
     time; multi-region deployments are orchestrated externally by CI/CD.
   EOT
@@ -13,16 +13,16 @@ variable "states" {
   default     = []
 
   validation {
-    condition     = alltrue([for s in var.states : can(regex("^[a-z0-9-]+$", s))])
-    error_message = "State names must contain only lowercase letters, numbers, and hyphens"
+    condition     = alltrue([for s in var.fragments : can(regex("^[a-z0-9-]+$", s))])
+    error_message = "Fragment names must contain only lowercase letters, numbers, and hyphens"
   }
 }
 
 
-variable "states_dirs" {
-  description = "Directories to search for state fragment YAML files, in priority order (first match wins). Absolute paths are used verbatim; relative paths resolve against this module. Every dir must exist."
+variable "fragment_dirs" {
+  description = "Directories to search for fragment YAML files, in priority order (first match wins). Absolute paths are used verbatim; relative paths resolve against this module. Every dir must exist."
   type        = list(string)
-  default     = ["../states"]
+  default     = ["../fragments"]
 
   # A typo'd dir would otherwise be skipped silently, and a same-named
   # fragment from a later dir would load instead. fileexists() errors on a
@@ -30,15 +30,15 @@ variable "states_dirs" {
   # "this is a directory".
   validation {
     condition = alltrue([
-      for dir in var.states_dirs :
+      for dir in var.fragment_dirs :
       !can(fileexists(startswith(dir, "/") ? dir : "${path.module}/${dir}"))
     ])
-    error_message = "States dir(s) not found: ${join(", ", [for dir in var.states_dirs : dir if can(fileexists(startswith(dir, "/") ? dir : "${path.module}/${dir}"))])}"
+    error_message = "Fragment dir(s) not found: ${join(", ", [for dir in var.fragment_dirs : dir if can(fileexists(startswith(dir, "/") ? dir : "${path.module}/${dir}"))])}"
   }
 }
 
 variable "catalog_dirs" {
-  description = "Directories whose fragments make up the available_states catalog, in priority order (first match wins). null = same as states_dirs. Lets callers keep test-only dirs searchable but out of catalogs."
+  description = "Directories whose fragments make up the available_fragments catalog, in priority order (first match wins). null = same as fragment_dirs. Lets callers keep test-only dirs searchable but out of catalogs."
   type        = list(string)
   default     = null
 }

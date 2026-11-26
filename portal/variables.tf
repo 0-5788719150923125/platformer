@@ -142,14 +142,14 @@ variable "service_urls" {
   default = {}
 }
 
-variable "states" {
-  description = "List of state fragment names loaded for this deployment"
+variable "fragments" {
+  description = "List of fragment names loaded for this deployment"
   type        = list(string)
   default     = []
 }
 
-variable "state_files" {
-  description = "Every available state fragment (name => path) across user states_paths and states/, first match wins. Drives the state catalog."
+variable "fragment_files" {
+  description = "Every available fragment (name => path) across user fragment_paths and fragments/, first match wins. Drives the fragment catalog."
   type        = map(string)
   default     = {}
 }

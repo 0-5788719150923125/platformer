@@ -3,7 +3,7 @@
 # via AWS Systems Manager hybrid activations
 
 locals {
-  # Extract hybrid activation config from state fragment
+  # Extract hybrid activation config from fragment
   hybrid_activations_enabled = length(var.config.hybrid_activations) > 0
   hybrid_activations         = var.config.hybrid_activations
 

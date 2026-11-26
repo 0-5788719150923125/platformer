@@ -2,7 +2,7 @@
 # Looks up an existing Route53 hosted zone and provisions a wildcard ACM certificate
 # with DNS validation. Used by compute module for HTTPS ALB termination.
 #
-# State fragment example:
+# Fragment example:
 #   services:
 #     domains:
 #       zone: dev-platform.example.com

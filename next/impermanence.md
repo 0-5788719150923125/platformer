@@ -100,7 +100,7 @@ At 200+ tenants post-acquisition: organizational paralysis.
 
 **You cannot scale pets.** Each requires individual care. One hundred pets require one hundred times the effort. Simple changes become multi-week coordination efforts touching hundreds of unique directories. Testing becomes impossible - too many unique configurations to verify. Disaster recovery becomes theoretical - too much tribal knowledge required. Changes become paralyzed - coordination cost exceeds value.
 
-**Cattle scale.** Pattern-based targeting: `'*-prod'` matches all production. Configuration change in one state fragment applies everywhere. Test once, deploy everywhere identically.
+**Cattle scale.** Pattern-based targeting: `'*-prod'` matches all production. Configuration change in one fragment applies everywhere. Test once, deploy everywhere identically.
 
 The generation process is run-once. The generated code becomes permanent. The infrastructure becomes permanent. At current scale: expensive. At future scale: catastrophic.
 
@@ -145,18 +145,18 @@ We inverted all three.
 Platformer demonstrates permanent processes creating ephemeral infrastructure. Same engineers. Same AWS. Different principles.
 
 **Deployment process:**
-- State fragments define configuration: `services.compute.instances.redis.count = 2`
+- Fragments define configuration: `services.compute.instances.redis.count = 2`
 - Pattern-based targeting: `'*-platform-dev'` matches all dev accounts
 - Composable: fragments merge to create complete configuration
 - Testable: `terraform test` validates before commit
 - Repeatable: same YAML + same modules = same infrastructure
 
 **Infrastructure lifecycle:**
-- Deploy: `terraform apply` from state fragments
+- Deploy: `terraform apply` from fragments
 - Test: same code, different credentials (`AWS_PROFILE=dev`)
-- Update: modify state fragment, `terraform apply`
+- Update: modify fragment, `terraform apply`
 - Destroy: remove configuration, `terraform apply`
-- Rebuild after disaster: state fragments still exist, `terraform apply`
+- Rebuild after disaster: fragments still exist, `terraform apply`
 
 The artifact tested is byte-for-byte identical to the artifact deployed. No generators run once. No code committed and forgotten. No manual modifications creating drift. No test configurations to revert before production.
 

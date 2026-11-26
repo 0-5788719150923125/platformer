@@ -3,7 +3,7 @@
 # weekly patch window per OS. Currently scopes Oracle Cloud Infrastructure
 # hosts: Ubuntu and Oracle Linux.
 #
-# Deploy with: states = ["management"]   (see terraform.tfvars.management)
+# Deploy with: fragments = ["management"]   (see terraform.tfvars.management)
 #
 # Registration: pull the code/id and region from `terraform output hybrid_activations`,
 # then run on each OCI host:

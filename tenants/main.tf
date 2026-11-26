@@ -7,7 +7,7 @@ locals {
   tenant_registry = yamldecode(file("${path.module}/tenants.yaml"))
 
   # Master tenant registry with metadata
-  # All tenants must be defined in tenants.yaml before they can be used in state fragments
+  # All tenants must be defined in tenants.yaml before they can be used in fragments
   tenants = local.tenant_registry.tenants
 
   # Derived lists for validation

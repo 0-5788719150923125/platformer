@@ -94,7 +94,7 @@ def main():
         if has_config_variable(vf_path):
             yaml_lines = config_parser.parse(vf_path)
             if yaml_lines:
-                section_lines.append("### State Fragment Structure")
+                section_lines.append("### Fragment Structure")
                 section_lines.append("")
                 section_lines.append("```yaml")
                 section_lines.append("services:")
@@ -133,7 +133,7 @@ def main():
         "",
         "Auto-generated from variables.tf and outputs.tf files. Do not edit manually.",
         "",
-        "This document shows the YAML structure for state fragments in `states/` directory.",
+        "This document shows the YAML structure for fragments in `fragments/` directory.",
         "",
         "## Supported Modules",
         "",

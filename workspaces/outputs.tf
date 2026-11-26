@@ -28,14 +28,21 @@ output "owner" {
   value       = local.resolved_owner
 }
 
-output "states" {
-  description = "Resolved state fragments list for current workspace (from workspace file or default)"
-  value       = local.resolved_states
+output "fragments" {
+  description = "Resolved fragments list for current workspace (from workspace file or default)"
+  value       = local.resolved_fragments
+
+  # The old names (renamed 2026-11-26) would otherwise be ignored, leaving the
+  # workspace on the base fragments.
+  precondition {
+    condition     = !can(regex("(?m)^\\s*states(_paths)?\\s*=", local.workspace_file_no_comments))
+    error_message = "${local.workspace_file_path} still sets `states` or `states_paths`: they are now `fragments` and `fragment_paths`."
+  }
 }
 
-output "states_paths" {
-  description = "Resolved extra state fragment search paths for current workspace, as written (from workspace file or default)"
-  value       = local.resolved_states_paths
+output "fragment_paths" {
+  description = "Resolved extra fragment search paths for current workspace, as written (from workspace file or default)"
+  value       = local.resolved_fragment_paths
 }
 
 output "workspace" {

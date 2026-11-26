@@ -6,7 +6,7 @@
 variables {
   workspace_overrides = false
   aws_profile         = "example-platform-dev"
-  states              = ["compose-stack"]
+  fragments           = ["compose-stack"]
 }
 
 run "compose_stack_per_host" {

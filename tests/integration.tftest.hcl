@@ -1,5 +1,5 @@
 # Integration tests for cross-module interactions
-# Uses test-specific state fragments in tests/states/ (not production states/)
+# Uses test-specific fragments in tests/fragments/ (not production fragments/)
 
 # Disable workspace file overrides so test variables are used directly
 variables {
@@ -15,7 +15,7 @@ run "compute_with_custom_vpc" {
 
   variables {
     aws_profile = "example-platform-dev"
-    states      = ["compute-vpc"]
+    fragments   = ["compute-vpc"]
   }
 
   assert {
@@ -61,7 +61,7 @@ run "compute_with_default_vpc_fallback" {
 
   variables {
     aws_profile = "example-platform-dev"
-    states      = ["compute-default-vpc"]
+    fragments   = ["compute-default-vpc"]
   }
 
   assert {
@@ -90,7 +90,7 @@ run "multi_vpc_isolation" {
 
   variables {
     aws_profile = "example-platform-dev"
-    states      = ["multi-vpc"]
+    fragments   = ["multi-vpc"]
   }
 
   assert {
@@ -120,7 +120,7 @@ run "network_only_deployment" {
 
   variables {
     aws_profile = "example-platform-dev"
-    states      = ["network-only"]
+    fragments   = ["network-only"]
   }
 
   assert {
@@ -162,7 +162,7 @@ run "eks_cluster" {
 
   variables {
     aws_profile = "example-platform-dev"
-    states      = ["eks-cluster"]
+    fragments   = ["eks-cluster"]
     # Plan-only test - skip local helm/kubectl preflight check
     preflight_enabled = false
   }
@@ -183,7 +183,7 @@ run "windows_multi_tenant" {
 
   variables {
     aws_profile = "example-platform-dev"
-    states      = ["windows-multi-tenant"]
+    fragments   = ["windows-multi-tenant"]
   }
 
   assert {
@@ -211,7 +211,7 @@ run "applications_dependency_inversion" {
   command = plan
 
   variables {
-    states = ["applications"]
+    fragments = ["applications"]
   }
 
   assert {
@@ -249,7 +249,7 @@ run "mixed_application_types" {
   command = plan
 
   variables {
-    states = ["mixed-applications"]
+    fragments = ["mixed-applications"]
   }
 
   # Should have both user-data and SSM application requests
@@ -289,7 +289,7 @@ run "hybrid_activations" {
 
   variables {
     aws_profile = "example-platform-dev"
-    states      = ["hybrid-activations"]
+    fragments   = ["hybrid-activations"]
   }
 
   assert {
@@ -322,7 +322,7 @@ run "patch_management_with_maintenance_windows" {
 
   variables {
     aws_profile = "example-platform-dev"
-    states      = ["patch-management"]
+    fragments   = ["patch-management"]
   }
 
   assert {
@@ -350,7 +350,7 @@ run "iorchestrator_full_stack" {
 
   variables {
     aws_profile = "example-platform-dev"
-    states      = ["iorchestrator"]
+    fragments   = ["iorchestrator"]
   }
 
   assert {

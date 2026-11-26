@@ -1,6 +1,6 @@
 ## Configuration Flow
 
-This diagram traces how configuration moves through the system, from the initial configuration file listing state fragments, through the loading and merging process, to the final conditional enablement of service modules. Follow the colored boxes to see how YAML state files (orange) are loaded and merged (purple), then used by main.tf to conditionally enable service modules (green).
+This diagram traces how configuration moves through the system, from the initial configuration file listing fragments, through the loading and merging process, to the final conditional enablement of service modules. Follow the colored boxes to see how YAML fragments (orange) are loaded and merged (purple), then used by main.tf to conditionally enable service modules (green).
 
 ```mermaid
 graph LR
@@ -8,7 +8,7 @@ graph LR
         TFVars[terraform.tfvars<br/>or top.yaml]
     end
 
-    subgraph "State Fragments"
+    subgraph "Fragments"
         direction TB
         S1[configuration-management-scoped.yaml]
         S2[compute-windows-poc.yaml]
@@ -67,9 +67,9 @@ The term "state" here follows Salt and broader IaC conventions:
 
 ---
 
-### State Fragment Examples
+### Fragment Examples
 
-State fragments are minimal YAML files that override defaults. Most contain just a few properties.
+Fragments are minimal YAML files that override defaults. Most contain just a few properties.
 
 **compute-windows-poc.yaml:**
 ```yaml
@@ -98,14 +98,14 @@ Each fragment defines only what differs from the module's defaults - everything 
 
 **terraform.tfvars** - Used when running Terraform locally:
 ```hcl
-states = [
+fragments = [
   "configuration-management-scoped",
   "compute-windows-poc",
   "patch-management-catchall"
 ]
 ```
 
-Developers load state fragments directly for testing in a single account/region.
+Developers load fragments directly for testing in a single account/region.
 
 ---
 
@@ -130,14 +130,14 @@ targets:
     - patch-management-catchall
 ```
 
-Pattern matching automatically targets multiple accounts. Each matched account loads the same state fragments.
+Pattern matching automatically targets multiple accounts. Each matched account loads the same fragments.
 
 ---
 
 ### Composable Configuration:
 
-- **State Fragments:** Reusable YAML files defining services
-- **Deep Merge:** Later states override earlier ones (left-to-right precedence)
-- **Conditional Enable:** Modules only created when referenced in loaded states
-- **Same Code Everywhere:** Dev and prod use identical Terraform - only state fragments differ
-- **Two Entry Points:** Local uses terraform.tfvars, CI/CD uses top.yaml - both reference the same state fragments
+- **Fragments:** Reusable YAML files defining services
+- **Deep Merge:** Later fragments override earlier ones (left-to-right precedence)
+- **Conditional Enable:** Modules only created when referenced in loaded fragments
+- **Same Code Everywhere:** Dev and prod use identical Terraform - only fragments differ
+- **Two Entry Points:** Local uses terraform.tfvars, CI/CD uses top.yaml - both reference the same fragments

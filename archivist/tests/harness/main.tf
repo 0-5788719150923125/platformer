@@ -1,13 +1,13 @@
-# Test harness: runs states_test.sh through the external data source so
+# Test harness: runs fragments_test.sh through the external data source so
 # terraform test (and the repo-wide module test runner) picks it up.
-data "external" "states_test" {
-  program = ["bash", "${path.module}/../states_test.sh"]
+data "external" "fragments_test" {
+  program = ["bash", "${path.module}/../fragments_test.sh"]
 }
 
 output "status" {
-  value = data.external.states_test.result.status
+  value = data.external.fragments_test.result.status
 }
 
 output "detail" {
-  value = try(data.external.states_test.result.detail, "")
+  value = try(data.external.fragments_test.result.detail, "")
 }

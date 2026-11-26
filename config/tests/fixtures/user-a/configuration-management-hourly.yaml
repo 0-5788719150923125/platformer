@@ -1,5 +1,5 @@
-# Fixture: user-path override of tests/states/configuration-management-hourly.
-# Used by config/tests/states_paths.tftest.hcl precedence tests.
+# Fixture: user-path override of tests/fragments/configuration-management-hourly.
+# Used by config/tests/fragment_paths.tftest.hcl precedence tests.
 services:
   configuration-management:
     schedule_expression: "rate(5 minutes)"

@@ -59,7 +59,7 @@ variable "config" {
     params = optional(map(string), {}) # Environment variables for script execution
 
     # Application environment (ssm/compose). ssm: written to $APP_ENV_FILE for the
-    # script; compose: the project's .env. List values in the state fragment are
+    # script; compose: the project's .env. List values in the fragment are
     # joined with commas before they get here (root main.tf).
     environment = optional(map(string), {})
 

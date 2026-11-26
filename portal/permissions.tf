@@ -9,7 +9,7 @@ locals {
     tenant_entitlement = local.bp_tenant_entitlement
     service_url        = local.bp_service_url
     compute_instance   = local.bp_compute_instance
-    state_fragment     = local.bp_state_fragment
+    fragment           = local.bp_fragment
     event_bus          = local.bp_event_bus
     artifact           = local.bp_artifact
     storage            = local.bp_storage
@@ -62,7 +62,7 @@ locals {
     (local.bp_tenant_entitlement) = "${local.possessive_prefix} Tenant Entitlements"
     (local.bp_service_url)        = "${local.possessive_prefix} Service URLs"
     (local.bp_compute_instance)   = "${local.possessive_prefix} Compute Instances"
-    (local.bp_state_fragment)     = "${local.possessive_prefix} States"
+    (local.bp_fragment)           = "${local.possessive_prefix} Fragments"
     (local.bp_event_bus)          = "${local.possessive_prefix} Events"
     (local.bp_artifact)           = "${local.possessive_prefix} Artifacts"
   }

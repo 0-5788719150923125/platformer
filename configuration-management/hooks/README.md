@@ -114,7 +114,7 @@ Tests validate:
 
 ### Local Testing (terraform.tfvars)
 ```hcl
-states = [
+fragments = [
   "patch-management-legacy-prod"
 ]
 ```

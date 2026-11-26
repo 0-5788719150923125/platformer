@@ -89,7 +89,7 @@ The organization built two parallel implementations in `infra-terraform`. One is
 - Pre-commit validation via `terraform test`
 - Pattern-based targeting where `'*-dev'` matches all dev accounts
 - Automated propagation across accounts
-- Same change scope: single state fragment modification
+- Same change scope: single fragment modification
 - Typical duration: 2-4 hours for same changes
 
 **The speed differential: 10-100x faster for equivalent work.**

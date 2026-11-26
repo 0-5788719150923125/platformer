@@ -1,7 +1,7 @@
 # Praxis Imaging - Golden AMI build proof-of-concept
 # Validates the Packer build pipeline with the smallest, fastest possible image.
 # No applications baked in - pure OS update + snapshot pass-through.
-# Deploy with: states = ["praxis-imaging"]
+# Deploy with: fragments = ["praxis-imaging"]
 
 matrix:
   tenants:

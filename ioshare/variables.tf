@@ -22,7 +22,7 @@ variable "tenants_by_deployment" {
   default     = {}
 }
 
-# Service configuration from state fragment
+# Service configuration from fragment
 # Each key is a named deployment containing all infrastructure for that deployment
 variable "config" {
   description = "Ioshare deployment configurations - map of deployment name to deployment config"

@@ -34,7 +34,7 @@ variable "tenants_by_deployment" {
   default     = {}
 }
 
-# Service configuration from state fragment
+# Service configuration from fragment
 # Each key is a named deployment (IO Cloud "instance") containing all infrastructure
 variable "config" {
   description = "IOrchestrator deployment configurations - map of deployment name to deployment config"

@@ -281,7 +281,7 @@ This is not a distant vision. The components exist:
 - The configuration-management module already supports hybrid activations
 - The networking module already implements deterministic CIDR allocation
 - The storage module already operates on dependency inversion
-- The state fragment system already enables pattern-based targeting
+- The fragment system already enables pattern-based targeting
 
 What remains is integration - connecting these capabilities into a unified multi-cloud operational model - and adoption.
 
@@ -378,7 +378,7 @@ The farmer sleeps at night, because the systems are working.
 | **Migration Automation** | Not Started | Architecture documented, Q2 2025 priority |
 | **Multi-Cloud Provider Support** | Partial | AWS primary, Azure/GCP patterns defined |
 
-## Appendix: State Fragment Examples
+## Appendix: Fragment Examples
 
 **Unified compute with automatic networking and management enrollment:**
 ```yaml

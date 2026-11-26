@@ -11,7 +11,7 @@ The Ioshare module orchestrates infrastructure and application deployments for t
 ## Architecture
 
 ```
-State Fragment → Ioshare Module → Infrastructure Requests → Storage/Compute Modules
+Fragment → Ioshare Module → Infrastructure Requests → Storage/Compute Modules
                                                                          ↓
                                                                  Creates Resources
                                                                          ↓
@@ -136,7 +136,7 @@ ioshare/
 | `aws_region` | AWS region |
 | `tenants` | List of tenant codes to deploy |
 | `valid_tenants` | Registry of valid tenant codes |
-| `config` | Ioshare configuration from state fragment |
+| `config` | Ioshare configuration from fragment |
 | `networks` | Network module outputs (VPC, subnets) |
 | `compute_classes` | Compute class definitions (EC2 or EKS) |
 | `compute_security_groups` | Security groups for compute instances |
@@ -160,7 +160,7 @@ ioshare/
 
 ## Usage Example
 
-### State Fragment
+### Fragment
 
 ```yaml
 services:
@@ -286,8 +286,8 @@ terraform validate
 # Format code
 terraform fmt -recursive
 
-# Plan with state fragment
-terraform plan -var="state_fragment=ioshare-poc"
+# Plan with fragment
+terraform plan -var='fragments=["ioshare-poc"]'
 
 # Verify outputs
 terraform output -json

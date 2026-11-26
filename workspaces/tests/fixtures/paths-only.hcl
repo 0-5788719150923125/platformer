@@ -1,2 +1,2 @@
-# Fixture: sets states_paths but not states (states must fall back to default)
-states_paths = ["/home/me/states"]
+# Fixture: sets fragment_paths but not fragments (fragments must fall back to default)
+fragment_paths = ["/home/me/fragments"]

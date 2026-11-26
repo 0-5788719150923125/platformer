@@ -83,7 +83,7 @@ ${local.readme_first_section}
 
 **Deployer**: ${local.caller_email}
 
-[**States**](https://app.us.getport.io/my-states-${var.namespace}) | [**Artifacts**](https://app.us.getport.io/my-artifacts-${var.namespace})
+[**Fragments**](https://app.us.getport.io/my-fragments-${var.namespace}) | [**Artifacts**](https://app.us.getport.io/my-artifacts-${var.namespace})
 EOT
   )
 }

@@ -9,7 +9,7 @@ This walkthrough builds on the Getting Started document. You've deployed a basic
 ## Prerequisites
 
 - Completed the Getting Started walkthrough
-- Understanding of state fragments and local testing
+- Understanding of fragments and local testing
 - Access to the platformer GitHub repository with PR permissions
 
 ---
@@ -30,7 +30,7 @@ The framework solves this with **tenant entitlements**: each tenant declares whi
 A compute class defines a type of server. Look at an existing fragment:
 
 ```bash
-cat platformer/states/compute-windows-poc.yaml
+cat platformer/fragments/compute-windows-poc.yaml
 ```
 
 ```yaml
@@ -58,10 +58,10 @@ This fragment defines one class (`windows-poc`) and two tenants (`alpha`, `novem
 
 ## Step 2: Create a Multi-Class Fragment
 
-Create `platformer/states/compute-multi-class.yaml`:
+Create `platformer/fragments/compute-multi-class.yaml`:
 
 ```yaml
-# platformer/states/compute-multi-class.yaml
+# platformer/fragments/compute-multi-class.yaml
 # Two compute classes, two tenants with different entitlements
 
 matrix:
@@ -111,7 +111,7 @@ Total: 3 instances.
 
 ```hcl
 # terraform.tfvars
-states = ["compute-multi-class"]
+fragments = ["compute-multi-class"]
 ```
 
 ```bash
@@ -134,7 +134,7 @@ Notice the naming convention: `{tenant}-{class}-{index}`. Each instance is tagge
 
 ## Step 4: Understand Where Entitlements Live
 
-Entitlements are declared in `matrix.tenants` within state fragments. The tenants module resolves them into two outputs:
+Entitlements are declared in `matrix.tenants` within fragments. The tenants module resolves them into two outputs:
 
 - **`tenants_by_service`** - flat list of all tenants mentioning a service (e.g., `["bravo", "training"]` for compute)
 - **`tenants_by_class`** - per-class tenant lists (e.g., `{ "windows-server" = ["bravo", "training"], "rocky-linux" = ["bravo"] }`)
@@ -156,7 +156,7 @@ If a module doesn't consume tenant lists, putting it in entitlements has no effe
 
 ## Step 5: Deep Merge and Multi-Fragment Composition
 
-Tenant entitlements are declared as a **map** (keyed by tenant code), which means they survive deep merge correctly. This matters when composing multiple state fragments.
+Tenant entitlements are declared as a **map** (keyed by tenant code), which means they survive deep merge correctly. This matters when composing multiple fragments.
 
 Consider two fragments merged together:
 
@@ -223,7 +223,7 @@ Both dev and prod accounts get the same class definitions and entitlements. The 
 ## Step 7: Commit and Open a Pull Request
 
 ```bash
-git add platformer/states/compute-multi-class.yaml
+git add platformer/fragments/compute-multi-class.yaml
 git add platformer/top.yaml
 git commit -m "PROJ-0000: Add multi-class compute with per-tenant entitlements
 
@@ -245,7 +245,7 @@ terraform test
 ```
 
 Tests validate that:
-- State fragments parse correctly
+- Fragments parse correctly
 - Tenant × class expansion produces the expected instance count
 - Entitlement filtering respects scoped and wildcard entitlements
 - Module composition works across fragment combinations
@@ -265,7 +265,7 @@ Tests validate that:
 
 ### Tenant Entitlements
 
-Entitlements control which tenants receive which per-tenant resources. They live in `matrix.tenants` within state fragments and use dot-notation for scoping:
+Entitlements control which tenants receive which per-tenant resources. They live in `matrix.tenants` within fragments and use dot-notation for scoping:
 
 - `compute.*` - wildcard, tenant gets **all** compute classes
 - `compute.windows-server` - scoped, tenant gets **only** the `windows-server` class
@@ -283,7 +283,7 @@ All tenant codes must be registered in `platformer/tenants/tenants.yaml` before 
 
 The compute module expands `tenant × class × count` into individual instances. With entitlements, this becomes `entitled_tenants_for_class × class × count` - each class only creates instances for its entitled tenants.
 
-### State Fragment Composition
+### Fragment Composition
 
 Fragments merge left-to-right with deep merge semantics. Maps merge recursively, lists union-deduplicate. This means:
 - Different fragments can contribute different compute classes

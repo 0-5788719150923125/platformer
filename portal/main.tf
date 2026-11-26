@@ -4,7 +4,7 @@
 # are shared org-wide in Port.io (blueprints, pages, scorecard, permissions,
 # doc/commit entities) are owned by the default workspace and must not be
 # recreated here. Workspace-specific data (compute entities, service URLs,
-# state fragments, artifacts, event bus webhooks) is always created.
+# fragments, artifacts, event bus webhooks) is always created.
 # ============================================================================
 
 locals {
@@ -18,7 +18,7 @@ locals {
   bp_event_bus          = "eventBus-${var.subspace}"
   bp_git_commit         = "gitCommit-${var.subspace}"
   bp_service_url        = "serviceUrl-${var.subspace}"
-  bp_state_fragment     = "stateFragment-${var.subspace}"
+  bp_fragment           = "fragment-${var.subspace}"
   bp_storage            = "storage-${var.subspace}"
   bp_tenant_entitlement = "tenantEntitlement-${var.subspace}"
 }
@@ -429,37 +429,37 @@ resource "null_resource" "page_lifecycle" {
     port_entity.storage,
     port_entity.tenant_entitlement,
     port_entity.service_url,
-    port_entity.state_fragment,
+    port_entity.fragment,
     local_file.page_json
   ]
 }
 
-# State Fragments Catalog Page
+# Fragments Catalog Page
 locals {
-  state_catalog_page_id = "my-states-${var.namespace}"
-  # Apostrophe rule: "Zapdos' States" vs "Cloco's States"
-  states_page_title = endswith(local.namespace_title, "s") ? "${local.namespace_title}' States" : "${local.namespace_title}'s States"
-  state_catalog_page_json = templatefile("${path.module}/state-catalog-page.json", {
-    namespace         = var.namespace
-    states_page_title = local.states_page_title
-    parent_folder     = local.parent_folder
+  fragment_catalog_page_id = "my-fragments-${var.namespace}"
+  # Apostrophe rule: "Zapdos' Fragments" vs "Cloco's Fragments"
+  fragments_page_title = endswith(local.namespace_title, "s") ? "${local.namespace_title}' Fragments" : "${local.namespace_title}'s Fragments"
+  fragment_catalog_page_json = templatefile("${path.module}/fragment-catalog-page.json", {
+    namespace            = var.namespace
+    fragments_page_title = local.fragments_page_title
+    parent_folder        = local.parent_folder
   })
 }
 
-resource "local_file" "state_catalog_page_json" {
-  content  = local.state_catalog_page_json
-  filename = "${path.module}/.terraform/state-catalog-page-${var.namespace}.json"
+resource "local_file" "fragment_catalog_page_json" {
+  content  = local.fragment_catalog_page_json
+  filename = "${path.module}/.terraform/fragment-catalog-page-${var.namespace}.json"
 }
 
-resource "null_resource" "state_catalog_page_lifecycle" {
+resource "null_resource" "fragment_catalog_page_lifecycle" {
   count = local.is_subspace ? 0 : 1
   triggers = {
-    page_id          = local.state_catalog_page_id
-    page_content     = local.state_catalog_page_json
+    page_id          = local.fragment_catalog_page_id
+    page_content     = local.fragment_catalog_page_json
     client_id        = var.port_client_id
     client_secret    = var.port_secret
     script_path      = "${path.module}/scripts/manage-page.sh"
-    page_file        = local_file.state_catalog_page_json.filename
+    page_file        = local_file.fragment_catalog_page_json.filename
     page_permissions = local.page_permissions_json
     folder_owner     = var.owner
   }
@@ -477,8 +477,8 @@ resource "null_resource" "state_catalog_page_lifecycle" {
   }
 
   depends_on = [
-    port_entity.state_fragment,
-    local_file.state_catalog_page_json
+    port_entity.fragment,
+    local_file.fragment_catalog_page_json
   ]
 }
 

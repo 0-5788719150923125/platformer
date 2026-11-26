@@ -22,17 +22,17 @@ variable "repo_name" {
   default     = ""
 }
 
-variable "states" {
-  description = "Resolved state fragment names. Only these are included in the archive; all others are removed from states/."
+variable "fragments" {
+  description = "Resolved fragment names. Only these are included in the archive; all others are removed from fragments/."
   type        = list(string)
   default     = []
 }
 
-variable "state_files" {
+variable "fragment_files" {
   description = <<-EOT
-    Resolved file path for each selected state (name => path), from the config
-    module. Fragments that git doesn't track (e.g. from user states_paths
-    outside the repo) are copied into the archive's states/ as <name>.yaml
+    Resolved file path for each selected fragment (name => path), from the config
+    module. Fragments that git doesn't track (e.g. from user fragment_paths
+    outside the repo) are copied into the archive's fragments/ as <name>.yaml
     before scrubbing. Tracked fragments use the committed copy.
   EOT
   type        = map(string)

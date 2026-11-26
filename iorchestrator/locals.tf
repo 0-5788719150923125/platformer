@@ -53,7 +53,7 @@ locals {
             SAASAPP_TENANT_MAPPING_KEY = "router/tenant-mapping.json"
             SAASAPP_DNS_TEMPLATE       = "saasapp.${deploy_name}.io.local:30000"
           } : {},
-          # 3. User-provided overrides from state fragment (highest priority)
+          # 3. User-provided overrides from fragment (highest priority)
           svc_config.environment
         )
         image_tag             = svc_config.image

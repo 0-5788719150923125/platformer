@@ -1,7 +1,7 @@
 # Praxis AI Agents Framework - Arc Environment
 # Single-node CPU instance for development/testing
 # Repository: https://github.com/0-5788719150923125/praxis
-# Deploy with: states = ["praxis-arc"]
+# Deploy with: fragments = ["praxis-arc"]
 
 matrix:
   tenants:

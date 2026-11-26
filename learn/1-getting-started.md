@@ -72,19 +72,19 @@ Changes to Outputs:
   + namespace = (known after apply)
 ```
 
-This is intentional. Configuration is provided via composable state fragments.
+This is intentional. Configuration is provided via composable fragments.
 
 ---
 
-## Step 5: Add Configuration via State Fragments
+## Step 5: Add Configuration via Fragments
 
-State fragments are YAML files that live in `platformer/states/*`, which define the set of services to enable and how to configure them. Let's enable password rotation.
+Fragments are YAML files that live in `platformer/fragments/*`, which define the set of services to enable and how to configure them. Let's enable password rotation.
 
 Create a local `terraform.tfvars` file, and put this within:
 
 ```hcl
 # terraform.tfvars
-states = [
+fragments = [
   "compute-windows-poc",               # Enable compute module (creates Windows POC instances)
   "configuration-management-scoped"    # Enable password rotation with tag-based targeting
 ]
@@ -92,8 +92,8 @@ states = [
 
 ### What these fragments do:
 
-- **states/compute-windows-poc.yaml**: Enables the compute module with Windows POC instance classes
-- **states/configuration-management-scoped.yaml**: Enables password rotation targeting only instances deployed by this Terraform project
+- **fragments/compute-windows-poc.yaml**: Enables the compute module with Windows POC instance classes
+- **fragments/configuration-management-scoped.yaml**: Enables password rotation targeting only instances deployed by this Terraform project
 
 ### Region and Account Targeting
 
@@ -112,7 +112,7 @@ You can override these in `terraform.tfvars` if needed:
 aws_region  = "us-west-2"          # Deploy to a different region
 aws_profile = "example-account-prod"   # Deploy to a different account (uses profile name)
 
-states = [
+fragments = [
   "compute-windows-poc",
   "configuration-management-scoped"
 ]
@@ -240,7 +240,7 @@ Terraform outputs provide the commands you need to verify the deployment. Use th
 ## What Just Happened?
 
 1. **Zero to production in minutes**: You went from no infrastructure to fully automated password rotation against several new EC2 instances
-2. **Composable configuration**: State fragments are reusable building blocks
+2. **Composable configuration**: Fragments are reusable building blocks
 3. **Safe defaults**: Scoped targeting ensures you only manage instances you deploy
 4. **Self-documenting**: Terraform outputs tell you exactly how to interact with your infrastructure
 
@@ -248,7 +248,7 @@ Terraform outputs provide the commands you need to verify the deployment. Use th
 
 ## Key Concepts
 
-### State Fragments
+### Fragments
 YAML files that configure services. They merge left-to-right, allowing you to compose complex configurations from simple building blocks.
 
 ### Namespace Isolation
@@ -264,13 +264,13 @@ Unlike wildcard targeting (`InstanceIds = ["*"]`), the scoped approach uses **mu
 This prevents accidental management of unrelated instances, even when multiple deployments exist in the same account.
 
 ### Conditional Module Loading
-Modules like `compute` and `configuration-management` only activate when their state fragments are included. This keeps plans clean and focused.
+Modules like `compute` and `configuration-management` only activate when their fragments are included. This keeps plans clean and focused.
 
 ---
 
 ## Next Steps
 
-- **Explore other state fragments**: Look in `platformer/states/` for patch management, storage, and other services
+- **Explore other fragments**: Look in `platformer/fragments/` for patch management, storage, and other services
 - **Customize configuration**: Copy and modify fragments to meet your specific requirements
 - **Read the outputs carefully**: Terraform provides AWS-CLI commands and parameter paths specific to your deployment
 

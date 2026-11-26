@@ -12,7 +12,7 @@
 #
 # The hosts' cloud firewall (TCP 80/443 and the UDP ranges below) is a network
 # security group on docker-1/docker-2, managed by the oci workspace
-# (states/praxis-oci.yaml, oci.ingress on the docker class).
+# (fragments/praxis-oci.yaml, oci.ingress on the docker class).
 
 services:
   applications:

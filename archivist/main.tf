@@ -78,35 +78,35 @@ resource "null_resource" "upload_access_report" {
 
 locals {
   # Fingerprint of everything outside the git commit that shapes the archive:
-  # the selected state names (order matters for merging) and the content of
+  # the selected fragment names (order matters for merging) and the content of
   # each resolved fragment file. External fragments can change without a
   # commit, so the SHA alone isn't enough.
-  states_fingerprint = sha256(jsonencode({
-    states = var.states
-    files  = { for name, p in var.state_files : name => filesha256(p) }
+  fragments_fingerprint = sha256(jsonencode({
+    fragments = var.fragments
+    files     = { for name, p in var.fragment_files : name => filesha256(p) }
   }))
 }
 
 resource "null_resource" "archive" {
   triggers = {
-    # Re-build when the commit changes, scrub rules are updated, or resolved states change.
-    git_sha     = data.external.git_info.result.sha
-    scrub_hash  = filesha256("${path.module}/scrub.sed")
-    states_hash = local.states_fingerprint
+    # Re-build when the commit changes, scrub rules are updated, or resolved fragments change.
+    git_sha        = data.external.git_info.result.sha
+    scrub_hash     = filesha256("${path.module}/scrub.sed")
+    fragments_hash = local.fragments_fingerprint
   }
 
   provisioner "local-exec" {
     command     = "bash ${path.module}/scripts/archivist.sh"
     working_dir = path.root
     environment = {
-      # Comma-separated list of resolved state fragment names.
-      # The script removes any states/*.yaml not in this list.
-      ARCHIVIST_STATES = join(",", var.states)
+      # Comma-separated list of resolved fragment names.
+      # The script removes any fragments/*.yaml not in this list.
+      ARCHIVIST_FRAGMENTS = join(",", var.fragments)
       # One "name<TAB>absolute path" line per resolved fragment. Untracked
-      # files are copied into the archive's states/ (see state_files).
-      ARCHIVIST_STATE_FILES = join("\n", [for name, p in var.state_files : "${name}\t${abspath(p)}"])
+      # files are copied into the archive's fragments/ (see fragment_files).
+      ARCHIVIST_FRAGMENT_FILES = join("\n", [for name, p in var.fragment_files : "${name}\t${abspath(p)}"])
       # Rebuild the same-SHA archive when this changes.
-      ARCHIVIST_FINGERPRINT = "${local.states_fingerprint}-${filesha256("${path.module}/scrub.sed")}"
+      ARCHIVIST_FINGERPRINT = "${local.fragments_fingerprint}-${filesha256("${path.module}/scrub.sed")}"
     }
   }
 }

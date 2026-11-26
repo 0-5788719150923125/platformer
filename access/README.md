@@ -8,7 +8,7 @@ Access policies are scattered across modules (compute, build, storage, iorchestr
 
 Each module emits `audit_iam_roles`, `audit_security_groups`, and/or `audit_resource_policies` outputs describing the policies it creates. The root `main.tf` concatenates these and passes the combined lists to the audit module, which groups by module and writes a JSON report to `audit/build/`.
 
-This is always-on, like archivist and auto-docs. No state fragment is needed to enable it.
+This is always-on, like archivist and auto-docs. No fragment is needed to enable it.
 
 ## Dependency Graph
 

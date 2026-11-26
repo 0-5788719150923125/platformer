@@ -32,9 +32,9 @@ LAYOUT_FALLBACKS = {
 ROOT_FILES = [
     ("main.tf", "Wires every module together: config in, requests routed between modules."),
     ("providers.tf", "The clouds, each with an `enabled` switch that follows the workspace's profiles."),
-    ("top.yaml", "Multi-account targeting: account patterns mapped to state fragments."),
-    ("terraform.tfvars", "Local configuration: profiles, region, and the state fragments to load. `terraform.tfvars.<workspace>` overrides it per workspace."),
-    ("SCHEMA.md", "Every option a state fragment can set, generated from the modules' variables."),
+    ("top.yaml", "Multi-account targeting: account patterns mapped to fragments."),
+    ("terraform.tfvars", "Local configuration: profiles, region, and the fragments to load. `terraform.tfvars.<workspace>` overrides it per workspace."),
+    ("SCHEMA.md", "Every option a fragment can set, generated from the modules' variables."),
 ]
 
 SKIP_DIRS = {".terraform", ".git", "terraform.tfstate.d"}

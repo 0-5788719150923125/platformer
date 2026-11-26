@@ -133,7 +133,7 @@ If you wanted to add a new service (e.g., `monitoring`), you would:
    If it creates cloud resources, declare the cloud through Platformer's provider (`aws = { source = "platformer.local/lazyprovider/aws" }` in `required_providers`), never `hashicorp/aws`, so workspaces that don't use that cloud never have to set it up.
 3. **Add conditional creation**: `module "monitoring" { count = local.monitoring_needed ? 1 : 0 }`
 4. **Wire it in**: Connect outputs from other modules to monitoring's inputs
-5. **Add state fragments**: Create `states/monitoring.yaml` for configuration
+5. **Add fragments**: Create `fragments/monitoring.yaml` for configuration
 
 The key insight: **you modify `main.tf` to wire things together**, but the module itself remains independent.
 
@@ -191,7 +191,7 @@ As requirements change, you can:
 This is a stub. Future sections could include:
 
 - **Detailed walkthrough of main.tf wiring**: Step-by-step explanation of how modules connect
-- **Creating a new module from scratch**: Full example with tests, state fragments, and integration
+- **Creating a new module from scratch**: Full example with tests, fragments, and integration
 - **Advanced pattern matching in top.yaml**: Salt-style compound targeting examples
 - **Module versioning and stability**: How to evolve modules while maintaining backward compatibility
 - **Performance considerations**: How to optimize plan/apply times in multi-account deployments

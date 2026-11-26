@@ -1,6 +1,6 @@
 ## Documentation
 
-Comprehensive documentation exists for every layer of the framework. Module READMEs explain service-specific behavior, state fragment guides show configuration patterns, and tutorials provide step-by-step walkthroughs. The framework also generates self-documenting outputs with ready-to-run AWS CLI commands.
+Comprehensive documentation exists for every layer of the framework. Module READMEs explain service-specific behavior, fragment guides show configuration patterns, and tutorials provide step-by-step walkthroughs. The framework also generates self-documenting outputs with ready-to-run AWS CLI commands.
 
 ---
 
@@ -8,7 +8,7 @@ Comprehensive documentation exists for every layer of the framework. Module READ
 
 **[README.md](../README.md)** - Architecture overview, getting started, and design principles
 
-**[SCHEMA.md](../SCHEMA.md)** - Auto-generated module schema documentation with variables, outputs, and state fragment structures
+**[SCHEMA.md](../SCHEMA.md)** - Auto-generated module schema documentation with variables, outputs, and fragment structures
 
 ---
 
@@ -16,7 +16,7 @@ Comprehensive documentation exists for every layer of the framework. Module READ
 
 - **[clairevoyance](../clairevoyance/README.md)** - Medical AI platform with SageMaker Studio, inference endpoints, and container registry
 - **[compute](../compute/README.md)** - EC2 and EKS compute provisioning with class-based expansion and multi-tenant support *[auto-enables]*
-- **[config](../config/README.md)** - Configuration resolver - loads and merges state fragments from states/ directory
+- **[config](../config/README.md)** - Configuration resolver - loads and merges fragments from fragments/ directory
 - **[configuration-management](../configuration-management/README.md)** - SSM automation for patch management, password rotation, and hybrid activations
 - **[tenants](../tenants/README.md)** - Tenant registry for validation and metadata management
 - **[hashing](../hashing/README.md)** - Deterministic namespace generation using Pokemon names or random pet names
@@ -28,7 +28,7 @@ Comprehensive documentation exists for every layer of the framework. Module READ
 
 ### Additional Documentation:
 
-- **[states](../states/README.md)** - Creating and using state fragments
+- **[fragments](../fragments/README.md)** - Creating and using fragments
 - **[tests](../tests/README.md)** - Test automation and testing strategies
 - **[learn/](../learn/)** - Step-by-step tutorials and training materials covering getting started, going live, and module composition patterns
 - **[next/](../next/)** - Exploration of potential next steps including integration testing strategies, tenant registry concepts, container services, and architectural considerations

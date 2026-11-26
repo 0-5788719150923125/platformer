@@ -12,9 +12,9 @@ git clone https://github.com/0-5788719150923125/platformer
 cd platformer
 git checkout PROJ-5062-test-terraform-framework-in-limited-prod-password-rotation-patch-management
 
-# Configure which state fragments to load
+# Configure which fragments to load
 # Edit terraform.tfvars:
-#   states = ["configuration-management-scoped", "compute-windows-poc"]
+#   fragments = ["configuration-management-scoped", "compute-windows-poc"]
 
 # Initialize Terraform
 terraform init
@@ -33,7 +33,7 @@ terraform test
 
 ### Production Deployment Workflow:
 
-**1. Edit top.yaml to add state fragments to targets:**
+**1. Edit top.yaml to add fragments to targets:**
 
 ```yaml
 # top.yaml
@@ -65,7 +65,7 @@ git push
 ### Additional Information:
 
 See [README.md](../README.md) for complete documentation including:
-- Configuration via state fragments
+- Configuration via fragments
 - Testing strategies
 - CI/CD multi-account deployments
 - Service module details

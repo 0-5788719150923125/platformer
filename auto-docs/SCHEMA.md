@@ -2,7 +2,7 @@
 
 Auto-generated from variables.tf and outputs.tf files. Do not edit manually.
 
-This document shows the YAML structure for state fragments in `states/` directory.
+This document shows the YAML structure for fragments in `fragments/` directory.
 
 ## Supported Modules
 

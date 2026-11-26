@@ -5,7 +5,7 @@ This final diagram shows the transformation journey: from the fragmented state p
 ```mermaid
 graph LR
     Problem[Fragmented State<br/>Directory Sprawl] -->|Solution| Global[One State<br/>Pattern Matching]
-    Global --> Compose[Composable Services<br/>State Fragments]
+    Global --> Compose[Composable Services<br/>Fragments]
     Compose --> Auto[Auto-Enabling Modules<br/>Dependency Inversion]
     Auto --> Deploy[Multi-Account Deploy<br/>Self-Healing]
 

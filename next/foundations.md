@@ -4,11 +4,11 @@ The README says what Platformer is and how to run it. This is why it's shaped th
 
 ## The Shape
 
-Platformer orchestrates at the level of accounts and regions, out of modular services, controlled by state fragments. Four principles hold it together:
+Platformer orchestrates at the level of accounts and regions, out of modular services, controlled by fragments. Four principles hold it together:
 
 - **Service-level grouping.** Each module is a service (configuration management, compute, storage), not a resource type.
 - **A single state per account and region.**
-- **State fragments as configuration.** YAML fragments in Git decide what runs where (GitOps).
+- **Fragments as configuration.** YAML fragments in Git decide what runs where (GitOps).
 - **Module-owned defaults.** A module knows its own sensible defaults; fragments only say what's different.
 
 ## Dependency Inversion
@@ -19,7 +19,7 @@ Modules don't know about each other, so they stay decoupled. Providers turn on w
 
 ## Many Accounts, One Codebase
 
-In CI, GitHub Actions deploys to many accounts and regions from composable state. Accounts are discovered through AWS Organizations (`organizations:ListAccounts`). Reusable fragments live in `states/` (or outside the repo, through `states_paths`; see [states/README.md](../states/README.md)). `top.yaml` maps account patterns to fragments, in the spirit of Salt's top file:
+In CI, GitHub Actions deploys to many accounts and regions from composable fragments. Accounts are discovered through AWS Organizations (`organizations:ListAccounts`). Reusable fragments live in `fragments/` (or outside the repo, through `fragment_paths`; see [fragments/README.md](../fragments/README.md)). `top.yaml` maps account patterns to fragments, in the spirit of Salt's top file:
 
 ```yaml
 targets:
@@ -80,9 +80,9 @@ Terraform is, underneath, a deeply nested graph computation that resolves depend
 
 The twelve factors were written for applications, but most of them apply directly to infrastructure. Four of them separate declarative, service-oriented infrastructure from the traditional kind.
 
-**III - Config.** Everything environment-specific lives in external state fragments (`states/*.yaml`), never hardcoded in modules. The same module code deploys to every account and region with different configuration, so there are no per-environment codebases and behavior is consistent everywhere.
+**III - Config.** Everything environment-specific lives in external fragments (`fragments/*.yaml`), never hardcoded in modules. The same module code deploys to every account and region with different configuration, so there are no per-environment codebases and behavior is consistent everywhere.
 
-**IV - Backing services.** Services (configuration management, compute, legacy) are attached resources, switched on and off purely through state fragments. Because modules load conditionally, components attach and detach without code changes, the way an app swaps databases through an environment variable instead of a hardwired dependency.
+**IV - Backing services.** Services (configuration management, compute, legacy) are attached resources, switched on and off purely through fragments. Because modules load conditionally, components attach and detach without code changes, the way an app swaps databases through an environment variable instead of a hardwired dependency.
 
 **IX - Disposability.** Modules attach and detach quickly and cleanly. The `legacy` module shows it: a whole Atlantis deployment can be switched on, used, and removed completely by changing configuration, with no orphaned resources and no manual cleanup. Treating components as cattle, not pets, makes experiments safe and rollbacks fast.
 
