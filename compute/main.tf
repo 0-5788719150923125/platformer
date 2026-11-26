@@ -11,9 +11,10 @@
 #                   called from adapters.tf; set up only where OCI is enabled.
 #   localhost.tf  - runs applications on the machine running Terraform.
 #
-# The AWS adapter is called below. Its provider is platformer/aws (lazyprovider/),
-# which only sets itself up in workspaces that enable AWS. Resources that lived
-# here before the split are moved by moved.tf.
+# The AWS adapter is called below. Its provider is
+# platformer.local/lazyprovider/aws (lazyprovider/), which only sets itself up in
+# workspaces that enable AWS. Resources that lived here before the split are moved
+# by moved.tf.
 
 locals {
   # All tenants entitled to any class (used by the generic instance expansion)

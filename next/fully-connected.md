@@ -56,9 +56,9 @@ It worked, and it was wrong. The step lived outside the graph, so it had to run 
 
 The answer came from the other side of computer science: lazy evaluation. A lazy language doesn't evaluate an expression when it's written down. It evaluates it when something needs the result, and an expression nobody needs costs nothing. Terraform's providers are eager. Every provider the configuration mentions gets set up before planning starts, used or not. Nothing about the graph requires that. It's one call, made too early.
 
-So Platformer ships providers that are lazy. `platformer/aws` stands in front of `hashicorp/aws` and relays every message unchanged except one. When Terraform asks it to set up, it checks a setting of its own, `enabled`. A workspace that uses AWS sets it to true, and the real provider is set up on the spot, errors and all, exactly as before. A workspace that doesn't use AWS sets it to false, and the real provider is never set up at all: no login, no credentials, no failure. The setting is an ordinary provider argument, derived from the workspace's own declarations and evaluated inside the graph like everything else.
+So Platformer ships providers that are lazy. `platformer.local/lazyprovider/aws` stands in front of `hashicorp/aws` and relays every message unchanged except one. When Terraform asks it to set up, it checks a setting of its own, `enabled`. A workspace that uses AWS sets it to true, and the real provider is set up on the spot, errors and all, exactly as before. A workspace that doesn't use AWS sets it to false, and the real provider is never set up at all: no login, no credentials, no failure. The setting is an ordinary provider argument, derived from the workspace's own declarations and evaluated inside the graph like everything else.
 
-The proxy is a few hundred lines of Go, built from source by one script, once per version. That is a step, but not one between Terraform and the graph. It's the same kind of step as installing Terraform itself.
+The proxy is a few hundred lines of Go, built from source by one script, once per version. That is a step, but not one between Terraform and the graph. It's the same kind of step as installing Terraform itself. Its address says so: `.local`, built on this machine. A shorter name would have pointed at the public registry, where anyone holding the matching name could publish something to answer an unbuilt checkout. Under `.local`, an unbuilt checkout simply fails, and asks for the build.
 
 Now every cloud is part of every configuration, and every plan is one plan. The architecture never changes between workspaces; only which parts of it wake up. When Terraform opens the door it reserved, the proxy can retire, and each `enabled` becomes a `for_each`.
 
@@ -152,7 +152,7 @@ Terraform's authors built a language that can describe everything at once. Almos
 | Unused providers block users without those clouds | Reproduced: a fresh clone without AWS credentials cannot plan |
 | Placeholder credentials | Used for AWS as a stopgap, then removed; verified for Oracle and Google; impossible for Azure |
 | Composition per workspace (a script before Terraform) | Built, then retired: it put a step between workspace switches and the graph |
-| Lazy providers | Built: `lazyprovider/`, `platformer/aws`, `platformer/oci`, `platformer/port`, each with `enabled`; real providers in `upstreams/`; a clone with no cloud credentials plans |
+| Lazy providers | Built: `lazyprovider/`, `platformer.local/lazyprovider/aws`, `platformer.local/lazyprovider/oci`, `platformer.local/lazyprovider/port`, each with `enabled`; real providers in `lazyprovider/upstreams.tf`; a clone with no cloud credentials plans |
 | Port, a provider that logs in during setup | Built: behind the lazy proxy, set up only where `port_enabled = true` |
 | Generic service with per-cloud adapter directories | Built: compute, with `compute/aws/` and `compute/oci/` |
 | AWS extracted into adapters | Done with no plan changes for compute, networking, storage, secrets, access, domains, configuration-management and build |

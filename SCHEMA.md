@@ -639,9 +639,9 @@ This module supports the following arguments:
 | `config` | `object` | No | Configuration management service configuration | [./configuration-management/variables.tf:54](./configuration-management/variables.tf#L54) |
 | `ssm_association_log_bucket` | `string` | No | S3 bucket name for SSM association logs (provided by storage module) | [./configuration-management/variables.tf:461](./configuration-management/variables.tf#L461) |
 | `hooks_bucket` | `string` | No | S3 bucket name for hook scripts (provided by storage module) | [./configuration-management/variables.tf:468](./configuration-management/variables.tf#L468) |
-| `instances_by_class` | `map` | No | Instances grouped by class name  -  map of class_name => { instance_key => instance_id } (provided by compute module) | [./configuration-management/variables.tf:475](./configuration-management/variables.tf#L475) |
+| `instances_by_class` | `map` | No | Instances grouped by class name - map of class_name => { instance_key => instance_id } (provided by compute module) | [./configuration-management/variables.tf:475](./configuration-management/variables.tf#L475) |
 | `application_requests` | `list(object)` | No | All application deployment requests from applications module - filtered internally by type (ssm, compose, ansible, user-data, helm) | [./configuration-management/variables.tf:483](./configuration-management/variables.tf#L483) |
-| `has_application_deployments` | `bool` | No | Whether any application deployments (SSM/Ansible) exist  -  drives application-scripts bucket request | [./configuration-management/variables.tf:544](./configuration-management/variables.tf#L544) |
+| `has_application_deployments` | `bool` | No | Whether any application deployments (SSM/Ansible) exist - drives application-scripts bucket request | [./configuration-management/variables.tf:544](./configuration-management/variables.tf#L544) |
 | `application_scripts_bucket` | `string` | No | S3 bucket name for application scripts (provided by storage module) | [./configuration-management/variables.tf:551](./configuration-management/variables.tf#L551) |
 | `instances_role_name` | `string` | No | IAM role name for compute instances (for attaching S3 access policy) | [./configuration-management/variables.tf:558](./configuration-management/variables.tf#L558) |
 | `instances_role_arn` | `string` | No | IAM role ARN for compute instances (for S3 bucket policy) | [./configuration-management/variables.tf:564](./configuration-management/variables.tf#L564) |
@@ -1326,7 +1326,7 @@ This module exports the following attributes:
 
 Path: [`.`](.)
 
-Self-service framework for {{ .user.firstName }}.
+_Self-service framework for {{ .user.firstName }}._
 
 ### Arguments
 
@@ -1353,7 +1353,7 @@ This module exports the following attributes:
 
 | Output | Description | Ref |
 |--------|-------------|-----|
-| `service_urls` | Service URL registry  -  key-to-URL mapping (null entries excluded) | [./outputs.tf:155](./outputs.tf#L155) |
+| `service_urls` | Service URL registry - key-to-URL mapping (null entries excluded) | [./outputs.tf:155](./outputs.tf#L155) |
 | `commands` | Single operational commands by category | [./outputs.tf:165](./outputs.tf#L165) |
 | `workflows` | Multi-step operational workflows by category | [./outputs.tf:174](./outputs.tf#L174) |
 | `enabled_services` | List of enabled services in this deployment (includes auto-enabled and explicitly configured) | [./outputs.tf:183](./outputs.tf#L183) |

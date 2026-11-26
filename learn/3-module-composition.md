@@ -130,6 +130,7 @@ If you wanted to add a new service (e.g., `monitoring`), you would:
 
 1. **Create the module**: `platformer/monitoring/main.tf`
 2. **Define the interface**: What inputs does it need? What outputs does it provide?
+   If it creates cloud resources, declare the cloud through Platformer's provider (`aws = { source = "platformer.local/lazyprovider/aws" }` in `required_providers`), never `hashicorp/aws`, so workspaces that don't use that cloud never have to set it up.
 3. **Add conditional creation**: `module "monitoring" { count = local.monitoring_needed ? 1 : 0 }`
 4. **Wire it in**: Connect outputs from other modules to monitoring's inputs
 5. **Add state fragments**: Create `states/monitoring.yaml` for configuration

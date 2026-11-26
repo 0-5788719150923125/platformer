@@ -9,7 +9,8 @@ This walkthrough will guide you through the deployment of your first service usi
 ## Prerequisites
 
 - Git installed and configured with access to the platformer repository
-- Terraform 1.5+ installed
+- Terraform 1.8+ installed
+- Python 3, `curl`, `tar` and `sha256sum` (for building Platformer's providers; no Go install needed)
 - AWS credentials configured (profile management is handled automatically)
 
 ---
@@ -30,13 +31,18 @@ The repository root is the root of our new infrastructure framework. Unlike the 
 
 ---
 
-## Step 3: Initialize Terraform
+## Step 3: Build the Providers and Initialize Terraform
+
+Platformer reaches its clouds through small providers it builds from source (see [lazyprovider/README.md](../lazyprovider/README.md)). Build them once, then initialize:
 
 ```bash
+scripts/build-providers.sh
 terraform init
 ```
 
-This downloads required providers and initializes the backend. You should see output confirming successful initialization.
+The script fetches its own Go toolchain, runs the providers' tests, and installs them where Terraform looks for local plugins. Run it again only when `lazyprovider/VERSION` changes. `terraform init` then downloads the real cloud providers and initializes the backend. You should see output confirming successful initialization.
+
+If you skip the build, `terraform init` stops with "could not connect to platformer.local". Run the script and try again.
 
 ---
 

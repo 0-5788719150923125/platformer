@@ -1,9 +1,9 @@
 # OCI Compute Adapter
 #
 # Runs generic instance classes (type = "instance", cloud = "oci") on Oracle
-# Cloud. Called from compute/adapters.tf. Its provider is platformer/oci (the
-# lazy proxy), inherited from the root, which is only set up in workspaces
-# that set oci_profile.
+# Cloud. Called from compute/adapters.tf. Its provider is
+# platformer.local/lazyprovider/oci (the lazy proxy), inherited from the root,
+# which is only set up in workspaces that set oci_profile.
 #
 # Networking is referenced, not managed: instances join an existing subnet by
 # OCID. Shared networks (e.g. one that also hosts instances outside Platformer)
@@ -12,7 +12,7 @@
 terraform {
   required_providers {
     oci = {
-      source = "platformer/oci"
+      source = "platformer.local/lazyprovider/oci"
     }
   }
 }

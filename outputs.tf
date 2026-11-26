@@ -153,7 +153,7 @@ locals {
 
 # Unified Service URLs (key-to-URL mapping for all services)
 output "service_urls" {
-  description = "Service URL registry  -  key-to-URL mapping (null entries excluded)"
+  description = "Service URL registry - key-to-URL mapping (null entries excluded)"
   value = {
     for key, entry in local.service_urls_filtered :
     key => entry.url
@@ -161,7 +161,7 @@ output "service_urls" {
   }
 }
 
-# Command Registry  -  category-to-commands mapping for deployers
+# Command Registry - category-to-commands mapping for deployers
 output "commands" {
   description = "Single operational commands by category"
   value = {

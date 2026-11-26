@@ -3,7 +3,7 @@
 terraform {
   required_providers {
     aws = {
-      source = "platformer/aws"
+      source = "platformer.local/lazyprovider/aws"
     }
   }
 }

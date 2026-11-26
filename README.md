@@ -1,6 +1,6 @@
 # Autonomous Systematic Mechanical Reconcilliation
 
-Self-service framework for {{ .user.firstName }}.
+_Self-service framework for {{ .user.firstName }}._
 
 ---
 
@@ -8,300 +8,145 @@ Self-service framework for {{ .user.firstName }}.
 
 ---
 
-A **Platformer** combines Platform Architecture + Terraform(er), reflecting a team identity and technical approach. Like the game genre, we build foundations for others to rely upon. The "-former" suffix is a nod to modern AI (transformers) and the technological singularity within us all.
+**Start here:** Platformer reaches its clouds through providers it builds from source. Before your first `terraform init`, and again whenever `lazyprovider/VERSION` changes, run:
 
-## Architecture
-
-Account and region-level orchestration with modular services, controlled via state fragments.
-
-**Design principles:**
-- Service-level grouping
-- Single state per account/region
-- State fragment-based configuration (GitOps)
-- Module-owned defaults
-
-### Project Structure
-
-```
-.github/
-├── actions/                    # Reusable compositions
-└── workflows/terraform.yml     # Unified matrix deployments
-
-platformer/
-├── access/                     # Service module
-├── applications/               # Service module
-├── arcbot/                     # Service module
-├── archivist/                  # Service module
-├── auto-docs/                  # Service module
-├── build/                      # Service module
-├── clairevoyance/              # Service module
-├── compute/                    # Service module
-├── config/                     # Service module
-├── configuration-management/   # Service module
-├── domains/                    # Service module
-├── hashing/                    # Service module
-├── iopacs/                     # Service module
-├── iorchestrator/              # Service module
-├── ioshare/                    # Service module
-├── lazyprovider/               # Documentation
-├── learn/                      # Documentation
-├── legacy/                     # Service module
-├── networking/                 # Service module
-├── next/                       # Documentation
-├── observability/              # Service module
-├── portal/                     # Service module
-├── preflight/                  # Service module
-├── present/                    # Documentation
-├── resolver/                   # Service module
-├── scripts/                    # Documentation
-├── secrets/                    # Service module
-├── states/                     # Documentation
-├── static/                     # Documentation
-├── storage/                    # Service module
-├── tenants/                    # Service module
-├── tests/                      # Test automation
-├── upstreams/                  # Service module
-├── workspaces/                 # Service module
-├── main.tf                     # Service orchestration
-└── top.yaml                    # Multi-account targeting
-```
-## Prerequisites
-
-The following tools must be available in `PATH` for full functionality:
-
-| Tool | Type | Modules |
-|------|------|---------|
-| `docker` | discrete | portal |
-| `docker compose` or `docker-compose` | any | portal |
-
-## Available Services
-
-- **access**: Centralized access control reporting using dependency inversion. Modules declare the IAM roles, security groups, and resource policies they provision, and the audit module aggregates them into a single JSON report rendered in AWS-native format. ([docs](./access/README.md))
-- **applications**: Data transformation layer for application deployment. Enriches application requests with file paths and routes them to appropriate deployment modules. ([docs](./applications/README.md))
-- **arcbot**: Multi-target AI bot module. Routes config by target type: ([docs](./arcbot/README.md))
-- **archivist**: Produces a scrubbed, versioned tarball of the `platformer/` codebase on every `terraform apply`. The archive is safe to distribute - sensitive strings (AWS account IDs, internal domain names, S3 bucket names, and account-specific targets) are replaced with generic placeholders before packaging. ([docs](./archivist/README.md))
-- **auto-docs**: Automatic documentation generator for Platformer modules - parses `variables.tf` files and generates `SCHEMA.md` with YAML examples. ([docs](./auto-docs/README.md))
-- **build**: Golden AMI builds for EC2 classes using Packer with SSM communicator. Extracted from compute to sit earlier in the dependency graph, enabling direct S3 access during builds. ([docs](./build/README.md))
-- **clairevoyance**: Medical AI inference platform on AWS SageMaker. ([docs](./clairevoyance/README.md))
-- **compute**: Unified compute provisioning with type-based routing. Single configuration interface for EC2, EKS, and future compute platforms. ([docs](./compute/README.md))
-- **config**: Configuration resolution via YAML state fragments. Loads, deep-merges, and extracts service configurations. ([docs](./config/README.md))
-- **configuration-management**: Automated configuration management for EC2 instances using AWS Systems Manager. ([docs](./configuration-management/README.md))
-- **domains**: Route53 zone lookup and ACM wildcard certificate provisioning with DNS validation. ([docs](./domains/README.md))
-- **hashing**: Deterministic namespace generation for parallel deployments. ([docs](./hashing/README.md))
-- **iopacs**: (WIP) Domain orchestration for IOPACS medical imaging PACS deployments using dependency inversion pattern. ([docs](./iopacs/README.md))
-- **iorchestrator**: Domain orchestration module for IOrchestrator (IO Cloud / SaaSApp) deployments on AWS ECS Fargate. ([docs](./iorchestrator/README.md))
-- **ioshare**: Domain orchestration module for Ioshare medical imaging platform. ([docs](./ioshare/README.md))
-- **legacy**: Disposable EC2 instance with Atlantis pre-built via Packer. ([docs](./legacy/README.md))
-- **networking**: VPC and subnet management with deterministic CIDR allocation. ([docs](./networking/README.md))
-- **observability**: LGTM stack (Loki, Grafana, Tempo, Mimir) for centralized logging and observability. ([docs](./observability/README.md))
-- **portal**: Ephemeral Port.io integration for compute instance catalog visualization and self-service actions. ([docs](./portal/README.md))
-- **preflight**: Reusable dependency validation utilities for checking CLI tool availability. ([docs](./preflight/README.md))
-- **resolver**: Dependency resolution engine. Determines which modules need to be enabled based on service configurations. ([docs](./resolver/README.md))
-- **secrets**: Cross-account secret replication. Reads secrets from authoritative source accounts and creates local copies in deployment accounts. ([docs](./secrets/README.md))
-- **storage**: Centralized S3 bucket provisioning using dependency inversion. Modules declare their storage needs, the storage module creates and manages the resources. ([docs](./storage/README.md))
-- **tenants**: Centralized tenant registry and validation. ([docs](./tenants/README.md))
-- **tests**: Root-level test suites and the module test runner. ([docs](./tests/README.md))
-- **upstreams**: upstreams module ([docs](./upstreams/README.md))
-- **workspaces**: Enables workspace-specific variable overrides using `terraform.tfvars.{workspace}` files. ([docs](./workspaces/README.md))
-
-**Auto-enabling services**: Some modules (storage, compute) automatically enable when other modules need them, via dependency inversion. See [Dependency Inversion Pattern](#dependency-inversion-pattern) below.
-
-## Local Development
-
-For a detailed walkthrough with practical examples, see [`learn/1-getting-started.md`](./learn/1-getting-started.md).
-
-```bash
-terraform init
-terraform plan
-terraform apply
-terraform destroy
+```sh
+scripts/build-providers.sh
 ```
 
-Configure services via state fragments in `terraform.tfvars`:
-```hcl
-# terraform.tfvars
-states = ["configuration-management-hourly", "compute-windows-test"]
-```
-
-**Optional**: Override the AWS profile or region:
-```hcl
-# terraform.tfvars
-aws_profile = "example-account-prod"  # Default: example-platform-dev
-aws_region  = "us-west-2"         # Default: us-east-2
-states = ["configuration-management-hourly"]
-```
-
-**Note**: The provider automatically uses the profile specified in `var.aws_profile` (defaults to `example-platform-dev`). Profile names come from your `~/.aws/config` file, and the account ID is automatically derived from the authenticated session.
-
-## Workspace-Specific Configuration
-
-Create `terraform.tfvars.{workspace}` files to override variables per environment:
-
-```bash
-terraform workspace new nginx
-cat > terraform.tfvars.nginx <<EOF
-aws_profile = "example-account-1"
-owner       = "BC"
-states      = ["nginx-instances"]
-EOF
-terraform apply
-```
-
-See [`workspaces/README.md`](./workspaces/README.md) for details.
-
-## Testing
-
-This project includes a comprehensive test suite using `terraform test`.
-
-```bash
-# Run all tests
-terraform test
-
-# Run specific test file
-terraform test -filter=tests/variables.tftest.hcl
-```
-
-**Test Coverage:**
-- **Variables** - Input validation rules (AWS account ID format, profile names, region format)
-- **Modules** - Module initialization, configuration acceptance, and default values
-- **Conditionals** - Service auto-enabling and conditional module creation
-- **Integration** - Cross-module integration (networking + compute, applications + compute)
-
-Test files are located in `tests/`:
-- `variables.tftest.hcl` - Input validation tests
-- `modules.tftest.hcl` - Module interface and configuration tests
-- `conditionals.tftest.hcl` - Service enablement tests
-- `integration.tftest.hcl` - Cross-module integration tests
-
-## CI/CD Multi-Account Deployments
-
-For a detailed walkthrough on deploying to production, see [`learn/2-going-live.md`](./learn/2-going-live.md).
-
-GitHub Actions deploys to multiple accounts/regions using composable state configurations:
-
-- **AWS Organizations**: Accounts auto-discovered via `organizations:ListAccounts` API
-- **`states/`**: Reusable fragments (matrix, services) - see [`states/README.md`](./states/README.md). Fragments can also live outside the repo via `states_paths` in `terraform.tfvars`
-- **`top.yaml`**: Pattern-based targeting with state references (Salt-inspired)
-
-```yaml
-# top.yaml example
-targets:
-  '*-platform-dev':
-    - regions-east
-    - configuration-management
-```
-
-States are merged left-to-right. `matrix.regions` generates parallel deployments per account × region.
-
-## Adding Services
-
-For architectural patterns and design principles, see [`learn/3-module-composition.md`](./learn/3-module-composition.md).
-
-1. Create `service-name/` with `main.tf`, `variables.tf`, `outputs.tf`
-2. Add module to root `main.tf`:
-   ```hcl
-   module "my_service" {
-     count  = contains(keys(module.config.service_configs), "my-service") ? 1 : 0
-     source = "./my-service"
-     namespace = random_pet.namespace.id
-     config = module.config.service_configs["my-service"]
-   }
-   ```
-3. Add output to root `outputs.tf`
-4. Create state fragment in `states/my-service.yaml`:
-   ```yaml
-   services:
-     my-service:
-       # Service-specific configuration
-   ```
-
-## Dependency Inversion Pattern
-
-Some modules provide infrastructure (buckets, instances) that other modules consume. Instead of tight coupling, we use **dependency inversion**:
-
-- **Consumer modules** declare their needs via outputs (`bucket_requests`, `instance_parameters`)
-- **Root orchestrator** (`main.tf`) detects needs and auto-enables provider modules
-- **Provider modules** (storage, compute) fulfill requests without being directly referenced
-- **No explicit configuration needed** - dependencies are inverted and resolved automatically
-
-This pattern enables:
-- **Decoupling**: Modules don't know about each other
-- **Auto-enabling**: Provider modules activate when needed, no manual orchestration
-- **Clean interfaces**: Standardized request/response schemas
-- **Extensibility**: New consumers and providers integrate seamlessly
-
-For a detailed explanation with diagrams, see [`present/05-dependency-inversion.md`](./present/05-dependency-inversion.md).
+It fetches its own Go toolchain (no Go install needed), tests and builds the providers, and installs them where Terraform looks for local plugins. If you skip it, `terraform init` stops with _"could not connect to platformer.local"_ (after about 15 seconds of retries). The [lazyprovider README](lazyprovider/README.md) explains why the providers exist.
 
 ---
 
-## Architecture References
+## description
 
-This project's design follows established patterns from HashiCorp, AWS, and GitOps principles:
+A **Platformer** combines Platform Architecture + Terraform(er), reflecting a team identity and technical approach. Like the game genre, we build foundations for others to launch from. The "-former" suffix is a nod to modern AI (transformers) and the technological singularity within us all.
 
-### **GitOps Principles**
-[Atlassian - What is GitOps?](https://www.atlassian.com/git/tutorials/gitops)
+Platformer is one Terraform configuration for every account, region and cloud. Modules are switched on and configured by YAML state fragments, and a module that needs infrastructure asks for it: the modules that provide it (storage, compute) turn on to fulfill the request. AWS and Oracle Cloud share one graph, and a workspace only needs credentials for the clouds it uses. [next/foundations.md](next/foundations.md) covers the design and where its ideas come from; [next/fully-connected.md](next/fully-connected.md) covers the multi-cloud design.
 
-This project implements GitOps for infrastructure management:
+<details>
 
-- **Git as single source of truth**: All infrastructure declared in version control, no manual console changes
-- **Declarative configuration**: Pure Terraform with service enablement via YAML state fragments
-- **Automated deployment**: GitHub Actions deploys from Git commits (push-based CD appropriate for cloud infrastructure)
-- **Multi-account targeting**: `top.yaml` + `states/` pattern inspired by [SaltStack's top file](https://docs.saltproject.io/en/latest/topics/tutorials/states_pt1.html) for declarative environment targeting
-- **Auditability**: Full change history and PR-based workflow for infrastructure modifications
+<summary>modules</summary>
 
-The `top.yaml` pattern matching (`'*-platform-dev'`, `'*dev*'`) combined with composable state files (`configuration-management`, `regions-east`) provides a declarative way to target infrastructure deployments across multiple accounts and regions without per-environment directory sprawl.
+<!-- AUTODOC:MODULES:BEGIN -->
 
-### **Module Composition**
-[HashiCorp - Module Composition](https://developer.hashicorp.com/terraform/language/modules/develop/composition)
+- **[`access/`](access/README.md)** - Centralized access control reporting using dependency inversion.
+- **[`applications/`](applications/README.md)** - Data transformation layer for application deployment.
+- **[`arcbot/`](arcbot/README.md)** - Multi-target AI bot module.
+- **[`archivist/`](archivist/README.md)** - Produces a scrubbed, versioned tarball of the `platformer/` codebase on every `terraform apply`.
+- **[`auto-docs/`](auto-docs/README.md)** - Automatic documentation generator for Platformer modules - parses `variables.tf` files and generates `SCHEMA.md` with YAML examples.
+- **[`build/`](build/README.md)** - Golden AMI builds for EC2 classes using Packer with SSM communicator.
+- **[`clairevoyance/`](clairevoyance/README.md)** - Medical AI inference platform on AWS SageMaker.
+- **[`compute/`](compute/README.md)** - Unified compute provisioning with type-based routing.
+- **[`config/`](config/README.md)** - Configuration resolution via YAML state fragments.
+- **[`configuration-management/`](configuration-management/README.md)** - Automated configuration management for EC2 instances using AWS Systems Manager.
+- **[`domains/`](domains/README.md)** - Route53 zone lookup and ACM wildcard certificate provisioning with DNS validation.
+- **[`hashing/`](hashing/README.md)** - Deterministic namespace generation for parallel deployments.
+- **[`iopacs/`](iopacs/README.md)** - (WIP) Domain orchestration for IOPACS medical imaging PACS deployments using dependency inversion pattern.
+- **[`iorchestrator/`](iorchestrator/README.md)** - Domain orchestration module for IOrchestrator (IO Cloud / SaaSApp) deployments on AWS ECS Fargate.
+- **[`ioshare/`](ioshare/README.md)** - Domain orchestration module for Ioshare medical imaging platform.
+- **[`legacy/`](legacy/README.md)** - Disposable EC2 instance with Atlantis pre-built via Packer.
+- **[`networking/`](networking/README.md)** - VPC and subnet management with deterministic CIDR allocation.
+- **[`observability/`](observability/README.md)** - LGTM stack (Loki, Grafana, Tempo, Mimir) for centralized logging and observability.
+- **[`portal/`](portal/README.md)** - Ephemeral Port.io integration for compute instance catalog visualization and self-service actions.
+- **[`preflight/`](preflight/README.md)** - Reusable dependency validation utilities for checking CLI tool availability.
+- **[`resolver/`](resolver/README.md)** - Dependency resolution engine.
+- **[`secrets/`](secrets/README.md)** - Cross-account secret replication.
+- **[`storage/`](storage/README.md)** - Centralized S3 bucket provisioning using dependency inversion.
+- **[`tenants/`](tenants/README.md)** - Centralized tenant registry and validation.
+- **[`tests/`](tests/README.md)** - Root-level test suites and the module test runner.
+- **[`workspaces/`](workspaces/README.md)** - Enables workspace-specific variable overrides using `terraform.tfvars.{workspace}` files.
 
-- **Flat module hierarchy**: We use a single level of child modules (not nested) for simplicity
-- **Dependency inversion**: Modules receive dependencies as inputs rather than creating them (e.g., passing derived `aws_account_id` and `namespace` to modules)
-- **Service-level grouping**: Each module represents a service (configuration-management, legacy) rather than individual resources
+<!-- AUTODOC:MODULES:END -->
 
-### **Multi-Region State Management**
-[AWS - Multi-Region Terraform Deployments with AWS CodePipeline](https://aws.amazon.com/blogs/devops/multi-region-terraform-deployments-with-aws-codepipeline-using-terraform-built-ci-cd/)
+</details>
 
-- **One state file per account/region**: State keys use `pt-terraform/platformer/{account_id}/{region}.tfstate` structure for isolation
-- **Matrix-based deployments**: GitHub Actions matrix generates parallel deployments per account × region
-- **Regional resource scoping**: IAM policies use inline policies to avoid the 10-attachment limit while maintaining per-region deployments
+<details>
 
-### **Eventual Consistency & Reconciliation**
-[GUN Database - Conflict Resolution with Guns](https://gun.eco/docs/Conflict-Resolution-with-Guns)
+<summary>layout</summary>
 
-This project embraces **eventual consistency** as a design principle, inspired by distributed database systems like GUN. Rather than attempting perfect synchronization, the system converges toward a consistent state through repeated reconciliation:
+<!-- AUTODOC:LAYOUT:BEGIN -->
 
-- **Terraform reconciliation**: Multiple `terraform apply` runs converge infrastructure toward the declared state, handling transient failures and dependencies gracefully
-- **SSM execution reconciliation**: Scheduled associations run repeatedly (e.g., every 30 minutes), ensuring eventual compliance even if individual executions fail
-- **Idempotent operations**: All operations are designed to be safely repeated - SSM documents generate new passwords each run, IAM policies converge to declared permissions
-- **Self-healing behavior**: Infrastructure drifts toward the desired state over time without manual intervention
-- **Wildcard targeting**: `InstanceIds = ["*"]` ensures new instances are automatically included in the next reconciliation cycle
+- **[`lazyprovider/`](lazyprovider/README.md)** - Platformer declares its clouds through `platformer.local/lazyprovider/<cloud>` providers: small proxies that stand in front of the real providers (`hashicorp/aws`, `oracle/oci`, `port-labs/port-labs`) and set them up only in workspaces that enable them.
+- **[`learn/`](learn/)** - Walkthroughs: getting started, going live, and composing modules.
+- **[`next/`](next/)** - Essays on the design: why Platformer is shaped the way it is, and where it goes next.
+- **[`present/`](present/)** - A slide deck: the problem, the solution, and the patterns in between.
+- **[`scripts/`](scripts/)** - Helper scripts. `build-providers.sh` builds the cloud providers; the rest record applies and generate CI matrices.
+- **[`states/`](states/README.md)** - Reusable configuration fragments referenced in `top.yaml`.
+- **[`static/`](static/)** - Images used in the README.
+- **[`main.tf`](main.tf)** - Wires every module together: config in, requests routed between modules.
+- **[`providers.tf`](providers.tf)** - The clouds, each with an `enabled` switch that follows the workspace's profiles.
+- **[`top.yaml`](top.yaml)** - Multi-account targeting: account patterns mapped to state fragments.
+- **[`terraform.tfvars`](terraform.tfvars)** - Local configuration: profiles, region, and the state fragments to load. `terraform.tfvars.<workspace>` overrides it per workspace.
+- **[`SCHEMA.md`](SCHEMA.md)** - Every option a state fragment can set, generated from the modules' variables.
 
-This approach prioritizes **availability and partition tolerance** over strict consistency (CAP theorem). Systems that may be temporarily unreachable or fail individual operations will eventually reach the desired state through subsequent execution cycles. The system naturally "finds balance" through continuous reconciliation rather than requiring perfect coordination.
+<!-- AUTODOC:LAYOUT:END -->
 
-### **One State vs Fragmented State**
-[Microsoft Learn - Deep Learning Concepts](https://learn.microsoft.com/en-us/azure/machine-learning/concept-deep-learning-vs-machine-learning)
+</details>
 
-This architecture represents a shift from **sparse connectivity** to **fully-connected** infrastructure management, analogous to neural network design patterns:
+<details>
 
-- **Legacy approach** (`environment/*`): Fragmented state across multiple directories and state files, requiring orchestration tools like Atlantis. Each deployment operates with partial information about the organization, similar to sparse neural networks where "neurons in one layer connect only to a small region."
+<summary>installation and usage</summary>
 
-- **Current approach** (`platformer/*`): One state - every deployment converges toward the same unified configuration manifest. Each Terraform execution has complete organizational context via `top.yaml` pattern matching and AWS Organizations API, similar to fully-connected neural network layers, where "each layer is fully connected to all neurons in the layer before it." State files are scoped per account/region for isolation, but all executions reference the same codebase, configuration system, and organizational view.
+## getting started
 
-The fully-connected approach enables emergent capabilities impossible with fragmented state: cross-account pattern matching, unified service deployment, and organization-wide reconciliation. Like training neural networks with complete gradient information versus partial derivatives, having one unified state allows the system to make better optimization decisions.
+1. Build the providers: `scripts/build-providers.sh` (once per provider version).
+2. `terraform init`
+3. Say what to deploy: copy `terraform.tfvars.example` to `terraform.tfvars` and set at least:
 
-Terraform fundamentally performs **deeply-nested graph computations** to resolve resource dependencies. The more of the infrastructure graph Terraform can "see" in a single execution, the better it can handle complex operations like resource migrations, dependency reordering, and state refactoring. Fragmented state artificially limits graph visibility, forcing manual orchestration to coordinate changes that could be automatically resolved with complete context.
+   ```hcl
+   aws_profile = "example-platform-dev"        # a profile from ~/.aws/config
+   aws_region  = "us-east-2"
+   states      = ["configuration-management-hourly"]
+   ```
 
-### **Twelve-Factor Infrastructure**
-[The Twelve-Factor App](https://12factor.net/)
+4. `terraform plan`, then `terraform apply`.
 
-While originally designed for application development, most twelve-factor principles apply directly to modern infrastructure management. This project implements key factors that distinguish declarative, service-oriented infrastructure from traditional approaches:
+With no state fragments, a plan deploys nothing. [learn/1-getting-started.md](learn/1-getting-started.md) walks through a first deployment.
 
-- **Factor III - Config**: All environment-specific configuration lives in externalized state fragments (`states/*.yaml`), never hardcoded in modules. The same module code deploys across all accounts/regions with different configurations, eliminating per-environment codebases and enabling consistent behavior everywhere.
+## clouds
 
-- **Factor IV - Backing Services**: Services (configuration-management, compute, legacy) are treated as **attached resources** that can be enabled or disabled purely through state fragments. Conditional module loading means infrastructure components attach and detach without code changes - analogous to swapping database providers via environment variables rather than hardwiring dependencies.
+A workspace switches a cloud on by naming its profile: `aws_profile`, `oci_profile` (with `oci_region`), or `port_enabled = true`. A cloud that isn't named is never set up, so it needs no account or credentials.
 
-- **Factor IX - Disposability**: Infrastructure modules are designed for fast, clean attachment and detachment. The `legacy` module demonstrates this principle: an entire Atlantis deployment can be enabled, used, and completely removed by toggling configuration - no orphaned resources, no manual cleanup, just declarative state transitions. This "cattle not pets" approach to infrastructure components enables confident experimentation and rapid rollback.
+## workspaces
 
-- **Factor X - Dev/Prod Parity**: Developers run the **exact same code** locally as CI/CD runs in production, loading identical YAML state fragments through the `config` module. Traditional approaches that separate development and production configurations into different directory structures create gaps where "works on my machine" problems thrive. Here, the only difference between environments is which state fragments load and which `var.aws_region` targets - everything else is identical.
+`terraform workspace select <name>` loads `terraform.tfvars.<name>` over `terraform.tfvars`, so each workspace can carry its own profiles and state fragments. See [workspaces/README.md](workspaces/README.md).
 
-The shift from per-environment directory sprawl to service-based conditional loading represents infrastructure-as-code maturing toward the same principles that revolutionized application architecture. Services become composable, environments become configuration, and deployments become deterministic.
+## prerequisites
+
+- Terraform 1.8 or newer
+- Python 3 (plans run small Python helpers, such as the docs generator)
+- `curl`, `tar` and `sha256sum`, for `scripts/build-providers.sh`
+
+Some modules check for more tools when they're used:
+
+<!-- AUTODOC:PREREQUISITES:BEGIN -->
+
+- `docker` (portal)
+- `docker compose` or `docker-compose` (portal)
+
+<!-- AUTODOC:PREREQUISITES:END -->
+
+## rebuilding the providers
+
+- After `lazyprovider/VERSION` changes: `scripts/build-providers.sh`, then `terraform init`.
+- After rebuilding the same version (for example, while working on `lazyprovider/`): `scripts/build-providers.sh`, then `terraform init -upgrade`, because the lock file pins each provider package by its hash.
+
+## testing
+
+```sh
+terraform test                                          # every suite, module suites included
+terraform test -filter=tests/variables.tftest.hcl       # one suite
+cd compute && terraform init && terraform test         # one module's suites
+```
+
+See [tests/README.md](tests/README.md).
+
+## going further
+
+- [learn/2-going-live.md](learn/2-going-live.md) - tenants, compute classes and entitlements.
+- [learn/3-module-composition.md](learn/3-module-composition.md) - adding a module.
+- [states/README.md](states/README.md) - state fragments, `top.yaml` targeting, and fragments kept outside the repo (`states_paths`).
+- [SCHEMA.md](SCHEMA.md) - every option a state fragment can set.
+
+</details>

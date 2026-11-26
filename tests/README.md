@@ -12,13 +12,13 @@ terraform test -verbose                                 # detailed output
 
 ## Test Suites
 
-**integration.tftest.hcl**  -  Cross-module interaction tests (networking, compute, applications, config management, iorchestrator). Uses test-specific state fragments from `tests/states/`.
+**integration.tftest.hcl** - Cross-module interaction tests (networking, compute, applications, config management, iorchestrator). Uses test-specific state fragments from `tests/states/`.
 
-**all_module_tests.tftest.hcl**  -  Discovers and runs every module's own test suite via `local-exec`. Modules with a `tests/*.tftest.hcl` directory are picked up automatically.
+**all_module_tests.tftest.hcl** - Discovers and runs every module's own test suite via `local-exec`. Modules with a `tests/*.tftest.hcl` directory are picked up automatically.
 
-**states_paths.tftest.hcl**  -  Root wiring for `states_paths`: a relative user path resolves against the repo root, wins over `tests/states/`, and reaches the catalog. Module-level cases live in `config/tests`, `workspaces/tests` and `archivist/tests`.
+**states_paths.tftest.hcl** - Root wiring for `states_paths`: a relative user path resolves against the repo root, wins over `tests/states/`, and reaches the catalog. Module-level cases live in `config/tests`, `workspaces/tests` and `archivist/tests`.
 
-**variables.tftest.hcl**  -  Input validation rules (profile format, region format).
+**variables.tftest.hcl** - Input validation rules (profile format, region format).
 
 ## Test State Fragments
 

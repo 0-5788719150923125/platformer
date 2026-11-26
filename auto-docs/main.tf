@@ -1,6 +1,7 @@
 # Auto-documentation module
 # Generates SCHEMA.md from variables.tf files across all modules
-# Updates Architecture and Available Services sections in README.md
+# Regenerates README.md's marked sections (<!-- AUTODOC:<NAME>:BEGIN/END -->:
+# modules, layout, prerequisites); everything outside the markers is left alone
 # The scripts write files directly, so they persist after terraform destroy
 
 data "external" "generate_docs" {

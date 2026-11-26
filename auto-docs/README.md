@@ -22,6 +22,8 @@ Generates `SCHEMA.md` from all `variables.tf` files across modules, showing:
 - Default values extracted from `optional()` declarations
 - Module interface variables with simplified types
 
+Also regenerates the README sections between `<!-- AUTODOC:<NAME>:BEGIN -->` and `<!-- AUTODOC:<NAME>:END -->` comments (`scripts/update_readme.py`): `MODULES` (every top-level directory with a `main.tf`, described by the first sentence of its README), `LAYOUT` (the other top-level directories and key root files), and `PREREQUISITES` (tools modules check for through `required_tools`). Text outside the markers is never touched.
+
 **Example output:**
 ```yaml
 services:

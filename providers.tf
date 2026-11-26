@@ -2,21 +2,21 @@ terraform {
   required_version = "~> 1.8"
 
   required_providers {
-    # Clouds go through platformer/<cloud>: lazy proxies in front of the real
-    # providers (lazyprovider/, built by scripts/build-providers.sh). A provider
-    # block with enabled = false is never set up, so a workspace doesn't need
-    # credentials for clouds it doesn't use. The real providers are declared in
-    # upstreams/.
+    # Clouds go through platformer.local/lazyprovider/<cloud>: lazy proxies in
+    # front of the real providers (lazyprovider/, built by
+    # scripts/build-providers.sh). A provider block with enabled = false is never
+    # set up, so a workspace doesn't need credentials for clouds it doesn't use.
+    # The real providers are declared in lazyprovider/upstreams.tf.
     aws = {
-      source  = "platformer/aws"
+      source  = "platformer.local/lazyprovider/aws"
       version = "~> 0.1"
     }
     oci = {
-      source  = "platformer/oci"
+      source  = "platformer.local/lazyprovider/oci"
       version = "~> 0.1"
     }
     port = {
-      source  = "platformer/port"
+      source  = "platformer.local/lazyprovider/port"
       version = "~> 0.1"
     }
     random = {

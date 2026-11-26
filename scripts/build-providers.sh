@@ -1,9 +1,11 @@
 #!/usr/bin/env bash
 # Build the lazy provider proxy (lazyprovider/) and install it for Terraform.
 #
-# Platformer declares its clouds through platformer/<cloud> providers: small
-# proxies in front of the real providers that only set them up when a workspace
-# enables them (see lazyprovider/README.md). Terraform can't build them during
+# Platformer declares its clouds through platformer.local/lazyprovider/<cloud>
+# providers: small proxies in front of the real providers that only set them up
+# when a workspace enables them (see lazyprovider/README.md). The .local host
+# means "built on this machine": Terraform finds them in ~/.terraform.d/plugins,
+# and without a build it can't fetch a provider of that name from anywhere. Terraform can't build them during
 # `terraform init`, so run this once per proxy version, then `terraform init`.
 #
 # No system Go needed: a pinned Go toolchain is downloaded (checksum-verified)
@@ -66,12 +68,15 @@ cd "$src"
 echo "Testing lazyprovider..."
 go test ./...
 echo "Building lazyprovider $version..."
-go build -trimpath -ldflags='-s -w' -o "$cache/build/lazyprovider" .
+# Reproducible: the same source and Go version always give the same bytes, so
+# re-running this after unrelated commits keeps the lock file's checksums valid.
+# (By default Go stamps the git commit into the binary.)
+go build -trimpath -buildvcs=false -ldflags='-s -w' -o "$cache/build/lazyprovider" .
 
 for type in $("$cache/build/lazyprovider" -types); do
-  dir="$plugins/registry.terraform.io/platformer/$type/$version/${os}_${arch}"
+  dir="$plugins/platformer.local/lazyprovider/$type/$version/${os}_${arch}"
   mkdir -p "$dir"
   install -m 0755 "$cache/build/lazyprovider" "$dir/terraform-provider-${type}_v${version}"
 done
-echo "Installed platformer/{$("$cache/build/lazyprovider" -types | tr ' ' ',')} $version into $plugins"
+echo "Installed platformer.local/lazyprovider/{$("$cache/build/lazyprovider" -types | tr ' ' ',')} $version into $plugins"
 echo "Next: terraform init (or terraform init -upgrade after rebuilding the same version)"

@@ -22,12 +22,12 @@ locals {
   ])
 
   # Check if ioshare/iopacs deployments declare applications in their compute config
-  # Ioshare: deployment model  -  each deployment has its own compute object
+  # Ioshare: deployment model - each deployment has its own compute object
   ioshare_has_apps = anytrue([
     for name, deploy in try(var.service_configs["ioshare"], {}) :
     length(try(deploy.compute.applications, [])) > 0
   ])
-  # Iopacs: deployment model  -  each deployment has its own compute map
+  # Iopacs: deployment model - each deployment has its own compute map
   iopacs_has_apps = anytrue(flatten([
     for _, deploy in try(var.service_configs["iopacs"], {}) : [
       for _, class_config in try(deploy.compute, {}) :
